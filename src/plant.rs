@@ -141,9 +141,21 @@ pub fn update_branch_intersections(
                 }
             } 
 
-
+            // check through our own branches for collissions
+            // I don't like this code but i had to fight the borrow checker
             for combination in branch_list.branches.ids.iter().combinations(2) {
-                println!("{:?}", combination);
+                let other_data: BoundingSphere;
+                if let Ok(branch_two) = branch_query.get(*combination[1]){
+                    other_data = branch_two.0.clone();
+                } else {
+                    other_data = BoundingSphere::new(); // this should never happen
+                };
+                if let Ok(mut branch_one) = branch_query.get_mut(*combination[0]){
+                    if branch_one.0.is_intersecting_sphere(&other_data) {
+                        branch_one.1.intersections.ids.push(*combination[1]);
+                    }
+                };
+                
             }
         }
 
