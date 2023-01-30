@@ -15,6 +15,7 @@ pub struct PlantTag;
 #[derive(Default, Component)]
 pub struct BranchList {
     pub branches: EntityList,
+    pub connections: Vec<(usize, usize)>,
 }
 
 #[derive(Default, Component)]
@@ -49,7 +50,7 @@ impl PlantBundle {
         PlantBundle {
             tag: PlantTag,
             position: Vector3::new(),
-            branches: BranchList {branches: EntityList::new()},
+            branches: BranchList {branches: EntityList::new(), connections: vec![]},
             bounds: BoundingBox::new(),
             intersections: PlantIntersectionList {intersections: EntityList::new()},
         }

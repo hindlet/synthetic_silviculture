@@ -27,6 +27,7 @@ pub struct BranchNode {
 #[derive(Default, Component)]
 pub struct BranchNodeList {
     pub nodes: EntityList,
+    pub connections: Vec<(usize, usize)>
 }
 
 #[derive(Default, Component)]
@@ -36,46 +37,38 @@ pub struct BranchIntersectionList {
 
 
 #[derive(Default, Component)]
-pub struct BranchEdgeIndices {
-    pub indices: Vec<(usize, usize)>
-}
-
-#[derive(Default, Component)]
 pub struct IntersectionVolume {
     pub volume: f32
 }
 
-impl IntersectionVolume {
-    pub fn new() -> Self{
-        IntersectionVolume {
-            volume: 0.0,
-        }
-    }
+
+#[derive(Default, Component)]
+pub struct LightExposure {
+    pub light: f32,
 }
 
-impl BranchEdgeIndices {
-    pub fn new() -> Self {
-        BranchEdgeIndices {
-            indices: vec![],
-        }
-    }
+
+#[derive(Default, Component)]
+pub struct GrowthVigor {
+    pub vigor: f32,
 }
+
 
 #[derive(Default, Bundle)]
 pub struct BranchBundle {
     pub tag: BranchTag,
     pub bounds: BoundingSphere,
     pub nodes: BranchNodeList,
-    pub edges: BranchEdgeIndices,
     pub intersection_volume: IntersectionVolume,
     pub intersections: BranchIntersectionList,
+    pub light_exp: LightExposure,
 }
 
 
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////// Branch /////////////////////////////////////////////
+////////////////////////////////// impl /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
 impl BranchBundle {
@@ -83,10 +76,10 @@ impl BranchBundle {
         BranchBundle {
             tag: BranchTag,
             bounds: BoundingSphere::new(),
-            nodes: BranchNodeList {nodes: EntityList::new()},
-            edges: BranchEdgeIndices::new(),
+            nodes: BranchNodeList {nodes: EntityList::new(), connections: vec![]},
             intersection_volume: IntersectionVolume::new(),
             intersections: BranchIntersectionList {intersections: EntityList::new()},
+            light_exp: LightExposure::new(),
         }
 
     }
@@ -96,7 +89,29 @@ impl BranchBundle {
     }
 }
 
+impl GrowthVigor {
+    pub fn new() -> Self {
+        GrowthVigor {
+            vigor: 0.0,
+        }
+    }
+}
 
+impl LightExposure {
+    pub fn new() -> Self {
+        LightExposure {
+            light: 0.0,
+        }
+    }
+}
+
+impl IntersectionVolume {
+    pub fn new() -> Self{
+        IntersectionVolume {
+            volume: 0.0,
+        }
+    }
+}
 
 
 
@@ -145,4 +160,12 @@ pub fn calculate_branch_intersection_volumes (
 
 }
 
+
+pub fn calculate_branch_light_exposure (
+    mut branches_query: Query<(&mut LightExposure, &IntersectionVolume), With<BranchTag>>,
+) {
+    for (mut exposure, volume) in branches_query.iter_mut() {
+        exposure.light = (-volume.volume).exp();
+    }
+}
 

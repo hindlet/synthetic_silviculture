@@ -3,6 +3,10 @@ use bevy_ecs::prelude::*;
 use crate::*;
 use std::f32::consts::PI;
 
+///////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////// Bounding Sphere  //////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
 #[cfg(test)]
 mod bounding_sphere_tests {
     use super::{Vector3, BoundingSphere, PI};
@@ -120,6 +124,10 @@ mod bounding_sphere_tests {
     }
 
 }
+
+///////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////// Bounding Box  /////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
 
 
 #[cfg(test)]
@@ -242,14 +250,18 @@ mod bounding_box_tests {
 }
 
 
+///////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////// Plants  ///////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
 #[cfg(test)]
 mod plant_tests {
 
     use super::{World, PlantBundle, PlantTag, Vector3, EntityList, BoundingBox,
         PlantIntersectionList, StageLabel, SystemStage, Schedule, update_plant_intersections,
         Stage, With, Query, update_branch_intersections, BranchBundle, BoundingSphere,
-        BranchTag, BranchNodeList, BranchEdgeIndices, IntersectionVolume, BranchIntersectionList,
-        update_plant_bounds
+        BranchTag, BranchNodeList, IntersectionVolume, BranchIntersectionList,
+        update_plant_bounds, LightExposure
     };
 
 
@@ -260,7 +272,7 @@ mod plant_tests {
         test_world.spawn(PlantBundle {
             tag: PlantTag,
             position: Vector3::new(),
-            branches: super::BranchList {branches: EntityList::new()},
+            branches: super::BranchList {branches: EntityList::new(), connections: vec![]},
             bounds: BoundingBox {
                 pos: Vector3::new(),
                 width: 5.0,
@@ -273,7 +285,7 @@ mod plant_tests {
         test_world.spawn(PlantBundle {
             tag: PlantTag,
             position: Vector3::new(),
-            branches: super::BranchList {branches: EntityList::new()},
+            branches: super::BranchList {branches: EntityList::new(), connections: vec![]},
             bounds: BoundingBox {
                 pos: Vector3 {x: 2.0, y: 5.0, z: 2.0},
                 width: 5.0,
@@ -286,7 +298,7 @@ mod plant_tests {
         test_world.spawn(PlantBundle {
             tag: PlantTag,
             position: Vector3::new(),
-            branches: super::BranchList {branches: EntityList::new()},
+            branches: super::BranchList {branches: EntityList::new(), connections: vec![]},
             bounds: BoundingBox {
                 pos: Vector3 {x: 6.0, y: 5.0, z: 2.0},
                 width: 5.0,
@@ -329,10 +341,10 @@ mod plant_tests {
                 centre: Vector3::new(),
                 radius: 5.0,
             },
-            nodes: BranchNodeList{nodes: EntityList::new()},
-            edges: BranchEdgeIndices::new(),
+            nodes: BranchNodeList{nodes: EntityList::new(), connections: vec![]},
             intersection_volume: IntersectionVolume::new(),
             intersections: BranchIntersectionList{intersections: EntityList::new()},
+            light_exp: LightExposure::new(),
         })
         .id();
 
@@ -342,10 +354,10 @@ mod plant_tests {
                 centre: Vector3{x: 5.0, y: 2.0, z: 7.0},
                 radius: 5.0,
             },
-            nodes: BranchNodeList{nodes: EntityList::new()},
-            edges: BranchEdgeIndices::new(),
+            nodes: BranchNodeList{nodes: EntityList::new(), connections: vec![]},
             intersection_volume: IntersectionVolume::new(),
             intersections: BranchIntersectionList{intersections: EntityList::new()},
+            light_exp: LightExposure::new(),
         })
         .id();
 
@@ -355,10 +367,10 @@ mod plant_tests {
                 centre: Vector3{x: 12.0, y: 3.0, z: 15.0},
                 radius: 6.0,
             },
-            nodes: BranchNodeList{nodes: EntityList::new()},
-            edges: BranchEdgeIndices::new(),
+            nodes: BranchNodeList{nodes: EntityList::new(), connections: vec![]},
             intersection_volume: IntersectionVolume::new(),
             intersections: BranchIntersectionList{intersections: EntityList::new()},
+            light_exp: LightExposure::new(),
         })
         .id();
 
@@ -366,7 +378,7 @@ mod plant_tests {
         test_world.spawn(PlantBundle {
             tag: PlantTag,
             position: Vector3::new(),
-            branches: super::BranchList {branches: EntityList{ids: vec![branch_one, branch_two]}},
+            branches: super::BranchList {branches: EntityList{ids: vec![branch_one, branch_two]}, connections: vec![]},
             bounds: BoundingBox::new(),
             intersections: PlantIntersectionList {intersections: EntityList::new()},
         });
@@ -374,7 +386,7 @@ mod plant_tests {
         test_world.spawn(PlantBundle {
             tag: PlantTag,
             position: Vector3::new(),
-            branches: super::BranchList {branches: EntityList{ids: vec![branch_three]}},
+            branches: super::BranchList {branches: EntityList{ids: vec![branch_three]}, connections: vec![]},
             bounds: BoundingBox::new(),
             intersections: PlantIntersectionList {intersections: EntityList::new()},
         });
@@ -420,6 +432,10 @@ mod plant_tests {
 
 }
 
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Branches ////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
 #[cfg(test)]
 mod branch_tests {
 
@@ -427,16 +443,12 @@ mod branch_tests {
         PlantIntersectionList, StageLabel, SystemStage, Schedule, update_plant_intersections,
         Stage, With, Query, update_branch_intersections, BoundingSphere};
 
-    #[test]
-    fn branch_intersection_test() {
-        let mut test_world = World::new();
-
-        let mut test_schedule = Schedule::default();
-
-        
-    }
+    
 }
 
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Branch Prototypes ///////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
 
 #[cfg(test)]
 mod prototype_tests {
