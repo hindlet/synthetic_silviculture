@@ -257,11 +257,11 @@ mod bounding_box_tests {
 #[cfg(test)]
 mod plant_tests {
 
-    use super::{World, PlantBundle, PlantTag, Vector3, EntityList, BoundingBox,
-        PlantIntersectionList, StageLabel, SystemStage, Schedule, update_plant_intersections,
+    use super::{World, PlantBundle, PlantTag, Vector3, BoundingBox,
+        StageLabel, SystemStage, Schedule, update_plant_intersections,
         Stage, With, Query, update_branch_intersections, BranchBundle, BoundingSphere,
-        BranchTag, BranchNodeList, IntersectionVolume, BranchIntersectionList,
-        update_plant_bounds, LightExposure
+        BranchTag, BranchNodes, BranchData, BranchList,
+        update_plant_bounds, PlantData
     };
 
 
@@ -271,41 +271,38 @@ mod plant_tests {
 
         test_world.spawn(PlantBundle {
             tag: PlantTag,
-            position: Vector3::new(),
-            branches: super::BranchList {branches: EntityList::new(), connections: vec![]},
+            branches: BranchList {branches: Vec::new(), connections: vec![]},
             bounds: BoundingBox {
                 pos: Vector3::new(),
                 width: 5.0,
                 height: 7.0,
                 depth: 3.0,
             },
-            intersections: PlantIntersectionList {intersections: EntityList::new()},
+            data: PlantData::new(),
         });
 
         test_world.spawn(PlantBundle {
             tag: PlantTag,
-            position: Vector3::new(),
-            branches: super::BranchList {branches: EntityList::new(), connections: vec![]},
+            branches: super::BranchList {branches: Vec::new(), connections: vec![]},
             bounds: BoundingBox {
                 pos: Vector3 {x: 2.0, y: 5.0, z: 2.0},
                 width: 5.0,
                 height: 7.0,
                 depth: 3.0,
             },
-            intersections: PlantIntersectionList {intersections: EntityList::new()},
+            data: PlantData::new(),
         });
 
         test_world.spawn(PlantBundle {
             tag: PlantTag,
-            position: Vector3::new(),
-            branches: super::BranchList {branches: EntityList::new(), connections: vec![]},
+            branches: super::BranchList {branches: Vec::new(), connections: vec![]},
             bounds: BoundingBox {
                 pos: Vector3 {x: 6.0, y: 5.0, z: 2.0},
                 width: 5.0,
                 height: 7.0,
                 depth: 3.0,
             },
-            intersections: PlantIntersectionList {intersections: EntityList::new()},
+            data: PlantData::new(),
         });
 
         #[derive(StageLabel)]
@@ -323,9 +320,9 @@ mod plant_tests {
         test_schedule.run(&mut test_world);
 
         let mut intersection_count: usize = 0;
-        let mut query = test_world.query::<&PlantIntersectionList>();
+        let mut query = test_world.query::<&PlantData>();
         for intersections in query.iter(&test_world) {
-            intersection_count += intersections.intersections.ids.len();
+            intersection_count += intersections.intersection_list.len();
         }
 
         assert_eq!(intersection_count, 2);
@@ -341,10 +338,8 @@ mod plant_tests {
                 centre: Vector3::new(),
                 radius: 5.0,
             },
-            nodes: BranchNodeList{nodes: EntityList::new(), connections: vec![]},
-            intersection_volume: IntersectionVolume::new(),
-            intersections: BranchIntersectionList{intersections: EntityList::new()},
-            light_exp: LightExposure::new(),
+            nodes: BranchNodes {nodes: Vec::new(), connections: vec![]},
+            data: BranchData::new(),
         })
         .id();
 
@@ -354,10 +349,8 @@ mod plant_tests {
                 centre: Vector3{x: 5.0, y: 2.0, z: 7.0},
                 radius: 5.0,
             },
-            nodes: BranchNodeList{nodes: EntityList::new(), connections: vec![]},
-            intersection_volume: IntersectionVolume::new(),
-            intersections: BranchIntersectionList{intersections: EntityList::new()},
-            light_exp: LightExposure::new(),
+            nodes: BranchNodes {nodes: Vec::new(), connections: vec![]},
+            data: BranchData::new(),
         })
         .id();
 
@@ -367,28 +360,24 @@ mod plant_tests {
                 centre: Vector3{x: 12.0, y: 3.0, z: 15.0},
                 radius: 6.0,
             },
-            nodes: BranchNodeList{nodes: EntityList::new(), connections: vec![]},
-            intersection_volume: IntersectionVolume::new(),
-            intersections: BranchIntersectionList{intersections: EntityList::new()},
-            light_exp: LightExposure::new(),
+            nodes: BranchNodes {nodes: Vec::new(), connections: vec![]},
+            data: BranchData::new(),
         })
         .id();
 
 
         test_world.spawn(PlantBundle {
             tag: PlantTag,
-            position: Vector3::new(),
-            branches: super::BranchList {branches: EntityList{ids: vec![branch_one, branch_two]}, connections: vec![]},
+            branches: super::BranchList {branches: vec![branch_one, branch_two], connections: vec![]},
             bounds: BoundingBox::new(),
-            intersections: PlantIntersectionList {intersections: EntityList::new()},
+            data: PlantData::new(),
         });
 
         test_world.spawn(PlantBundle {
             tag: PlantTag,
-            position: Vector3::new(),
-            branches: super::BranchList {branches: EntityList{ids: vec![branch_three]}, connections: vec![]},
+            branches: super::BranchList {branches: vec![branch_three], connections: vec![]},
             bounds: BoundingBox::new(),
-            intersections: PlantIntersectionList {intersections: EntityList::new()},
+            data: PlantData::new(),
         });
 
 
@@ -414,15 +403,15 @@ mod plant_tests {
         test_schedule.run(&mut test_world);
 
         let mut plant_intersection_count: usize = 0;
-        let mut plant_query = test_world.query::<&PlantIntersectionList>();
+        let mut plant_query = test_world.query::<&PlantData>();
         for intersections in plant_query.iter(&test_world) {
-            plant_intersection_count += intersections.intersections.ids.len();
+            plant_intersection_count += intersections.intersection_list.len();
         }
 
         let mut branch_intersection_count: usize = 0;
-        let mut branch_query = test_world.query::<&BranchIntersectionList>();
+        let mut branch_query = test_world.query::<&BranchData>();
         for intersections in branch_query.iter(&test_world) {
-            branch_intersection_count += intersections.intersections.ids.len();
+            branch_intersection_count += intersections.intersection_list.len();
         }
 
         assert_eq!(plant_intersection_count, 1);
@@ -438,10 +427,6 @@ mod plant_tests {
 
 #[cfg(test)]
 mod branch_tests {
-
-    use super::{World, PlantBundle, PlantTag, Vector3, EntityList, BoundingBox,
-        PlantIntersectionList, StageLabel, SystemStage, Schedule, update_plant_intersections,
-        Stage, With, Query, update_branch_intersections, BoundingSphere};
 
     
 }

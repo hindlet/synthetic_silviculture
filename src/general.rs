@@ -14,24 +14,9 @@ pub struct Vector3 {
     pub z: f32,
 }
 
-#[derive(Default, Component)]
-pub struct EntityList {
-    pub ids: Vec<Entity>
-}
-
-impl EntityList {
-    pub fn new() -> Self {
-        EntityList {
-            ids: vec![],
-        }
-    }
-}
-
 
 #[derive(Default, Component)]
-pub struct Age {
-    pub days: f32
-}
+pub struct Age (f32);
 
 #[derive(Default, Component, Debug, PartialEq, Clone, Copy)]
 pub struct BoundingSphere {
