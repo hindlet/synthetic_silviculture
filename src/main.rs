@@ -1,9 +1,8 @@
 #![allow(dead_code, unused_variables, unused_imports)]
+use std::collections::HashMap;
 use bevy_ecs::prelude::*;
 use image::*;
 use rand::*;
-mod general;
-use general::*;
 
 mod branch;
 use branch::*;
@@ -16,8 +15,18 @@ use plant::*;
 
 mod tests;
 
+mod general;
+use general::*;
+
 
 fn main() {
+
+    let mut hash_map: HashMap<usize, (String, String)> = HashMap::new();
+
+    hash_map.insert(0, ("gaming".to_string(), "bacon".to_string()));
+
+    println!("{:?}", hash_map.get(&0));
+
 
     // Create a new empty World to hold our Entities and Components
     let mut world = World::new();
@@ -31,6 +40,5 @@ fn main() {
     // startup_schedule.add_system_to_stage(SetupLabel, create_branch_prototypes);
 
     startup_schedule.run(&mut world);
-
     
 }

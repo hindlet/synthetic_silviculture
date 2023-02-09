@@ -5,7 +5,7 @@ pub struct Camera {
     pub position: [f32; 3], 
     pub direction: [f32; 3],
     pub up: [f32; 3],   
-    pub movement: [bool; 10], // forward, back, left, left, up, down, spin right, spin left, spin forward, spin backward
+    pub movement: [bool; 10], // forward, back, left, right, up, down, spin right, spin left, spin forward, spin backward
 }
 
 

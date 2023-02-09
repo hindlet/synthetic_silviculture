@@ -12,3 +12,6 @@ itertools = "0.10.5"
 plotters = "0.2.15"
 rand = "0.8.5"
 voronator = "0.2.0"
+
+[profile.dev]
+opt-level = 0

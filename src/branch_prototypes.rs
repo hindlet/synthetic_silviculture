@@ -13,8 +13,7 @@ use rand::Rng;
 
 use crate::branch::BranchBundle;
 
-const SAVE_IMAGE_PATH: &str = "assets/voronoi.png";
-const SAVE_IMAGE_SIZE: (u32, u32) = (1000, 1000);
+
 
 const TEMP_IMAGE_PATH: &str = "assets/temp_voronoi.png";
 
@@ -30,7 +29,7 @@ pub struct BranchPrototypesTag;
 pub struct BranchPrototypes {
     pub prototypes: HashMap<image::Rgba<u8>, BranchBundle>,
     pub voronoi: image::DynamicImage,
-    pub max_apical: f32,
+    pub max_apical: f32, 
     pub max_determinancy: f32,
 }
 
