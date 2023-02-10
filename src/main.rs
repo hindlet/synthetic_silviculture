@@ -18,14 +18,17 @@ mod tests;
 mod general;
 use general::*;
 
+mod graphics;
+
+mod branch_node;
+use branch_node::*;
+
+mod transform;
+use transform::*;
+
 
 fn main() {
 
-    let mut hash_map: HashMap<usize, (String, String)> = HashMap::new();
-
-    hash_map.insert(0, ("gaming".to_string(), "bacon".to_string()));
-
-    println!("{:?}", hash_map.get(&0));
 
 
     // Create a new empty World to hold our Entities and Components
@@ -41,4 +44,18 @@ fn main() {
 
     startup_schedule.run(&mut world);
     
+}
+
+
+
+struct GayPorn {
+    men: bool
+}
+
+impl GayPorn {
+    fn new() -> Self{
+        GayPorn {
+            men: true,
+        }
+    }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    vector3::Vector3,
+    vector_three::Vector3,
     bounding_box::BoundingBox,
     bounding_sphere::BoundingSphere,
 };

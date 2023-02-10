@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use crate::general::vector3::*;
+use crate::general::vector_three::*;
 use crate::general::bounding_sphere::BoundingSphere;
 
 

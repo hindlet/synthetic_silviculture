@@ -2,9 +2,10 @@
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use crate::{
-    vector3::Vector3,
+    vector_three::Vector3,
+    transform::Transform,
     bounding_sphere::BoundingSphere,
-    
+    branch_node::{BranchNode, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip},
 };
 
 /// this is the code for branches
@@ -19,21 +20,6 @@ use crate::{
 #[derive(Default, Component)]
 pub struct BranchTag;
 
-#[derive(Component)]
-pub struct BranchNode {
-    position: Vector3,
-    age: f32,
-    // node_type: Option<BranchNodeType>, // will only be used if the node is a special type, no need otherwise
-    branch_length: f32, // length of the branch this node is on the end of, will figure out why it's used
-    thickness: f32, 
-}
-
-#[derive(Component)]
-pub struct BranchNodes {
-    pub nodes: Vec<Entity>,
-    pub connections: Vec<(usize, usize)>
-}
-
 
 #[derive(Component)]
 pub struct BranchData {
@@ -41,13 +27,9 @@ pub struct BranchData {
     pub intersections_volume: f32,
     pub light_exposure: f32,
     pub intersection_list: Vec<Entity>,
+    pub root_node: Option<Entity>
 }
 
-#[derive(Component)]
-pub struct BranchConnectionData {
-    pub parent: Option<Entity>,
-    pub children: (Option<Entity>, Option<Entity>),
-}
 
 
 
@@ -55,11 +37,15 @@ pub struct BranchConnectionData {
 pub struct BranchBundle {
     pub tag: BranchTag,
     pub bounds: BoundingSphere,
-    pub nodes: BranchNodes,
     pub data: BranchData,
     pub connections: BranchConnectionData,
 }
 
+#[derive(Component)]
+pub struct BranchConnectionData {
+    pub parent: Option<Entity>,
+    pub children: (Option<Entity>, Option<Entity>),
+}
 
 
 
@@ -79,7 +65,6 @@ impl Default for BranchBundle {
         BranchBundle {
             tag: BranchTag,
             bounds: BoundingSphere::new(),
-            nodes: BranchNodes::default(),
             data: BranchData::default(),
             connections: BranchConnectionData::default(),
         }
@@ -94,6 +79,7 @@ impl Default for BranchData {
             intersections_volume: 0.0,
             light_exposure: 0.0,
             intersection_list: Vec::new(),
+            root_node: None,
         }
     }
 }
@@ -107,26 +93,7 @@ impl Default for BranchConnectionData {
     }
 }
 
-impl BranchNode {
-    pub fn new() -> Self {
-        BranchNode {
-            position: Vector3::new(),
-            age: 0.0,
-            // node_type: None,
-            branch_length: 0.0,
-            thickness: 1.0,
-        }
-    }
-}
 
-impl Default for BranchNodes {
-    fn default() -> Self {
-        BranchNodes {
-            nodes: Vec::new(),
-            connections: Vec::new(),
-        }
-    }
-}
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -137,16 +104,17 @@ impl Default for BranchNodes {
 
 // updates branch bounds
 pub fn update_branch_bounds(
-    nodes_query: Query<&BranchNode>,
-    mut branches_query: Query<(&mut BoundingSphere, &BranchNodes), With<BranchTag>>
+    nodes_transforms_query: Query<&Transform, With<BranchNodeTag>>,
+    nodes_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
+    mut branches_query: Query<(&mut BoundingSphere, &BranchData), With<BranchTag>>
 ) {
-    for (mut bounds, nodes) in &mut branches_query {
-
+    for (mut bounds, data) in &mut branches_query {
+        if data.root_node.is_none() {continue;}
         let mut node_positions: Vec<Vector3> = Vec::new();
 
-        for id in nodes.nodes.iter() {
-            if let Ok(branch_node) = nodes_query.get(*id) {
-                node_positions.push(branch_node.position);
+        for id in get_nodes_base_to_tip(&nodes_connections_query, data.root_node.unwrap()) {
+            if let Ok(node_transform) = nodes_transforms_query.get(id) {
+                node_positions.push(node_transform.translation);
             }
         }
 

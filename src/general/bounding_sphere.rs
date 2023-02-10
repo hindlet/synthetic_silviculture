@@ -1,6 +1,6 @@
 
 use bevy_ecs::prelude::*;
-use crate::general::vector3::Vector3;
+use crate::general::vector_three::Vector3;
 
 
 #[derive(Default, Component, Debug, PartialEq, Clone, Copy)]

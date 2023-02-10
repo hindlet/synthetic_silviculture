@@ -6,7 +6,7 @@ use itertools::*;
 use plotters::data;
 use crate::{
     branch::{BranchTag, BranchData, get_branches_base_to_tip, get_branches_tip_to_base, get_children_vigor, BranchConnectionData},
-    vector3::Vector3,
+    vector_three::Vector3,
     bounding_box::BoundingBox,
     bounding_sphere::BoundingSphere,
 };

@@ -2,7 +2,7 @@
 use bevy_ecs::prelude::*;
 use image::{GenericImageView};
 use crate::{
-    vector3::Vector3,
+    vector_three::Vector3,
     bounding_sphere::BoundingSphere,
     bounding_box::BoundingBox,
     plant::*,
@@ -23,7 +23,7 @@ mod plant_bounds_tests {
     use super::{World, PlantBundle, PlantTag, Vector3, BoundingBox,
         StageLabel, SystemStage, Schedule, update_plant_intersections,
         Stage, With, Query, BranchBundle, BoundingSphere,
-        BranchTag, BranchNodes, BranchData, update_branch_intersections,
+        BranchTag, BranchData, update_branch_intersections,
         update_plant_bounds, PlantData, BranchConnectionData
     };
 
@@ -98,7 +98,6 @@ mod plant_bounds_tests {
                 centre: Vector3::new(),
                 radius: 5.0,
             },
-            nodes: BranchNodes {nodes: Vec::new(), connections: vec![]},
             data: BranchData::default(),
             connections: BranchConnectionData::default(),
         })
@@ -110,7 +109,6 @@ mod plant_bounds_tests {
                 centre: Vector3{x: 5.0, y: 2.0, z: 7.0},
                 radius: 5.0,
             },
-            nodes: BranchNodes {nodes: Vec::new(), connections: vec![]},
             data: BranchData::default(),
             connections: BranchConnectionData {
                 children: (Some(branch_one), None),
@@ -125,7 +123,6 @@ mod plant_bounds_tests {
                 centre: Vector3{x: 12.0, y: 3.0, z: 15.0},
                 radius: 6.0,
             },
-            nodes: BranchNodes {nodes: Vec::new(), connections: vec![]},
             data: BranchData::default(),
             connections: BranchConnectionData::default(),
         })
@@ -200,7 +197,7 @@ mod vigor_and_light_exposure_tests {
 
     use super::{BranchPrototypes, BranchBundle, BranchConnectionData,
     PlantBundle, Query, BranchData, BoundingSphere, With, BranchTag, Entity,
-    calculate_branch_light_exposure, BranchNodes, Vector3, World, Schedule,
+    calculate_branch_light_exposure, Vector3, World, Schedule,
     StageLabel, SystemStage, Stage, calculate_branch_intersection_volumes, PI,
     QueryState, calculate_growth_vigor, PlantData};
 
@@ -234,7 +231,6 @@ mod vigor_and_light_exposure_tests {
                 centre: Vector3::new(),
                 radius: 2.0,
             },
-            nodes: BranchNodes::default(),
             data: BranchData::default(),
             connections: BranchConnectionData::default(),
         })
@@ -246,7 +242,6 @@ mod vigor_and_light_exposure_tests {
                 centre: Vector3{x: -2.0, y: 2.0, z: -1.0},
                 radius: 2.0,
             },
-            nodes: BranchNodes::default(),
             data: BranchData::default(),
             connections: BranchConnectionData::default()
         })
@@ -258,7 +253,6 @@ mod vigor_and_light_exposure_tests {
                 centre: Vector3{x: -4.0, y: 4.0, z: -2.0},
                 radius: 2.0,
             },
-            nodes: BranchNodes::default(),
             data: BranchData::default(),
             connections: BranchConnectionData::default(),
         })
