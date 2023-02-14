@@ -25,11 +25,18 @@ pub struct PlantTag;
 pub struct PlantData {
     pub position: Vector3,
     pub intersection_list: Vec<Entity>,
-    pub max_vigor: f32,
     pub age: f32,
-    pub max_age: f32,
     pub root_node: Option<Entity>,
-    pub apical_control: f32, // range 0..1 
+}
+
+#[derive(Component)]
+pub struct PlantGrowthControlFactors {
+    pub max_age: f32,
+    pub max_vigor: f32,
+    pub min_vigor: f32,
+    pub apical_control: f32, // range 0..1
+    pub orientation_angle: f32,
+    pub distribution_control_two: f32, // range 0..1
 }
 
 
@@ -38,6 +45,7 @@ pub struct PlantBundle {
     pub tag: PlantTag,
     pub bounds: BoundingBox,
     pub data: PlantData,
+    pub growth_factors: PlantGrowthControlFactors,
 }
 
 
@@ -51,21 +59,8 @@ impl Default for PlantBundle {
         PlantBundle {
             tag: PlantTag,
             bounds: BoundingBox::new(),
-            data: PlantData::new(),
-        }
-    }
-}
-
-impl PlantData {
-    pub fn new() -> Self {
-        PlantData {
-            root_node: None,
-            position: Vector3::new(),
-            intersection_list: Vec::new(),
-            max_vigor: 0.0,
-            age: 0.0,
-            max_age: 0.0,
-            apical_control: 0.5,
+            data: PlantData::default(),
+            growth_factors: PlantGrowthControlFactors::default(),
         }
     }
 }
@@ -76,13 +71,23 @@ impl Default for PlantData {
             root_node: None,
             position: Vector3::new(),
             intersection_list: Vec::new(),
-            max_vigor: 0.0,
             age: 0.0,
-            max_age: 0.0,
-            apical_control: 0.5,
         }
     }
 }
+
+impl Default for PlantGrowthControlFactors {
+    fn default() -> Self {
+        PlantGrowthControlFactors {
+            max_vigor: 0.0,
+            min_vigor: 0.0,
+            max_age: 0.0,
+            apical_control: 0.5,
+            orientation_angle: 0.0,
+            distribution_control_two: 0.5,
+        }
+    }
+}   
 
 
 
@@ -198,16 +203,16 @@ pub fn update_branch_intersections(
 /// after this we use a helper function to distribute growth vigor up the plant
 /// this means that branches closer to the root have a higher growth vigor than those further away
 pub fn calculate_growth_vigor (
-    plant_query: Query<&PlantData, With<PlantTag>>,
+    plant_query: Query<(&PlantData, &PlantGrowthControlFactors), With<PlantTag>>,
     mut branch_query: Query<&mut BranchData, With<BranchTag>>,
     branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>
 ) {
     for plant_data in plant_query.iter() {
 
-        if plant_data.root_node.is_none() {continue;}
+        if plant_data.0.root_node.is_none() {continue;}
         
         // reset light exposure in all none-tip branches
-        for id in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()) {
+        for id in get_branches_base_to_tip(&branch_connections_query, plant_data.0.root_node.unwrap()) {
             if let Ok(mut branch_data) = branch_query.get_mut(id){
                 if let Ok(branch_connections) = branch_connections_query.get(id) {
                     if branch_connections.children.0.is_none() && branch_connections.children.1.is_none() {continue;}
@@ -217,7 +222,7 @@ pub fn calculate_growth_vigor (
         }
 
         // sum up light exposure at branching_points
-        for id in get_branches_tip_to_base(&branch_connections_query, plant_data.root_node.unwrap()) {
+        for id in get_branches_tip_to_base(&branch_connections_query, plant_data.0.root_node.unwrap()) {
             #[allow(unused_assignments)]
             let mut light_exposure = 0.0;
             if let Ok(branch_data) = branch_query.get(id) {
@@ -231,11 +236,11 @@ pub fn calculate_growth_vigor (
             }
         }
 
-        if let Ok(mut root_data) = branch_query.get_mut(plant_data.root_node.unwrap()) {
+        if let Ok(mut root_data) = branch_query.get_mut(plant_data.0.root_node.unwrap()) {
             root_data.growth_vigor = root_data.light_exposure;
         }
         // distribute vigor to branches
-        for id in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()) {
+        for id in get_branches_base_to_tip(&branch_connections_query, plant_data.0.root_node.unwrap()) {
             #[allow(unused_assignments)]
             let mut vigor = 0.0;
 
@@ -255,7 +260,7 @@ pub fn calculate_growth_vigor (
 
                 let vigor_distribution = get_children_vigor(
                     &branch_query, vigor, 
-                    parent_connections.children.0.unwrap(), parent_connections.children.1.unwrap(), plant_data.apical_control);
+                    parent_connections.children.0.unwrap(), parent_connections.children.1.unwrap(), plant_data.1.apical_control);
 
                 if let Ok(mut children) = branch_query.get_many_mut([parent_connections.children.0.unwrap(), parent_connections.children.1.unwrap()]) {
                     children[0].growth_vigor = vigor_distribution.0;

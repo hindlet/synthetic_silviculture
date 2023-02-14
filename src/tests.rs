@@ -24,7 +24,8 @@ mod plant_bounds_tests {
         StageLabel, SystemStage, Schedule, update_plant_intersections,
         Stage, With, Query, BranchBundle, BoundingSphere,
         BranchTag, BranchData, update_branch_intersections,
-        update_plant_bounds, PlantData, BranchConnectionData
+        update_plant_bounds, PlantData, BranchConnectionData,
+        PlantGrowthControlFactors
     };
 
 
@@ -40,7 +41,8 @@ mod plant_bounds_tests {
                 height: 7.0,
                 depth: 3.0,
             },
-            data: PlantData::new(),
+            data: PlantData::default(),
+            growth_factors: PlantGrowthControlFactors::default(),
         });
 
         test_world.spawn(PlantBundle {
@@ -51,7 +53,8 @@ mod plant_bounds_tests {
                 height: 7.0,
                 depth: 3.0,
             },
-            data: PlantData::new(),
+            data: PlantData::default(),
+            growth_factors: PlantGrowthControlFactors::default(),
         });
 
         test_world.spawn(PlantBundle {
@@ -62,7 +65,8 @@ mod plant_bounds_tests {
                 height: 7.0,
                 depth: 3.0,
             },
-            data: PlantData::new(),
+            data: PlantData::default(),
+            growth_factors: PlantGrowthControlFactors::default(),
         });
 
         #[derive(StageLabel)]
@@ -136,6 +140,7 @@ mod plant_bounds_tests {
                 root_node: Some(branch_two),
                 ..Default::default()
             },
+            growth_factors: PlantGrowthControlFactors::default(),
         });
 
         test_world.spawn(PlantBundle {
@@ -145,6 +150,7 @@ mod plant_bounds_tests {
                 root_node: Some(branch_three),
                 ..Default::default()
             },
+            growth_factors: PlantGrowthControlFactors::default(),
         });
 
 
@@ -199,7 +205,7 @@ mod vigor_and_light_exposure_tests {
     PlantBundle, Query, BranchData, BoundingSphere, With, BranchTag, Entity,
     calculate_branch_light_exposure, Vector3, World, Schedule,
     StageLabel, SystemStage, Stage, calculate_branch_intersection_volumes, PI,
-    QueryState, calculate_growth_vigor, PlantData};
+    QueryState, calculate_growth_vigor, PlantData, PlantGrowthControlFactors};
 
     /// this function is for testing purposes,
     /// it checks every branch intersecting with every other branch
@@ -377,6 +383,9 @@ mod vigor_and_light_exposure_tests {
         let plant_id = test_world.spawn(PlantBundle {
             data: PlantData {
                 root_node: Some(branch_one_id),
+                ..Default::default()
+            },
+            growth_factors: PlantGrowthControlFactors {
                 apical_control: 0.7,
                 ..Default::default()
             },

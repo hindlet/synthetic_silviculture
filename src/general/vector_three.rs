@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_variables, unused_imports)]
 use crate::vector_two::Vector2;
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub struct Vector3 {
@@ -16,7 +17,7 @@ impl Vector3 {
         }
     }
 
-    pub fn UP() -> Vector3 {
+    pub fn up() -> Vector3 {
         Vector3 {
             x: 0.0,
             y: 1.0,

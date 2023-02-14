@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
 use crate::general::vector_three::*;
 use crate::general::bounding_sphere::BoundingSphere;

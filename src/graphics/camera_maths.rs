@@ -15,8 +15,12 @@ impl Default for Camera {
     fn default() -> Self {
         Camera {
             position: Vector3::new(),
-            direction: Vector3::new(),
-            up: Vector3::UP(),
+            direction: Vector3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0
+            },
+            up: Vector3::up(),
             move_speed: 0.5 * 0.0166667,
             rotate_speed: 0.02,
             movement: [false; 10]

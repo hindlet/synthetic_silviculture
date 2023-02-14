@@ -11,7 +11,7 @@ use plant::*;
 
 mod tests;
 
-mod general;
+pub mod general;
 use general::*;
 
 pub mod graphics;
