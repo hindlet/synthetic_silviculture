@@ -44,18 +44,3 @@ fn main() {
 
     startup_schedule.run(&mut world);
     
-}
-
-
-
-struct GayPorn {
-    men: bool
-}
-
-impl GayPorn {
-    fn new() -> Self{
-        GayPorn {
-            men: true,
-        }
-    }
-}
