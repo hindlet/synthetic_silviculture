@@ -1,5 +1,7 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use crate::vector_two::Vector2;
+
+
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub struct Vector3 {
     pub x: f32, 
@@ -15,6 +17,18 @@ impl Vector3 {
             y: 0.0,
             z: 0.0,
         }
+    }
+
+    pub fn from(x: f32, y: f32, z: f32) -> Self {
+        Vector3 {
+            x,
+            y,
+            z,
+        }
+    }
+
+    pub fn get_parts(&self) -> [f32; 3] {
+        [self.x, self.y, self.z]
     }
 
     pub fn up() -> Vector3 {

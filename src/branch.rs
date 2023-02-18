@@ -5,11 +5,10 @@ use crate::{
     vector_three::Vector3,
     transform::Transform,
     bounding_sphere::BoundingSphere,
-    branch_node::{BranchNode, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip},
+    branch_node::{BranchNodeData, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip},
+    branch_prototypes::{BranchPrototypeRef}
 };
 
-/// this is the code for branches
-/// a branch can connect have two other branches connect to it in a plant
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -23,11 +22,17 @@ pub struct BranchTag;
 
 #[derive(Component)]
 pub struct BranchData {
-    pub growth_vigor: f32,
     pub intersections_volume: f32,
-    pub light_exposure: f32,
     pub intersection_list: Vec<Entity>,
     pub root_node: Option<Entity>
+}
+
+#[derive(Component)]
+pub struct BranchGrowthData {
+    pub light_exposure: f32,
+    pub growth_vigor: f32,
+    pub growth_rate: f32,
+    pub physiological_age: f32,
 }
 
 
@@ -38,6 +43,7 @@ pub struct BranchBundle {
     pub tag: BranchTag,
     pub bounds: BoundingSphere,
     pub data: BranchData,
+    pub growth_data: BranchGrowthData,
     pub connections: BranchConnectionData,
 }
 
@@ -66,20 +72,31 @@ impl Default for BranchBundle {
             tag: BranchTag,
             bounds: BoundingSphere::new(),
             data: BranchData::default(),
+            growth_data: BranchGrowthData::default(),
             connections: BranchConnectionData::default(),
         }
     }
 }
 
 
+
 impl Default for BranchData {
     fn default() -> Self {
         BranchData {
-            growth_vigor: 0.0,
             intersections_volume: 0.0,
-            light_exposure: 0.0,
             intersection_list: Vec::new(),
             root_node: None,
+        }
+    }
+}
+
+impl Default for BranchGrowthData {
+    fn default() -> Self {
+        BranchGrowthData {
+            growth_vigor: 0.0,
+            growth_rate: 0.0,
+            light_exposure: 0.0,
+            physiological_age: 0.0,
         }
     }
 }
@@ -156,10 +173,10 @@ pub fn calculate_branch_intersection_volumes (
 
 
 pub fn calculate_branch_light_exposure (
-    mut branches_query: Query<&mut BranchData, With<BranchTag>>,
+    mut branches_query: Query<(&mut BranchGrowthData, &BranchData), With<BranchTag>>,
 ) {
     for mut data in branches_query.iter_mut() {
-        data.light_exposure = (-data.intersections_volume).exp();
+        data.0.light_exposure = (-data.1.intersections_volume).exp();
     }
 }
 
@@ -181,6 +198,34 @@ pub fn get_branches_tip_to_base(
     }
 
     list.reverse();
+
+    list
+}
+
+/// returns all branches from a root that can still have children
+pub fn get_terminal_branches(
+    connections_query: &Query<&BranchConnectionData, With<BranchTag>>,
+    root_branch: Entity,
+) -> Vec<Entity> {
+
+    let mut list: Vec<Entity> = vec![root_branch];
+
+    let mut i = 0;
+    loop {
+        if i >= list.len() {break;}
+        if let Ok(branch_connections) = connections_query.get(list[i]) {
+            if branch_connections.children.0.is_none() {
+                i += 1;
+                continue;
+            }
+            list.push(branch_connections.children.0.unwrap());
+            if branch_connections.children.1.is_some() {
+                list.push(branch_connections.children.1.unwrap());
+            }
+            list.remove(i);
+        }
+        
+    }
 
     list
 }
@@ -207,7 +252,7 @@ pub fn get_branches_base_to_tip(
 
 // calculates and returns the vigor of a branches children, assumes two children exist
 pub fn get_children_vigor(
-    branches_query: &Query<&mut BranchData, With<BranchTag>>,
+    branches_query: &Query<&mut BranchGrowthData, With<BranchTag>>,
     parent_vigor: f32,
     child_one: Entity,
     child_two: Entity,

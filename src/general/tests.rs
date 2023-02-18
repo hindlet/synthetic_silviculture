@@ -55,7 +55,7 @@ mod bounding_sphere_tests {
         ];
         let mut bounds = BoundingSphere::new();
         bounds.radius = 2.5;
-        assert_eq!(bounds.contains_points(&points), true)
+        assert!(bounds.contains_points(&points))
     }
 
     #[test]

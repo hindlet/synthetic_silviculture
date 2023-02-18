@@ -1,11 +1,10 @@
 #![allow(dead_code, unused_variables, unused_imports)]
-use std::collections::BTreeMap;
 
 use bevy_ecs::prelude::*;
 use itertools::*;
 use plotters::data;
 use crate::{
-    branch::{BranchTag, BranchData, get_branches_base_to_tip, get_branches_tip_to_base, get_children_vigor, BranchConnectionData},
+    branch::{BranchTag, BranchData, get_branches_base_to_tip, get_branches_tip_to_base, get_children_vigor, BranchConnectionData, BranchGrowthData},
     vector_three::Vector3,
     bounding_box::BoundingBox,
     bounding_sphere::BoundingSphere,
@@ -37,6 +36,7 @@ pub struct PlantGrowthControlFactors {
     pub apical_control: f32, // range 0..1
     pub orientation_angle: f32,
     pub distribution_control_two: f32, // range 0..1
+    pub growth_rate: f32,
 }
 
 
@@ -85,6 +85,7 @@ impl Default for PlantGrowthControlFactors {
             apical_control: 0.5,
             orientation_angle: 0.0,
             distribution_control_two: 0.5,
+            growth_rate: 1.0,
         }
     }
 }   
@@ -204,7 +205,7 @@ pub fn update_branch_intersections(
 /// this means that branches closer to the root have a higher growth vigor than those further away
 pub fn calculate_growth_vigor (
     plant_query: Query<(&PlantData, &PlantGrowthControlFactors), With<PlantTag>>,
-    mut branch_query: Query<&mut BranchData, With<BranchTag>>,
+    mut branch_query: Query<&mut BranchGrowthData, With<BranchTag>>,
     branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>
 ) {
     for plant_data in plant_query.iter() {
