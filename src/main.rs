@@ -46,4 +46,3 @@ fn main() {
 
     startup_schedule.run(&mut world);
     
-}
