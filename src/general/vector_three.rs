@@ -97,8 +97,8 @@ impl Vector3 {
         self.z /= length;
     }
 
-    pub fn dot(vector_one: Vector3, vector_two: Vector3) -> f32{
-        vector_one.x * vector_two.x + vector_one.y * vector_two.y + vector_one.z * vector_two.z
+    pub fn dot(&self, vector_two: &Vector3) -> f32{
+        self.x * vector_two.x + self.y * vector_two.y + self.z * vector_two.z
     }
 
     pub fn cross(vector_one: Vector3, vector_two: Vector3) -> Vector3 {

@@ -1,5 +1,9 @@
 use bevy_ecs::prelude::Component;
+use cgmath::{Matrix4, Vector4};
+use winit::event::VirtualKeyCode;
 use crate::vector_three::Vector3;
+use crate::vector_two::Vector2;
+
 
 #[derive(Component)]
 pub struct Camera {
@@ -20,8 +24,8 @@ impl Default for Camera {
                 y: 0.0,
                 z: 0.0
             },
-            up: Vector3::up(),
-            move_speed: 0.5 * 0.0166667,
+            up: Vector3::up().multiply_to_new(-1.0),
+            move_speed: 0.1,
             rotate_speed: 0.02,
             movement: [false; 10]
         }
@@ -30,7 +34,7 @@ impl Default for Camera {
 
 impl Camera {
 
-    pub fn get_view_matrix(&self) -> [[f32; 4]; 4] {
+    pub fn get_view_matrix(&self) -> Matrix4<f32> {
         let f = {
             let mut f = self.direction.clone();
             f.normalise();
@@ -43,18 +47,55 @@ impl Camera {
     
         let u = Vector3::cross(f, s);
     
-        let p = Vector3 {
-            x: -self.position.x * s.x- self.position.y * s.y - self.position.z * s.z,
-            y: -self.position.x * u.x - self.position.y * u.y - self.position.z * u.z,
-            z: -self.position.x * f.x - self.position.y * f.y - self.position.z * f.z
-        };
-    
-        [
-            [s.x, u.x, f.x, 0.0],
-            [s.y, u.y, f.y, 0.0],
-            [s.z, u.z, f.z, 0.0],
-            [p.x, p.y, p.z, 1.0],
-        ]
+
+        Matrix4 {
+            x: Vector4::new(s.x, u.x, -f.x, 0.0),
+            y: Vector4::new(s.y, u.y, -f.y, 0.0),
+            z: Vector4::new(s.z, u.z, -f.z, 0.0),
+            w: Vector4::new(-self.position.dot(&s), -self.position.dot(&u), self.position.dot(&f), 1.0),
+        }
+    }
+
+    pub fn look_at(&mut self, target: Vector3) {
+        let mut dir = target.subtract_to_new(&self.position);
+        dir.normalise();
+        self.direction = dir;
+    }
+
+    pub fn process_key(&mut self, keycode: VirtualKeyCode, state: bool) {
+        match keycode {
+            VirtualKeyCode::W => {
+                self.movement[0] = state;
+            }
+            VirtualKeyCode::S => {
+                self.movement[1] = state;
+            }
+            VirtualKeyCode::A => {
+                self.movement[2] = state;
+            }
+            VirtualKeyCode::D => {
+                self.movement[3] = state;
+            }
+            VirtualKeyCode::Space => {
+                self.movement[4] = state;
+            }
+            VirtualKeyCode::C => {
+                self.movement[5] = state;
+            }
+            VirtualKeyCode::Q => {
+                self.movement[6] = state;
+            }
+            VirtualKeyCode::E => {
+                self.movement[7] = state;
+            }
+            VirtualKeyCode::R => {
+                self.movement[8] = state;
+            }
+            VirtualKeyCode::F => {
+                self.movement[9] = state;
+            }
+            _ => ()
+        }
     }
 
     pub fn do_move(&mut self) {
@@ -70,40 +111,33 @@ impl Camera {
         if self.movement[2] {self.position.add(&left.multiply_to_new(self.move_speed))}
         if self.movement[3] {self.position.subtract(&left.multiply_to_new(self.move_speed))}
         // up/down
-        if self.movement[4] {self.position.add(&self.up.multiply_to_new(self.move_speed))}
-        if self.movement[5] {self.position.subtract(&self.up.multiply_to_new(self.move_speed))}
+        if self.movement[4] {self.position.subtract(&self.up.multiply_to_new(self.move_speed))}
+        if self.movement[5] {self.position.add(&self.up.multiply_to_new(self.move_speed))}
 
         // spin around up
         // normalise up
         self.up.normalise();
         // outer product
-        let up_outer_prod_mat = self.up.outer_product();
-        // cross product matrix
-        let up_cross_mat = self.up.skew_symmetric();
         // rotate
         if self.movement[6] {
-            let spin_around_up = Vector3::get_rotate_matrix(up_cross_mat, up_outer_prod_mat, self.rotate_speed);
+            let spin_around_up = Vector3::get_rotate_matrix(self.up, self.rotate_speed);
             self.direction.rotate_vector(spin_around_up);
         }
         if self.movement[7] {
-            let spin_around_up = Vector3::get_rotate_matrix(up_cross_mat, up_outer_prod_mat, -self.rotate_speed);
+            let spin_around_up = Vector3::get_rotate_matrix(self.up, -self.rotate_speed);
             self.direction.rotate_vector(spin_around_up);
         }
 
         // spin around left
         // normalise left
         left.normalise();
-        // get the outer product
-        let left_outer_prod_mat = left.outer_product();
-        // cross product matrix
-        let left_cross_mat = left.skew_symmetric();
         // rotate
         if self.movement[8] {
-            let spin_around_left = Vector3::get_rotate_matrix(left_cross_mat, left_outer_prod_mat, self.rotate_speed);
+            let spin_around_left = Vector3::get_rotate_matrix(left, self.rotate_speed);
             self.direction.rotate_vector(spin_around_left);
         }
         if self.movement[9] {
-            let spin_around_left = Vector3::get_rotate_matrix(left_cross_mat, left_outer_prod_mat, -self.rotate_speed);
+            let spin_around_left = Vector3::get_rotate_matrix(left, -self.rotate_speed);
             self.direction.rotate_vector(spin_around_left);
         }
     }
@@ -114,25 +148,26 @@ impl Camera {
 
 
 impl Vector3 {
-    fn get_rotate_matrix(cross_prod_mat: [Vector3; 3], outer_prod_mat: [Vector3; 3], rotate_speed: f32) -> [Vector3; 3] {
+
+    fn get_rotate_matrix(axis: Vector3, angle: f32) -> [Vector3; 3] {
+        let cos = angle.cos();
+        let sin = angle.sin();
         [
-            Vector3 {
-                x: rotate_speed.cos() + rotate_speed.sin() * cross_prod_mat[0].x + (1.0-rotate_speed.cos()) * outer_prod_mat[0].x, 
-                y: rotate_speed.sin() * cross_prod_mat[0].y + (1.0-rotate_speed.cos()) * outer_prod_mat[0].y, 
-                z: rotate_speed.sin() * cross_prod_mat[0].z + (1.0-rotate_speed.cos()) * outer_prod_mat[0].z
-            },
-
-            Vector3 {
-                x: rotate_speed.sin() * cross_prod_mat[1].x + (1.0-rotate_speed.cos()) * outer_prod_mat[1].x, 
-                y: rotate_speed.cos() + rotate_speed.sin() * cross_prod_mat[1].y + (1.0-rotate_speed.cos()) * outer_prod_mat[1].y, 
-                z: rotate_speed.sin() * cross_prod_mat[1].z + (1.0-rotate_speed.cos()) * outer_prod_mat[1].z
-            },
-
-            Vector3 {
-                x: rotate_speed.sin() * cross_prod_mat[2].x + (1.0-rotate_speed.cos()) * outer_prod_mat[2].x, 
-                y: rotate_speed.sin() * cross_prod_mat[2].y + (1.0-rotate_speed.cos()) * outer_prod_mat[2].y, 
-                z: rotate_speed.cos() + rotate_speed.sin() * cross_prod_mat[2].z + (1.0-rotate_speed.cos()) * outer_prod_mat[2].z
-            }
+            Vector3::from(
+                cos + axis.x.powi(2) * (1.0 - cos),
+                axis.x * axis.y * (1.0 - cos) - axis.z * sin,
+                axis.x * axis.z * (1.0 - cos) + axis.y * sin,
+            ),
+            Vector3::from(
+                axis.y * axis.x * (1.0 - cos) + axis.z * sin,
+                cos + axis.y.powi(2) * (1.0 - cos),
+                axis.y * axis.z * (1.0 - cos) - axis.x * sin,
+            ),
+            Vector3::from(
+                axis.z * axis.x * (1.0 - cos) - axis.y * sin,
+                axis.z * axis.y * (1.0 - cos) + axis.x * sin,
+                cos + axis.z.powi(2) * (1.0 - cos),
+            )
         ]
     }
 
@@ -143,3 +178,6 @@ impl Vector3 {
         self.z = self.x*around[2].x + self.y*around[2].y + self.z*around[2].z;
     }
 }
+
+
+
