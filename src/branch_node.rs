@@ -50,7 +50,7 @@ impl Default for BranchNodeBundle {
 impl Default for BranchNodeData {
     fn default() -> Self {
         BranchNodeData {
-            position: Vector3::new(),
+            position: Vector3::ZERO(),
             phys_age: 0.0,
             // node_type: None,
             branch_length: 0.0,

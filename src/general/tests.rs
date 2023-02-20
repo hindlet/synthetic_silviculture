@@ -21,7 +21,7 @@ mod bounding_sphere_tests {
         };
         let point = Vector3 {x: 0.0, y: 0.0, z: 0.0};
 
-        let furthest_point = sphere.furthest_point_from_point(&point);
+        let furthest_point = sphere.furthest_point_from_point(point);
 
         assert_eq!(furthest_point, Vector3 {x: 0.0, y: 7.5, z: 0.0})
     }
@@ -34,7 +34,7 @@ mod bounding_sphere_tests {
         };
         let point = Vector3 {x: -2.5, y: 0.0, z: 0.0};
 
-        let furthest_point = sphere.furthest_point_from_point(&point);
+        let furthest_point = sphere.furthest_point_from_point(point);
 
         assert_eq!(furthest_point, Vector3 {x: 2.5, y: 0.0, z: 0.0})
     }
@@ -72,7 +72,7 @@ mod bounding_sphere_tests {
     #[test]
     fn intersection_test() {
         let sphere_one = BoundingSphere {
-            centre: Vector3::new(),
+            centre: Vector3::ZERO(),
             radius: 5.0,
         };
         let sphere_two = BoundingSphere {
@@ -86,7 +86,7 @@ mod bounding_sphere_tests {
     #[test]
     fn touching_test() {
         let sphere_one = BoundingSphere {
-            centre: Vector3::new(),
+            centre: Vector3::ZERO(),
             radius: 5.0,
         };
         let sphere_two = BoundingSphere {
@@ -100,7 +100,7 @@ mod bounding_sphere_tests {
     #[test]
     fn non_intersection_test() {
         let sphere_one = BoundingSphere {
-            centre: Vector3::new(),
+            centre: Vector3::ZERO(),
             radius: 5.0,
         };
         let sphere_two = BoundingSphere {
@@ -114,7 +114,7 @@ mod bounding_sphere_tests {
     #[test]
     fn intersection_volume_test() {
         let sphere_one = BoundingSphere {
-            centre: Vector3::new(),
+            centre: Vector3::ZERO(),
             radius: 2.0,
         };
         let sphere_two = BoundingSphere {
@@ -140,7 +140,7 @@ mod bounding_box_tests {
     fn zero_points_test() {
         let points: Vec<Vector3> = vec![];
 
-        assert_eq!(BoundingBox::from_points(&points), BoundingBox::new())
+        assert_eq!(BoundingBox::from_points(&points), BoundingBox::ZERO())
     }
 
     #[test]
@@ -151,7 +151,7 @@ mod bounding_box_tests {
             Vector3{x: 5.0, y: 1.5, z: 1.5},
         ];
         let bounds = BoundingBox {
-            pos: Vector3 {x: 0.0, y: 0.0, z: 0.0},
+            least_corner: Vector3::ZERO(),
             width: 5.0,
             height: 2.5,
             depth: 1.5,
@@ -187,7 +187,7 @@ mod bounding_box_tests {
             },
         ];
         let bounds = BoundingBox {
-            pos: Vector3 {x: -7.0, y: -5.0, z: -7.0},
+            least_corner: Vector3::new(-7.0, -5.0, -7.0),
             width: 14.0,
             height: 37.0,
             depth: 24.0,
@@ -219,13 +219,13 @@ mod bounding_box_tests {
     #[test]
     fn intersection_test() {
         let box_one = BoundingBox {
-            pos: Vector3 {x: 0.0, y: 0.0, z: 0.0},
+            least_corner: Vector3::ZERO(),
             width: 5.0,
             height: 5.0,
             depth: 5.0,
         };
         let box_two = BoundingBox {
-            pos: Vector3 {x: 2.5, y: 2.5, z: 2.5},
+            least_corner: Vector3::new(2.5, 2.5, 2.5),
             width: 5.0,
             height: 5.0,
             depth: 5.0,
@@ -236,13 +236,13 @@ mod bounding_box_tests {
     #[test]
     fn non_intersection_test() {
         let box_one = BoundingBox {
-            pos: Vector3 {x: 0.0, y: 0.0, z: 0.0},
+            least_corner: Vector3::ZERO(),
             width: 2.0,
             height: 2.0,
             depth: 2.0,
         };
         let box_two = BoundingBox {
-            pos: Vector3 {x: 2.5, y: 2.5, z: 2.5},
+            least_corner: Vector3::new(2.5, 2.5, 2.5),
             width: 5.0,
             height: 5.0,
             depth: 5.0,

@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-use cgmath::Matrix4;
 use vulkano::{
     VulkanLibrary,
     instance::{Instance, InstanceCreateInfo},
@@ -24,6 +23,7 @@ use winit::window::{WindowBuilder, Window};
 use winit::event_loop::EventLoop;
 use bytemuck::{Pod, Zeroable};
 use crate::graphics::camera_maths::Camera;
+use crate::general::matrix_four::Matrix4;
 
 
 
@@ -33,8 +33,9 @@ use crate::graphics::camera_maths::Camera;
 #[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
 pub struct Vertex {
     pub position: [f32; 3],
+    pub color: [f32; 3],
 }
-impl_vertex!(Vertex, position);
+impl_vertex!(Vertex, position, color);
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
@@ -42,6 +43,9 @@ pub struct Normal {
     pub normal: [f32; 3],
 }
 impl_vertex!(Normal, normal);
+
+
+
 
 
 // returns the basic things needed for graphics processing
@@ -270,12 +274,12 @@ pub fn window_size_dependent_setup(
 pub fn get_generic_uniforms(
     swapchain: &Arc<Swapchain<Window>>,
     camera: &Camera,
-) -> (Matrix4<f32>, Matrix4<f32>){
+) -> (Matrix4, Matrix4){
     
     let aspect_ratio = swapchain.image_extent()[0] as f32 / swapchain.image_extent()[1] as f32;
 
-    let proj = cgmath::perspective(
-        cgmath::Rad(std::f32::consts::FRAC_PI_2),
+    let proj = Matrix4::persective_matrix(
+        std::f32::consts::FRAC_PI_2,
         aspect_ratio,
         0.01,
         100.0,

@@ -26,7 +26,7 @@ mod plant_bounds_tests {
         Stage, With, Query, BranchBundle, BoundingSphere,
         BranchTag, BranchData, update_branch_intersections,
         update_plant_bounds, PlantData, BranchConnectionData,
-        PlantGrowthControlFactors
+        PlantGrowthControlFactors, PlantBounds, BranchBounds
     };
 
 
@@ -36,36 +36,36 @@ mod plant_bounds_tests {
 
         test_world.spawn(PlantBundle {
             tag: PlantTag,
-            bounds: BoundingBox {
-                pos: Vector3::new(),
+            bounds: PlantBounds::from(BoundingBox {
+                least_corner: Vector3::ZERO(),
                 width: 5.0,
                 height: 7.0,
                 depth: 3.0,
-            },
+            }),
             data: PlantData::default(),
             growth_factors: PlantGrowthControlFactors::default(),
         });
 
         test_world.spawn(PlantBundle {
             tag: PlantTag,
-            bounds: BoundingBox {
-                pos: Vector3 {x: 2.0, y: 5.0, z: 2.0},
+            bounds: PlantBounds::from(BoundingBox {
+                least_corner: Vector3::new(2.0, 5.0, 2.0),
                 width: 5.0,
                 height: 7.0,
                 depth: 3.0,
-            },
+            }),
             data: PlantData::default(),
             growth_factors: PlantGrowthControlFactors::default(),
         });
 
         test_world.spawn(PlantBundle {
             tag: PlantTag,
-            bounds: BoundingBox {
-                pos: Vector3 {x: 6.0, y: 5.0, z: 2.0},
+            bounds: PlantBounds::from(BoundingBox {
+                least_corner: Vector3::new(6.0, 5.0, 2.0),
                 width: 5.0,
                 height: 7.0,
                 depth: 3.0,
-            },
+            }),
             data: PlantData::default(),
             growth_factors: PlantGrowthControlFactors::default(),
         });
@@ -98,19 +98,19 @@ mod plant_bounds_tests {
         let mut test_world = World::new();
 
         let branch_one = test_world.spawn(BranchBundle {
-            bounds: BoundingSphere {
-                centre: Vector3::new(),
+            bounds: BranchBounds::from(BoundingSphere {
+                centre: Vector3::ZERO(),
                 radius: 5.0,
-            },
+            }),
             ..Default::default()
         })
         .id();
 
         let branch_two = test_world.spawn(BranchBundle {
-            bounds: BoundingSphere {
+            bounds: BranchBounds::from(BoundingSphere {
                 centre: Vector3{x: 5.0, y: 2.0, z: 7.0},
                 radius: 5.0,
-            },
+            }),
             connections: BranchConnectionData {
                 children: (Some(branch_one), None),
                 parent: None,
@@ -120,10 +120,10 @@ mod plant_bounds_tests {
         .id();
 
         let branch_three = test_world.spawn(BranchBundle {
-            bounds: BoundingSphere {
+            bounds: BranchBounds::from(BoundingSphere {
                 centre: Vector3{x: 12.0, y: 3.0, z: 15.0},
                 radius: 6.0,
-            },
+            }),
             ..Default::default()
         })
         .id();
@@ -131,7 +131,7 @@ mod plant_bounds_tests {
 
         test_world.spawn(PlantBundle {
             tag: PlantTag,
-            bounds: BoundingBox::new(),
+            bounds: PlantBounds::default(),
             data: PlantData {
                 root_node: Some(branch_two),
                 ..Default::default()
@@ -141,7 +141,7 @@ mod plant_bounds_tests {
 
         test_world.spawn(PlantBundle {
             tag: PlantTag,
-            bounds: BoundingBox::new(),
+            bounds: PlantBounds::default(),
             data: PlantData {
                 root_node: Some(branch_three),
                 ..Default::default()
@@ -202,13 +202,13 @@ mod vigor_and_light_exposure_tests {
     calculate_branch_light_exposure, Vector3, World, Schedule,
     StageLabel, SystemStage, Stage, calculate_branch_intersection_volumes, PI,
     QueryState, calculate_growth_vigor, PlantData, PlantGrowthControlFactors,
-    BranchGrowthData};
+    BranchGrowthData, BranchBounds};
 
     /// this function is for testing purposes,
     /// it checks every branch intersecting with every other branch
     /// this means it's super slow at large scales
     fn testing_branch_intersections(
-        mut branch_query: Query<(&mut BranchData, &BoundingSphere, Entity), With<BranchTag>>,
+        mut branch_query: Query<(&mut BranchData, &BranchBounds, Entity), With<BranchTag>>,
     ) {
         // reset intersections list
         for (mut data, sphere, entity) in &mut branch_query {
@@ -218,7 +218,7 @@ mod vigor_and_light_exposure_tests {
         // check intersections
         let mut combinations = branch_query.iter_combinations_mut();
         while let Some([mut branch_one, branch_two]) = combinations.fetch_next() {
-            if branch_one.1.is_intersecting_sphere(&branch_two.1) {
+            if branch_one.1.bounds.is_intersecting_sphere(&branch_two.1.bounds) {
                 branch_one.0.intersection_list.push(branch_two.2);
             }
         }
@@ -229,28 +229,28 @@ mod vigor_and_light_exposure_tests {
         let mut test_world = World::new();
 
         let branch_one_id = test_world.spawn(BranchBundle {
-            bounds: BoundingSphere {
-                centre: Vector3::new(),
+            bounds: BranchBounds::from(BoundingSphere {
+                centre: Vector3::ZERO(),
                 radius: 2.0,
-            },
+            }),
             ..Default::default()
         })
         .id();
 
         let branch_two_id = test_world.spawn(BranchBundle {
-            bounds: BoundingSphere {
+            bounds: BranchBounds::from(BoundingSphere {
                 centre: Vector3{x: -2.0, y: 2.0, z: -1.0},
                 radius: 2.0,
-            },
+            }),
             ..Default::default()
         })
         .id();
 
         let branch_three_id = test_world.spawn(BranchBundle {
-            bounds: BoundingSphere {
+            bounds: BranchBounds::from(BoundingSphere {
                 centre: Vector3{x: -4.0, y: 4.0, z: -2.0},
                 radius: 2.0,
-            },
+            }),
             ..Default::default()
         })
         .id();

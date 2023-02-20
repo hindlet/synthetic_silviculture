@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use itertools::*;
 use plotters::data;
 use crate::{
-    branch::{BranchTag, BranchData, get_branches_base_to_tip, get_branches_tip_to_base, get_children_vigor, BranchConnectionData, BranchGrowthData},
+    branch::{BranchTag, BranchData, get_branches_base_to_tip, get_branches_tip_to_base, get_children_vigor, BranchConnectionData, BranchGrowthData, BranchBounds},
     vector_three::Vector3,
     bounding_box::BoundingBox,
     bounding_sphere::BoundingSphere,
@@ -39,11 +39,16 @@ pub struct PlantGrowthControlFactors {
     pub growth_rate: f32,
 }
 
+#[derive(Component)]
+pub struct PlantBounds {
+    pub bounds: BoundingBox,
+}
+
 
 #[derive(Bundle)]
 pub struct PlantBundle {
     pub tag: PlantTag,
-    pub bounds: BoundingBox,
+    pub bounds: PlantBounds,
     pub data: PlantData,
     pub growth_factors: PlantGrowthControlFactors,
 }
@@ -58,7 +63,7 @@ impl Default for PlantBundle {
     fn default() -> Self {
         PlantBundle {
             tag: PlantTag,
-            bounds: BoundingBox::new(),
+            bounds: PlantBounds::default(),
             data: PlantData::default(),
             growth_factors: PlantGrowthControlFactors::default(),
         }
@@ -69,9 +74,25 @@ impl Default for PlantData {
     fn default() -> Self {
         PlantData {
             root_node: None,
-            position: Vector3::new(),
+            position: Vector3::ZERO(),
             intersection_list: Vec::new(),
             age: 0.0,
+        }
+    }
+}
+
+impl Default for PlantBounds {
+    fn default() -> Self {
+        PlantBounds {
+            bounds: BoundingBox::ZERO(),
+        }
+    }
+}
+
+impl From<BoundingBox> for PlantBounds {
+    fn from(bounds: BoundingBox) -> Self {
+        Self {
+            bounds
         }
     }
 }
@@ -100,9 +121,9 @@ impl Default for PlantGrowthControlFactors {
 
 // must be called after updating all the branch bounds
 pub fn update_plant_bounds(
-    branch_bounds_query: Query<&BoundingSphere, With<BranchTag>>,
+    branch_bounds_query: Query<&BranchBounds, With<BranchTag>>,
     branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>,
-    mut plants_query: Query<(&mut BoundingBox, &PlantData), With<PlantTag>>
+    mut plants_query: Query<(&mut PlantBounds, &PlantData), With<PlantTag>>
 ) {
     for (mut bounds, plant_data) in &mut plants_query {
         if plant_data.root_node.is_none() {continue;}
@@ -112,18 +133,18 @@ pub fn update_plant_bounds(
         
         for id in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()) {
             if let Ok(bounds) = branch_bounds_query.get(id) {
-                branch_bounds.push(bounds.clone());
+                branch_bounds.push(bounds.bounds.clone());
             }
         }
 
         let new_bounds = BoundingBox::from_spheres(&branch_bounds);
-        bounds.set_to(&new_bounds);
+        bounds.bounds = new_bounds;
     }
 }
 
 // this will calculate all the plant intersections, it will not contain any repeated intersect
 pub fn update_plant_intersections(
-    mut plants_query: Query<(&BoundingBox, &mut PlantData, Entity), With<PlantTag>>,
+    mut plants_query: Query<(&PlantBounds, &mut PlantData, Entity), With<PlantTag>>,
 ) {
     // reset all plant intersection lists
     for (bounds, mut data, id) in &mut plants_query {
@@ -132,7 +153,7 @@ pub fn update_plant_intersections(
     // check all plant intersection options
     let mut combinations = plants_query.iter_combinations_mut();
     while let Some([mut plant_one, plant_two]) = combinations.fetch_next() {
-        if plant_one.0.is_intersecting_box(&plant_two.0) {
+        if plant_one.0.bounds.is_intersecting_box(&plant_two.0.bounds) {
             plant_one.1.intersection_list.push(plant_two.2);
         }
     }
@@ -143,7 +164,7 @@ pub fn update_plant_intersections(
 /// if they did the branches would end up with double the intersection volumes they are meant to
 pub fn update_branch_intersections(
     plants_query: Query<&PlantData, With<PlantTag>>,
-    mut branch_query: Query<(&BoundingSphere, &mut BranchData), With<BranchTag>>,
+    mut branch_query: Query<(&BranchBounds, &mut BranchData), With<BranchTag>>,
     branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>,
 ) {
     // loop through each plant
@@ -161,7 +182,7 @@ pub fn update_branch_intersections(
                 if other_plant.root_node.is_none() {continue;}
                 for id in get_branches_base_to_tip(&branch_connections_query, other_plant.root_node.unwrap()) {
                     if let Ok(branch) = &branch_query.get(id) {
-                        other_plant_branch_bounds.push((branch.0.clone(), id));
+                        other_plant_branch_bounds.push((branch.0.bounds.clone(), id));
                     }
                 }
             }
@@ -174,7 +195,7 @@ pub fn update_branch_intersections(
                     branch.1.intersections_volume = 0.0;
                     // check if the branches intersect, if so, add the second branch id to the first's list
                     for other_bounds in other_plant_branch_bounds.iter() {
-                        if branch.0.is_intersecting_sphere(&other_bounds.0) {
+                        if branch.0.bounds.is_intersecting_sphere(&other_bounds.0) {
                             branch.1.intersection_list.push(other_bounds.1);
                         }
                     }
@@ -186,10 +207,10 @@ pub fn update_branch_intersections(
             for combination in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()).iter().combinations(2) {
                 let other_data: BoundingSphere;
                 if let Ok(branch_two) = branch_query.get(*combination[1]){
-                    other_data = branch_two.0.clone();
+                    other_data = branch_two.0.bounds.clone();
                 } else {panic!("Fuck balls shit fuck balls")};
                 if let Ok(mut branch_one) = branch_query.get_mut(*combination[0]){
-                    if branch_one.0.is_intersecting_sphere(&other_data) {
+                    if branch_one.0.bounds.is_intersecting_sphere(&other_data) {
                         branch_one.1.intersection_list.push(*combination[1]);
                     }
                 };

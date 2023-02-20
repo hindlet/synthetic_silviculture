@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::Component;
-use cgmath::{Matrix4, Vector4};
 use winit::event::VirtualKeyCode;
-use crate::vector_three::Vector3;
+use crate::vector_three::{Vector3, cross};
 use crate::vector_two::Vector2;
+use crate::matrix_four::Matrix4;
 
 
 #[derive(Component)]
@@ -18,13 +18,13 @@ pub struct Camera {
 impl Default for Camera {
     fn default() -> Self {
         Camera {
-            position: Vector3::new(),
+            position: Vector3::ZERO(),
             direction: Vector3 {
                 x: 1.0,
                 y: 0.0,
                 z: 0.0
             },
-            up: Vector3::up().multiply_to_new(-1.0),
+            up: -Vector3::up(),
             move_speed: 0.1,
             rotate_speed: 0.02,
             movement: [false; 10]
@@ -34,30 +34,29 @@ impl Default for Camera {
 
 impl Camera {
 
-    pub fn get_view_matrix(&self) -> Matrix4<f32> {
+    pub fn get_view_matrix(&self) -> Matrix4 {
         let f = {
             let mut f = self.direction.clone();
             f.normalise();
             f
         };
     
-        let mut s = Vector3::cross(self.up, f);
+        let mut s = cross(self.up, f);
 
         s.normalise();
     
-        let u = Vector3::cross(f, s);
+        let u = cross(f, s);
     
-
-        Matrix4 {
-            x: Vector4::new(s.x, u.x, -f.x, 0.0),
-            y: Vector4::new(s.y, u.y, -f.y, 0.0),
-            z: Vector4::new(s.z, u.z, -f.z, 0.0),
-            w: Vector4::new(-self.position.dot(&s), -self.position.dot(&u), self.position.dot(&f), 1.0),
-        }
+        Matrix4::new(
+            s.x, u.x, -f.x, 0.0,
+            s.y, u.y, -f.y, 0.0,
+            s.z, u.z, -f.z, 0.0,
+            -self.position.dot(&s), -self.position.dot(&u), self.position.dot(&f), 1.0
+        )
     }
 
     pub fn look_at(&mut self, target: Vector3) {
-        let mut dir = target.subtract_to_new(&self.position);
+        let mut dir = target - self.position;
         dir.normalise();
         self.direction = dir;
     }
@@ -101,18 +100,18 @@ impl Camera {
     pub fn do_move(&mut self) {
 
         // take cross of direction and up to get left
-        let mut left = Vector3::cross(self.direction, self.up);
+        let mut left = cross(self.direction, self.up);
 
-        let forward = Vector3::cross(left, self.up);
+        let forward = cross(left, self.up);
         // forward/back
-        if self.movement[0] {self.position.subtract(&forward.multiply_to_new(self.move_speed))}
-        if self.movement[1] {self.position.add(&forward.multiply_to_new(self.move_speed))}
+        if self.movement[0] {self.position -= forward * self.move_speed}
+        if self.movement[1] {self.position += forward * self.move_speed}
         // left/right
-        if self.movement[2] {self.position.add(&left.multiply_to_new(self.move_speed))}
-        if self.movement[3] {self.position.subtract(&left.multiply_to_new(self.move_speed))}
+        if self.movement[2] {self.position += left * self.move_speed}
+        if self.movement[3] {self.position -= left * self.move_speed}
         // up/down
-        if self.movement[4] {self.position.subtract(&self.up.multiply_to_new(self.move_speed))}
-        if self.movement[5] {self.position.add(&self.up.multiply_to_new(self.move_speed))}
+        if self.movement[4] {self.position -= self.up * self.move_speed}
+        if self.movement[5] {self.position += self.up * self.move_speed}
 
         // spin around up
         // normalise up

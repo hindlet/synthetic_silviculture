@@ -35,13 +35,16 @@ pub struct BranchGrowthData {
     pub physiological_age: f32,
 }
 
-
+#[derive(Component)]
+pub struct BranchBounds  {
+    pub bounds: BoundingSphere
+}
 
 
 #[derive(Bundle)]
 pub struct BranchBundle {
     pub tag: BranchTag,
-    pub bounds: BoundingSphere,
+    pub bounds: BranchBounds,
     pub data: BranchData,
     pub growth_data: BranchGrowthData,
     pub connections: BranchConnectionData,
@@ -70,7 +73,7 @@ impl Default for BranchBundle {
     fn default() -> Self {
         BranchBundle {
             tag: BranchTag,
-            bounds: BoundingSphere::new(),
+            bounds: BranchBounds::default(),
             data: BranchData::default(),
             growth_data: BranchGrowthData::default(),
             connections: BranchConnectionData::default(),
@@ -78,6 +81,17 @@ impl Default for BranchBundle {
     }
 }
 
+impl Default for BranchBounds {
+    fn default() -> Self {
+        Self {bounds: BoundingSphere::ZERO()}
+    }
+}
+
+impl From<BoundingSphere> for BranchBounds {
+    fn from(bounds: BoundingSphere) -> Self {
+        Self {bounds}
+    }
+}
 
 
 impl Default for BranchData {
@@ -123,7 +137,7 @@ impl Default for BranchConnectionData {
 pub fn update_branch_bounds(
     nodes_transforms_query: Query<&Transform, With<BranchNodeTag>>,
     nodes_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
-    mut branches_query: Query<(&mut BoundingSphere, &BranchData), With<BranchTag>>
+    mut branches_query: Query<(&mut BranchBounds, &BranchData), With<BranchTag>>
 ) {
     for (mut bounds, data) in &mut branches_query {
         if data.root_node.is_none() {continue;}
@@ -136,14 +150,14 @@ pub fn update_branch_bounds(
         }
 
         let new_bounds = BoundingSphere::from_points(&node_positions);
-        bounds.set_to(&new_bounds);
+        bounds.bounds = new_bounds;
     }
 }
 
 /// calculates branch intersection volumes
 /// we use two querys so that we can get mutable borrows from both at once, you cannot do this with one query
 pub fn calculate_branch_intersection_volumes (
-    mut branch_query: Query<(&mut BranchData, &BoundingSphere, Entity), With<BranchTag>>,
+    mut branch_query: Query<(&mut BranchData, &BranchBounds, Entity), With<BranchTag>>,
 ) {
     let mut intersection_lists: Vec<(Entity, BoundingSphere, Vec<Entity>)> = Vec::new();
     for (mut data, bounds, id) in branch_query.iter_mut() {
@@ -152,14 +166,14 @@ pub fn calculate_branch_intersection_volumes (
         for id_other in data.intersection_list.iter() {
             intersections.push(*id_other);
         }
-        intersection_lists.push((id, bounds.clone(), intersections));
+        intersection_lists.push((id, bounds.bounds.clone(), intersections));
     }
 
     for branch_one in intersection_lists {
         let mut volume = 0.0;
         for id in branch_one.2.iter() {
             if let Ok(mut branch_two) = branch_query.get_mut(*id) {
-                let intersection = branch_one.1.get_intersection_volume(branch_two.1);
+                let intersection = branch_one.1.get_intersection_volume(&branch_two.1.bounds);
                 branch_two.0.intersections_volume += intersection;
                 volume += intersection;
             }

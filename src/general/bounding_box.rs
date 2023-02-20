@@ -4,9 +4,9 @@ use crate::general::vector_three::*;
 use crate::general::bounding_sphere::BoundingSphere;
 
 
-#[derive(Default, Component, Debug, PartialEq)]
+#[derive(Default, Component, Debug, PartialEq, Clone, Copy)]
 pub struct BoundingBox {
-    pub pos: Vector3, // least x y and z
+    pub least_corner: Vector3, // least x y and z
     pub width: f32, // x
     pub height: f32, // y
     pub depth: f32, // z
@@ -14,37 +14,34 @@ pub struct BoundingBox {
 
 
 impl BoundingBox {
-    pub fn new() -> Self {
+    pub fn new(least_corner: Vector3, width: f32, height: f32, depth: f32) -> Self {
         BoundingBox {
-            pos: Vector3::new(),
+            least_corner,
+            width,
+            height,
+            depth,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub fn ZERO() -> Self {
+        Self {
+            least_corner: Vector3::ZERO(),
             width: 0.0,
             height: 0.0,
             depth: 0.0,
         }
     }
 
-    pub fn set_zero(&mut self) {
-        self.pos = Vector3::new();
-        self.width = 0.0;
-        self.height = 0.0;
-        self.depth = 0.0;
-    }
-
-    pub fn set_to(&mut self, data: &BoundingBox) {
-        self.pos = data.pos;
-        self.width = data.width;
-        self.height = data.height;
-        self.depth = data.depth;
-    }
 
     pub fn contains_point(&self, point: &Vector3) -> bool {
-        if (point.x < self.pos.x) || (point.x > (self.pos.x + self.width)) {
+        if (point.x < self.least_corner.x) || (point.x > (self.least_corner.x + self.width)) {
             return false
         }
-        if (point.y < self.pos.y) || (point.y > (self.pos.y + self.height)) {
+        if (point.y < self.least_corner.y) || (point.y > (self.least_corner.y + self.height)) {
             return false
         }
-        if (point.z < self.pos.z) || (point.z > (self.pos.z + self.depth)) {
+        if (point.z < self.least_corner.z) || (point.z > (self.least_corner.z + self.depth)) {
             return false
         }
         true
@@ -59,15 +56,17 @@ impl BoundingBox {
 
     pub fn contains_sphere(&self, sphere: &BoundingSphere) -> bool{
         if !self.contains_point(&sphere.centre) {return false;}
+        let sphere_max = sphere.centre - Vector3::new(sphere.radius, sphere.radius, sphere.radius);
+        assert!(sphere_max < self.least_corner + Vector3::new(self.width, self.height, self.depth));
 
-        if (sphere.centre.x - sphere.radius) < self.pos.x {return false;}
-        if (sphere.centre.x + sphere.radius) > (self.pos.x + self.width) {return false;}
+        if (sphere.centre.x - sphere.radius) < self.least_corner.x {return false;}
+        if (sphere.centre.x + sphere.radius) > (self.least_corner.x + self.width) {return false;}
 
-        if (sphere.centre.y - sphere.radius) < self.pos.y {return false;}
-        if (sphere.centre.y + sphere.radius) > (self.pos.y + self.height) {return false;}
+        if (sphere.centre.y - sphere.radius) < self.least_corner.y {return false;}
+        if (sphere.centre.y + sphere.radius) > (self.least_corner.y + self.height) {return false;}
 
-        if (sphere.centre.z - sphere.radius) < self.pos.z {return false;}
-        if (sphere.centre.z + sphere.radius) > (self.pos.z + self.depth) {return false;}
+        if (sphere.centre.z - sphere.radius) < self.least_corner.z {return false;}
+        if (sphere.centre.z + sphere.radius) > (self.least_corner.z + self.depth) {return false;}
 
         true
     }
@@ -81,7 +80,7 @@ impl BoundingBox {
 
     pub fn from_spheres(spheres: &Vec<BoundingSphere>) -> BoundingBox {
         if spheres.len() == 0 {
-            return BoundingBox::new();
+            return BoundingBox::ZERO();
         }
 
 
@@ -117,10 +116,10 @@ impl BoundingBox {
         let width = x_max - x_min;
         let height = y_max - y_min;
         let depth = z_max - z_min;
-        let corner = Vector3{x: x_min, y: y_min, z: z_min};
+        let corner = Vector3::new(x_min, y_min, z_min);
 
         BoundingBox {
-            pos: corner,
+            least_corner: corner,
             width,
             height,
             depth
@@ -128,7 +127,7 @@ impl BoundingBox {
     }
 
     pub fn from_points(points: &Vec<Vector3>) -> BoundingBox{
-        if points.len() == 0 {return BoundingBox::new()}
+        if points.len() == 0 {return BoundingBox::ZERO()}
 
         let mut x_min = points[0].x;
         let mut x_max = points[0].x;
@@ -149,29 +148,25 @@ impl BoundingBox {
             if point.z > z_max {z_max = point.z}
         }
 
-        let pos = Vector3{
-            x: x_min,
-            y: y_min,
-            z: z_min,
-        };
+        let corner = Vector3::new(x_min, y_min, z_min);
         let width = x_max - x_min;
         let height = y_max - y_min;
         let depth = z_max - z_min;
 
         BoundingBox{
-            pos,
+            least_corner: corner,
             width,
             height,
             depth}
     }
 
     pub fn is_intersecting_box(&self, other: &BoundingBox) -> bool {
-        self.pos.x <= other.pos.x + other.width &&
-        self.pos.x + self.width >= other.pos.x &&
-        self.pos.y <= other.pos.y + other.height &&
-        self.pos.y + self.height >= other.pos.y &&
-        self.pos.z <= other.pos.z + other.depth &&
-        self.pos.z + self.width >= other.pos.z 
+        self.least_corner.x <= other.least_corner.x + other.width &&
+        self.least_corner.x + self.width >= other.least_corner.x &&
+        self.least_corner.y <= other.least_corner.y + other.height &&
+        self.least_corner.y + self.height >= other.least_corner.y &&
+        self.least_corner.z <= other.least_corner.z + other.depth &&
+        self.least_corner.z + self.width >= other.least_corner.z 
     }
 
 }

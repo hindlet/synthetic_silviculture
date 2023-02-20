@@ -15,8 +15,8 @@ pub struct Transform {
 impl Default for Transform {
     fn default() -> Self {
         Transform {
-            translation: Vector3::new(),
-            rotation: Vector3::new(),
+            translation: Vector3::ZERO(),
+            rotation: Vector3::ZERO(),
         }
     }
 }

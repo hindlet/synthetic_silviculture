@@ -1,5 +1,5 @@
 use synthetic_silviculture::graphics::{test_cube, general_graphics::*, camera_maths::*};
-use synthetic_silviculture::general::vector_three::*;
+use synthetic_silviculture::general::{matrix_three::Matrix3, matrix_four::Matrix4, vector_three::*};
 
 use vulkano::buffer::{CpuAccessibleBuffer, BufferUsage, CpuBufferPool, cpu_pool::CpuBufferPoolSubbuffer, TypedBufferAccess};
 use vulkano::swapchain::{SwapchainCreationError, SwapchainCreateInfo, acquire_next_image, AcquireError, Swapchain, PresentInfo};
@@ -10,7 +10,6 @@ use vulkano::pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint};
 use vulkano::render_pass::{Framebuffer};
 use vulkano::sync::{self, GpuFuture};
 use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
-use cgmath::{Matrix3, Matrix4, Rad};
 use vulkano::sync::FlushError;
 use winit::{
     event::{Event, WindowEvent, ElementState},
@@ -243,8 +242,8 @@ fn get_uniform_subbuffer (
 
     let elapsed = rotation_start.elapsed();
     let rotation = 
-        elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 / 1_000_000_000.0;
-    let rotation = Matrix3::from_angle_y(Rad(rotation as f32));
+        elapsed.as_secs() as f32 + elapsed.subsec_nanos() as f32 / 1_000_000_000.0;
+    let rotation = Matrix3::from_angle_y(rotation);
 
     let (view, proj) = get_generic_uniforms(swapchain, camera);
     
@@ -290,7 +289,7 @@ fn get_command_buffers(
         .begin_render_pass(
             RenderPassBeginInfo {
                 clear_values: vec![
-                    Some([0.0, 0.0, 1.0, 1.0].into()),
+                    Some([0.2, 0.2, 0.2, 1.0].into()),
                     Some(1f32.into()),
                 ],
                 ..RenderPassBeginInfo::framebuffer(framebuffers[image_num].clone())
