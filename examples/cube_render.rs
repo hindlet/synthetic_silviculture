@@ -2,15 +2,16 @@ use synthetic_silviculture::graphics::{test_cube, general_graphics::*, camera_ma
 use synthetic_silviculture::general::{matrix_three::Matrix3, matrix_four::Matrix4, vector_three::*};
 
 use vulkano::buffer::{CpuAccessibleBuffer, BufferUsage, CpuBufferPool, cpu_pool::CpuBufferPoolSubbuffer, TypedBufferAccess};
-use vulkano::swapchain::{SwapchainCreationError, SwapchainCreateInfo, acquire_next_image, AcquireError, Swapchain, PresentInfo};
+use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
+use vulkano::swapchain::{SwapchainCreationError, SwapchainCreateInfo, acquire_next_image, AcquireError, Swapchain, SwapchainPresentInfo};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer, CommandBufferUsage, RenderPassBeginInfo, SubpassContents};
-use vulkano::device::{Device, Queue};
-use vulkano::memory::pool::StandardMemoryPool;
+use vulkano::device::Queue;
 use vulkano::pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint};
 use vulkano::render_pass::{Framebuffer};
 use vulkano::sync::{self, GpuFuture};
-use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
+use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet, allocator::StandardDescriptorSetAllocator};
 use vulkano::sync::FlushError;
+use vulkano::memory::allocator::MemoryUsage;
 use winit::{
     event::{Event, WindowEvent, ElementState},
     event_loop::ControlFlow,
@@ -44,14 +45,14 @@ mod fs {
 
 
 fn main() {
-    let (queue, device, physical_device, surface, event_loop) = base_setup();
+    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_setup();
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
     let render_pass = get_renderpass(&device, &swapchain);
     
 
     // create data buffers
     let vertex_buffer = CpuAccessibleBuffer::from_iter (
-        device.clone(),
+        &memory_allocator,
         BufferUsage {
             vertex_buffer: true,
             ..BufferUsage::empty()
@@ -61,7 +62,7 @@ fn main() {
     ).unwrap();
 
     let normals_buffer = CpuAccessibleBuffer::from_iter (
-        device.clone(),
+        &memory_allocator,
         BufferUsage {
             vertex_buffer: true,
             ..BufferUsage::empty()
@@ -71,7 +72,7 @@ fn main() {
     ).unwrap();
 
     let index_buffer = CpuAccessibleBuffer::from_iter(
-        device.clone(),
+        &memory_allocator,
         BufferUsage {
             index_buffer: true,
             ..BufferUsage::empty()
@@ -81,18 +82,19 @@ fn main() {
     ).unwrap();
 
     let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(
-        device.clone(),
+        memory_allocator.clone(),
         BufferUsage {
             uniform_buffer: true,
             ..BufferUsage::empty()
         },
+        MemoryUsage::Upload
     );
 
     let vs = vs::load(device.clone()).unwrap();
     let fs = fs::load(device.clone()).unwrap();
 
 
-    let (mut pipeline, mut framebuffers) = window_size_dependent_setup(&device, &vs, &fs, &swapchain_images, &render_pass);
+    let (mut pipeline, mut framebuffers) = window_size_dependent_setup(&memory_allocator, &vs, &fs, &swapchain_images, &render_pass);
     let mut camera = Camera {
         position: Vector3::from(3.0, 1.0, 3.0),
         ..Default::default()
@@ -103,6 +105,9 @@ fn main() {
 
     // this determines if the swapchain needs to be rebuilt
     let mut recreate_swapchain = false;
+
+    let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone());
+    let command_buffer_allocator = StandardCommandBufferAllocator::new(device.clone(), Default::default());
 
     let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
 
@@ -146,7 +151,7 @@ fn main() {
             Event::RedrawEventsCleared => {
 
                 // check theres actually a window to draw on
-                let dimensions = surface.window().inner_size();
+                let dimensions = surface.object().unwrap().downcast_ref::<Window>().unwrap().inner_size();
                 if dimensions.width == 0 || dimensions.height == 0 {
                     return;
                 }
@@ -168,7 +173,7 @@ fn main() {
                     swapchain = new_swapchain;
                     
                     // get a new pipeline and framebuffers
-                    let (new_pipeline, new_framebuffers) = window_size_dependent_setup(&device, &vs, &fs, &new_swapchain_images, &render_pass);
+                    let (new_pipeline, new_framebuffers) = window_size_dependent_setup(&memory_allocator, &vs, &fs, &new_swapchain_images, &render_pass);
                     pipeline = new_pipeline;
                     framebuffers = new_framebuffers;
 
@@ -192,7 +197,7 @@ fn main() {
 
                 // create uniform and command buffers for the frame
                 let uniform_buffer_subbuffer = get_uniform_subbuffer(&rotation_start, &swapchain, &camera, &uniform_buffer);
-                let command_buffer = get_command_buffers(&device, &queue, &pipeline, &framebuffers, &vertex_buffer, &normals_buffer, &index_buffer, &uniform_buffer_subbuffer, image_num);
+                let command_buffer = get_command_buffers(&descriptor_set_allocator, &command_buffer_allocator, &queue, &pipeline, &framebuffers, &vertex_buffer, &normals_buffer, &index_buffer, &uniform_buffer_subbuffer, image_num as usize);
 
                 let future = previous_frame_end
                     .take()
@@ -202,10 +207,7 @@ fn main() {
                     .unwrap()
                     .then_swapchain_present(
                         queue.clone(),
-                        PresentInfo {
-                            index: image_num,
-                            ..PresentInfo::swapchain(swapchain.clone())
-                        },
+                        SwapchainPresentInfo::swapchain_image_index(swapchain.clone(), image_num)
                     )
                     .then_signal_fence_and_flush();
 
@@ -235,10 +237,10 @@ fn main() {
 
 fn get_uniform_subbuffer (
     rotation_start: &Instant,
-    swapchain: &Arc<Swapchain<Window>>,
+    swapchain: &Arc<Swapchain>,
     camera: &Camera,
     uniform_buffer: &CpuBufferPool<vs::ty::Data>,
-) -> Arc<CpuBufferPoolSubbuffer<vs::ty::Data, Arc<StandardMemoryPool>>> {
+) -> Arc<CpuBufferPoolSubbuffer<vs::ty::Data>> {
 
     let elapsed = rotation_start.elapsed();
     let rotation = 
@@ -260,26 +262,28 @@ fn get_uniform_subbuffer (
 
 
 fn get_command_buffers(
-    device: &Arc<Device>,
+    descriptor_set_allocator: &StandardDescriptorSetAllocator,
+    command_buffer_allocator: &StandardCommandBufferAllocator,
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
     framebuffers: &Vec<Arc<Framebuffer>>,
     vertex_buffer: &Arc<CpuAccessibleBuffer<[Vertex]>>,
     normal_buffer: &Arc<CpuAccessibleBuffer<[Normal]>>,
     index_buffer: &Arc<CpuAccessibleBuffer<[u16]>>,
-    uniform_buffer_subbuffer: &Arc<CpuBufferPoolSubbuffer<vs::ty::Data, Arc<StandardMemoryPool>>>,
+    uniform_buffer_subbuffer: &Arc<CpuBufferPoolSubbuffer<vs::ty::Data>>,
     image_num: usize
 ) -> PrimaryAutoCommandBuffer {
 
     let layout = pipeline.layout().set_layouts().get(0).unwrap();
     let set = PersistentDescriptorSet::new(
+        descriptor_set_allocator,
         layout.clone(),
         [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer.clone())],
     )
     .unwrap();
 
     let mut builder = AutoCommandBufferBuilder::primary(
-        device.clone(),
+        command_buffer_allocator,
         queue.queue_family_index(),
         CommandBufferUsage::OneTimeSubmit,
     )

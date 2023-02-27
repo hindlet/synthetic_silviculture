@@ -1,11 +1,11 @@
 #![allow(unused_variables, unused_imports)]
 
 use std::sync::Arc;
-
+use bevy_ecs::prelude::*;
 use vulkano::{
     VulkanLibrary,
     instance::{Instance, InstanceCreateInfo},
-    device::{Device, DeviceExtensions, DeviceCreateInfo, physical::{PhysicalDevice, PhysicalDeviceType}, Queue, QueueCreateInfo},
+    device::{Device, DeviceExtensions, DeviceCreateInfo, physical::{PhysicalDevice, PhysicalDeviceType}, Queue, QueueCreateInfo, DeviceOwned},
     swapchain::{Surface, Swapchain, SwapchainCreateInfo},
     shader::ShaderModule,
     render_pass::{RenderPass, Framebuffer, FramebufferCreateInfo, Subpass},
@@ -17,6 +17,7 @@ use vulkano::{
     impl_vertex, buffer::BufferContents,
     buffer::{CpuAccessibleBuffer, cpu_pool::CpuBufferPoolSubbuffer, TypedBufferAccess},
     command_buffer::{PrimaryAutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents},
+    memory::allocator::StandardMemoryAllocator,
 };
 use vulkano_win::VkSurfaceBuild;
 use winit::window::{WindowBuilder, Window};
@@ -24,6 +25,7 @@ use winit::event_loop::EventLoop;
 use bytemuck::{Pod, Zeroable};
 use crate::graphics::camera_maths::Camera;
 use crate::general::matrix_four::Matrix4;
+use crate::general::matrix_three::Matrix3;
 
 
 
@@ -53,8 +55,9 @@ pub fn base_setup() -> (
     Arc<Queue>,
     Arc<Device>,
     Arc<PhysicalDevice>,
-    Arc<Surface<Window>>,
+    Arc<Surface>,
     EventLoop<()>,
+    Arc<StandardMemoryAllocator>,
 ) {
     // get the library and create a vulkan instance with required extensions
     let library = vulkano::VulkanLibrary::new().expect("no local Vulkan library/DLL");
@@ -100,13 +103,15 @@ pub fn base_setup() -> (
 
     let queue = queues.next().unwrap();
 
-    (queue, device, physical_device, surface, event_loop)
+    let allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
+
+    (queue, device, physical_device, surface, event_loop, allocator)
 }
 
 // loops through all devices and finds one with required extensions if it exists
 fn get_physical_device (
     instance: &Arc<Instance>,
-    surface: &Arc<Surface<Window>>,
+    surface: &Arc<Surface>,
     device_extensions: &DeviceExtensions,
 ) -> (Arc<PhysicalDevice>, u32) {
 
@@ -138,14 +143,14 @@ fn get_physical_device (
 
 pub fn get_swapchain(
     physical_device: &Arc<PhysicalDevice>,
-    surface: &Arc<Surface<Window>>,
+    surface: &Arc<Surface>,
     device: &Arc<Device>
-) -> (Arc<Swapchain<Window>>, Vec<Arc<SwapchainImage<Window>>>){
+) -> (Arc<Swapchain>, Vec<Arc<SwapchainImage>>){
     let caps = physical_device
         .surface_capabilities(&surface, Default::default())
         .expect("failed to get surface capabilities");
 
-    let dimensions = surface.window().inner_size();
+    let dimensions = surface.object().unwrap().downcast_ref::<Window>().unwrap().inner_size();
     let composite_alpha = caps.supported_composite_alpha.iter().next().unwrap();
     let image_format = Some(
         physical_device
@@ -172,7 +177,7 @@ pub fn get_swapchain(
         SwapchainCreateInfo {
             min_image_count: surface_capabilities.min_image_count,
             image_format,
-            image_extent: surface.window().inner_size().into(),
+            image_extent: dimensions.into(),
             image_usage: ImageUsage {
                 color_attachment: true,
                 ..ImageUsage::empty()
@@ -191,7 +196,7 @@ pub fn get_swapchain(
 
 pub fn get_renderpass (
     device: &Arc<Device>,
-    swapchain: &Arc<Swapchain<Window>>,
+    swapchain: &Arc<Swapchain>,
 ) -> Arc<RenderPass> {
 
     vulkano::single_pass_renderpass!(device.clone(),
@@ -218,16 +223,16 @@ pub fn get_renderpass (
 
 
 pub fn window_size_dependent_setup(
-    device: &Arc<Device>,
+    memory_allocator: &StandardMemoryAllocator,
     vs: &ShaderModule,
     fs: &ShaderModule,
-    images: &[Arc<SwapchainImage<Window>>],
+    images: &[Arc<SwapchainImage>],
     render_pass: &Arc<RenderPass>,
 ) -> (Arc<GraphicsPipeline>, Vec<Arc<Framebuffer>>) {
     let dimensions = images[0].dimensions().width_height();
 
     let depth_buffer = ImageView::new_default(
-        AttachmentImage::transient(device.clone(), dimensions, Format::D16_UNORM).unwrap(),
+        AttachmentImage::transient(memory_allocator, dimensions, Format::D16_UNORM).unwrap(),
     )
     .unwrap();
 
@@ -264,7 +269,7 @@ pub fn window_size_dependent_setup(
         .fragment_shader(fs.entry_point("main").unwrap(), ())
         .depth_stencil_state(DepthStencilState::simple_depth_test())
         .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-        .build(device.clone())
+        .build(memory_allocator.device().clone())
         .unwrap();
 
     (pipeline, framebuffers)
@@ -272,7 +277,7 @@ pub fn window_size_dependent_setup(
 
 
 pub fn get_generic_uniforms(
-    swapchain: &Arc<Swapchain<Window>>,
+    swapchain: &Arc<Swapchain>,
     camera: &Camera,
 ) -> (Matrix4, Matrix4){
     
@@ -285,9 +290,31 @@ pub fn get_generic_uniforms(
         100.0,
     );
 
-    let scale = Matrix4::from_scale(1.0);
+    let scale = Matrix4::from(Matrix3::from_scale(1.0));
 
     (scale * camera.get_view_matrix(), proj)
+}
+
+
+#[derive(Resource)]
+pub struct GraphicsResources {
+    queue: Arc<Queue>,
+    device: Arc<Device>,
+    physical_device: Arc<PhysicalDevice>,
+    surface: Arc<Surface>,
+}
+
+
+pub fn add_world_graphics_resources(
+    world: &mut World,
+    queue: Arc<Queue>,
+    device: Arc<Device>,
+    physical_device: Arc<PhysicalDevice>,
+    surface: Arc<Surface>,
+) {
+    world.insert_resource(GraphicsResources {
+        queue, device, physical_device, surface
+    })
 }
 
 

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use crate::vector_four::Vector4;
 use crate::matrix_three::Matrix3;
+use crate::vector_three::Vector3;
 use std::ops::*;
 
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
@@ -30,15 +31,7 @@ impl Matrix4 {
         Self {x, y, z, w}
     }
 
-    pub fn from_scale(scale: f32) -> Self{
-        Matrix4::new(
-            scale, 0.0, 0.0, 0.0,
-            0.0, scale, 0.0, 0.0,
-            0.0, 0.0, scale, 0.0,
-            0.0, 0.0, 0.0, 1.0
-        )
-    }
-
+    /// creates a perspective matrix for the specified settings, based on the opengl implementation
     pub fn persective_matrix(fovy: f32, aspect: f32, znear: f32, zfar: f32) -> Self {
         let f = 1.0 / (fovy / 2.0).tan();
         Matrix4::new(
@@ -48,6 +41,11 @@ impl Matrix4 {
             0.0, 0.0, (2.0 * zfar * znear) / (znear - zfar), 0.0
         )
     }
+
+    // /// creates a view matrix for the given position and direction
+    // pub fn view_matrix(view_dir: Vector3, view_pos: Vector3) -> Self {
+
+    // }
 
 }
 

@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use crate::vector_two::Vector2;
+use crate::matrix_three::Matrix3;
 use std::ops::*;
 use std::cmp::Ordering;
 
@@ -30,11 +31,29 @@ impl Vector3 {
     }
 
     #[allow(non_snake_case)]
-    pub fn UP() -> Self {
+    pub fn Y() -> Self {
         Self {
             x: 0.0,
             y: 1.0,
             z: 0.0
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub fn X() -> Self {
+        Self {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub fn Z() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 1.0
         }
     }
     
@@ -130,6 +149,13 @@ impl Vector3 {
                 z: 0.0,
             }
         ]
+    }
+
+    pub fn transform(&mut self, transform: Matrix3) -> Self {
+        self.x = self.x * transform.x.x + self.y * transform.x.y + self.z * transform.x.z;
+        self.y = self.x * transform.y.x + self.y * transform.y.y + self.z * transform.y.z;
+        self.z = self.x * transform.z.x + self.y * transform.z.y + self.z * transform.z.z;
+        *self
     }
 
     pub fn xy(&self) -> Vector2 {

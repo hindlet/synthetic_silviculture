@@ -3,6 +3,7 @@ use winit::event::VirtualKeyCode;
 use crate::vector_three::{Vector3, cross};
 use crate::vector_two::Vector2;
 use crate::matrix_four::Matrix4;
+use crate::matrix_three::Matrix3;
 
 
 #[derive(Component)]
@@ -119,12 +120,12 @@ impl Camera {
         // outer product
         // rotate
         if self.movement[6] {
-            let spin_around_up = Vector3::get_rotate_matrix(self.up, self.rotate_speed);
-            self.direction.rotate_vector(spin_around_up);
+            let rotation = Matrix3::from_angle_and_axis(self.rotate_speed, self.up);
+            self.direction.transform(rotation);
         }
         if self.movement[7] {
-            let spin_around_up = Vector3::get_rotate_matrix(self.up, -self.rotate_speed);
-            self.direction.rotate_vector(spin_around_up);
+            let rotation = Matrix3::from_angle_and_axis(-self.rotate_speed, self.up);
+            self.direction.transform(rotation);
         }
 
         // spin around left
@@ -132,51 +133,13 @@ impl Camera {
         left.normalise();
         // rotate
         if self.movement[8] {
-            let spin_around_left = Vector3::get_rotate_matrix(left, self.rotate_speed);
-            self.direction.rotate_vector(spin_around_left);
+            let rotation = Matrix3::from_angle_and_axis(self.rotate_speed, left);
+            self.direction.transform(rotation);
         }
         if self.movement[9] {
-            let spin_around_left = Vector3::get_rotate_matrix(left, -self.rotate_speed);
-            self.direction.rotate_vector(spin_around_left);
+            let rotation = Matrix3::from_angle_and_axis(-self.rotate_speed, left);
+            self.direction.transform(rotation);
         }
     }
 }
-
-
-
-
-
-impl Vector3 {
-
-    fn get_rotate_matrix(axis: Vector3, angle: f32) -> [Vector3; 3] {
-        let cos = angle.cos();
-        let sin = angle.sin();
-        [
-            Vector3::from(
-                cos + axis.x.powi(2) * (1.0 - cos),
-                axis.x * axis.y * (1.0 - cos) - axis.z * sin,
-                axis.x * axis.z * (1.0 - cos) + axis.y * sin,
-            ),
-            Vector3::from(
-                axis.y * axis.x * (1.0 - cos) + axis.z * sin,
-                cos + axis.y.powi(2) * (1.0 - cos),
-                axis.y * axis.z * (1.0 - cos) - axis.x * sin,
-            ),
-            Vector3::from(
-                axis.z * axis.x * (1.0 - cos) - axis.y * sin,
-                axis.z * axis.y * (1.0 - cos) + axis.x * sin,
-                cos + axis.z.powi(2) * (1.0 - cos),
-            )
-        ]
-    }
-
-    /// R = Cos(theta)I + sin(theta)Unit_Vector_Cross + (1-cos(theta))Outer_Product
-    fn rotate_vector(&mut self, around: [Vector3; 3]) {
-        self.x = self.x*around[0].x + self.y*around[0].y + self.z*around[0].z;
-        self.y = self.x*around[1].x + self.y*around[1].y + self.z*around[1].z;
-        self.z = self.x*around[2].x + self.y*around[2].y + self.z*around[2].z;
-    }
-}
-
-
 
