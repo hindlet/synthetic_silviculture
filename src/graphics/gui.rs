@@ -14,7 +14,8 @@ use bevy_ecs::prelude::*;
 pub struct GUIData {
     pub name: String,
     pub bools: Vec<(String, bool)>,
-    pub sliders: Vec<(String, f32, RangeInclusive<f32>)>,
+    pub f32_sliders: Vec<(String, f32, RangeInclusive<f32>)>,
+    pub i32_sliders: Vec<(String, i32, RangeInclusive<i32>)>,
 }
 
 impl GUIData {
@@ -27,7 +28,12 @@ impl GUIData {
 
             ui.separator();
 
-            for slider in self.sliders.iter_mut() {
+            for slider in self.f32_sliders.iter_mut() {
+                ui.add(Label::new(slider.0.clone()));
+                ui.add(Slider::new(&mut slider.1, slider.2.clone()));
+            }
+
+            for slider in self.i32_sliders.iter_mut() {
                 ui.add(Label::new(slider.0.clone()));
                 ui.add(Slider::new(&mut slider.1, slider.2.clone()));
             }
@@ -41,7 +47,8 @@ impl Default for GUIData {
         GUIData {
             name: "".to_string(),
             bools: Vec::new(),
-            sliders: Vec::new()
+            f32_sliders: Vec::new(),
+            i32_sliders: Vec::new(),
         }
     }
 }
@@ -120,7 +127,7 @@ pub fn get_gui_commands(
 /// 
 #[derive(Resource)]
 pub struct GUIResources {
-    gui: Gui,
+    pub gui: Gui,
 }
 
 

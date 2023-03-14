@@ -3,6 +3,7 @@ use synthetic_silviculture::general::{matrix_three::Matrix3, matrix_four::Matrix
 
 use vulkano::buffer::{CpuAccessibleBuffer, BufferUsage, CpuBufferPool, cpu_pool::CpuBufferPoolSubbuffer, TypedBufferAccess};
 use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
+use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
 use vulkano::swapchain::{SwapchainCreationError, SwapchainCreateInfo, acquire_next_image, AcquireError, Swapchain, SwapchainPresentInfo};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer, CommandBufferUsage, RenderPassBeginInfo, SubpassContents};
 use vulkano::device::Queue;
@@ -45,7 +46,7 @@ mod fs {
 
 
 fn main() {
-    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_setup();
+    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup();
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
     let render_pass = get_renderpass(&device, &swapchain);
     
@@ -93,13 +94,17 @@ fn main() {
     let vs = vs::load(device.clone()).unwrap();
     let fs = fs::load(device.clone()).unwrap();
 
+    let buffers_defintion = BuffersDefinition::new()
+        .vertex::<ColouredVertex>()
+        .vertex::<Normal>();
 
-    let (mut pipeline, mut framebuffers) = window_size_dependent_setup(&memory_allocator, &vs, &fs, &swapchain_images, &render_pass);
+    let (mut pipeline, mut framebuffers) = window_size_dependent_setup(&memory_allocator, &vs, &fs, &swapchain_images, &render_pass, buffers_defintion);
     let mut camera = Camera {
-        position: Vector3::from(3.0, 1.0, 3.0),
+        position: Vector3::new(3.0, 1.0, 3.0),
+        move_speed: 0.1,
         ..Default::default()
     };
-    camera.look_at(Vector3::from(0.0, 0.0, 0.0));
+    camera.look_at(Vector3::new(0.0, 0.0, 0.0));
 
     println!("Camera_controls:\nW/S: forward/back\nA/D: left/right\nSpace/C: up/down\nQ/E: rotate right/left\nR/F: rotate up/down");
 
@@ -173,7 +178,10 @@ fn main() {
                     swapchain = new_swapchain;
                     
                     // get a new pipeline and framebuffers
-                    let (new_pipeline, new_framebuffers) = window_size_dependent_setup(&memory_allocator, &vs, &fs, &new_swapchain_images, &render_pass);
+                    let buffers_defintion = BuffersDefinition::new()
+                        .vertex::<ColouredVertex>()
+                        .vertex::<Normal>();
+                    let (new_pipeline, new_framebuffers) = window_size_dependent_setup(&memory_allocator, &vs, &fs, &new_swapchain_images, &render_pass, buffers_defintion);
                     pipeline = new_pipeline;
                     framebuffers = new_framebuffers;
 
@@ -267,7 +275,7 @@ fn get_command_buffers(
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
     framebuffers: &Vec<Arc<Framebuffer>>,
-    vertex_buffer: &Arc<CpuAccessibleBuffer<[Vertex]>>,
+    vertex_buffer: &Arc<CpuAccessibleBuffer<[ColouredVertex]>>,
     normal_buffer: &Arc<CpuAccessibleBuffer<[Normal]>>,
     index_buffer: &Arc<CpuAccessibleBuffer<[u16]>>,
     uniform_buffer_subbuffer: &Arc<CpuBufferPoolSubbuffer<vs::ty::Data>>,

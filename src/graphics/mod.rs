@@ -3,6 +3,7 @@
 pub mod camera_maths;
 pub mod general_graphics;
 pub mod test_cube;
-mod branch_graphics;
+pub mod branch_graphics;
 pub mod gui;
+pub mod branch_mesh_gen;
 use crate::{branch, branch_node, general::vector_three};

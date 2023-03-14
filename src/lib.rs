@@ -1,12 +1,12 @@
 #![allow(unused_imports)]
 
-mod branch;
+pub mod branch;
 use branch::*;
 
 mod branch_prototypes;
 use branch_prototypes::*;
 
-mod plant;
+pub mod plant;
 use plant::*;
 
 mod tests;
@@ -16,8 +16,7 @@ use general::*;
 
 pub mod graphics;
 
-mod branch_node;
+pub mod branch_node;
 use branch_node::*;
 
 mod transform;
-use transform::*;

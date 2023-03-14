@@ -1,16 +1,16 @@
 use bytemuck::{Pod, Zeroable};
-use crate::graphics::general_graphics::{Vertex, Normal};
+use crate::graphics::general_graphics::{ColouredVertex, Normal};
 
 
-pub const VERTICES: [Vertex; 8] = [
-    Vertex {position: [-0.5, -0.5, -0.5], color: [0.84, 0.01, 0.44]},
-    Vertex {position: [0.5, -0.5, -0.5], color: [0.61, 0.31, 0.59]},
-    Vertex {position: [-0.5, -0.5, 0.5], color: [0.61, 0.31, 0.59]},
-    Vertex {position: [0.5, -0.5, 0.5], color: [0.0, 0.22, 0.66]},
-    Vertex {position: [-0.5, 0.5, -0.5], color: [0.84, 0.01, 0.44]},
-    Vertex {position: [0.5, 0.5, -0.5], color: [0.61, 0.31, 0.59]},
-    Vertex {position: [-0.5, 0.5, 0.5], color: [0.61, 0.31, 0.59]},
-    Vertex {position: [0.5, 0.5, 0.5], color: [0.0, 0.22, 0.66]}
+pub const VERTICES: [ColouredVertex; 8] = [
+    ColouredVertex {position: [-0.5, -0.5, -0.5], color: [0.84, 0.01, 0.44]},
+    ColouredVertex {position: [0.5, -0.5, -0.5], color: [0.61, 0.31, 0.59]},
+    ColouredVertex {position: [-0.5, -0.5, 0.5], color: [0.61, 0.31, 0.59]},
+    ColouredVertex {position: [0.5, -0.5, 0.5], color: [0.0, 0.22, 0.66]},
+    ColouredVertex {position: [-0.5, 0.5, -0.5], color: [0.84, 0.01, 0.44]},
+    ColouredVertex {position: [0.5, 0.5, -0.5], color: [0.61, 0.31, 0.59]},
+    ColouredVertex {position: [-0.5, 0.5, 0.5], color: [0.61, 0.31, 0.59]},
+    ColouredVertex {position: [0.5, 0.5, 0.5], color: [0.0, 0.22, 0.66]}
 ];
 
 

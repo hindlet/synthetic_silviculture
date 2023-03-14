@@ -66,14 +66,6 @@ impl Vector3 {
         }
     }
 
-    pub fn from(x: f32, y: f32, z: f32) -> Self {
-        Vector3 {
-            x,
-            y,
-            z,
-        }
-    }
-
     pub fn up() -> Vector3 {
         Vector3 {
             x: 0.0,
@@ -103,7 +95,7 @@ impl Vector3 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
     }
 
-    pub fn cross(&self, rhs: Vector3) -> Vector3 {
+    pub fn cross(&self, rhs: &Vector3) -> Vector3 {
         Vector3 {
             x: self.y * rhs.z - self.z * rhs.y,
             y: self.z * rhs.x - self.x * rhs.z,
@@ -151,10 +143,15 @@ impl Vector3 {
         ]
     }
 
+    pub fn angle_to(&self, rhs: &Vector3) -> f32 {
+        return (self.dot(rhs)/(self.magnitude() * rhs.magnitude())).acos();
+    }
+
     pub fn transform(&mut self, transform: Matrix3) -> Self {
-        self.x = self.x * transform.x.x + self.y * transform.x.y + self.z * transform.x.z;
-        self.y = self.x * transform.y.x + self.y * transform.y.y + self.z * transform.y.z;
-        self.z = self.x * transform.z.x + self.y * transform.z.y + self.z * transform.z.z;
+        let (x, y, z) = (self.x, self.y, self.z); 
+        self.x = x * transform.x.x + y * transform.x.y + z * transform.x.z;
+        self.y = x * transform.y.x + y * transform.y.y + z * transform.y.z;
+        self.z = x * transform.z.x + y * transform.z.y + z * transform.z.z;
         *self
     }
 
@@ -174,6 +171,12 @@ impl Vector3 {
 impl Into<[f32; 3]> for Vector3 {
     fn into(self) -> [f32; 3] {
         [self.x, self.y, self.z]
+    }
+}
+
+impl From<[f32; 3]> for Vector3 {
+    fn from(value: [f32; 3]) -> Self {
+        Vector3::new(value[0], value[1], value[2])
     }
 }
 

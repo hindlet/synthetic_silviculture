@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
 use crate::{
-    vector_three::Vector3,
+    vector_three::Vector3, graphics::general_graphics::Vertex,
 };
 
 #[derive(Component)]
@@ -9,11 +9,11 @@ pub struct BranchNodeTag;
 
 #[derive(Component)]
 pub struct BranchNodeData {
-    position: Vector3,
-    phys_age: f32,
+    pub position: Vector3,
+    pub phys_age: f32,
     // node_type: Option<BranchNodeType>, // will only be used if the node is a special type, no need otherwise
-    branch_length: f32, // length of the branch this node is on the end of, will figure out why it's used
-    thickness: f32,
+    pub branch_length: f32, // length of the branch this node is on the end of, will figure out why it's used
+    pub thickness: f32,
 }
 
 #[derive(Component)]
@@ -30,9 +30,9 @@ pub struct BranchNodeConnectionData {
 
 #[derive(Bundle)]
 pub struct BranchNodeBundle {
-    tag: BranchNodeTag,
-    data: BranchNodeData,
-    connections: BranchNodeConnectionData,
+    pub tag: BranchNodeTag,
+    pub data: BranchNodeData,
+    pub connections: BranchNodeConnectionData,
 }
 
 
@@ -149,4 +149,39 @@ pub fn get_terminal_nodes(
     }
 
     list
+}
+
+pub fn get_node_data_and_connections_base_to_tip(
+    connections_query: &Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
+    nodes_query: &Query<&BranchNodeData, With<BranchNodeTag>>,
+    root_node: Entity,
+) -> (Vec<Vector3>, Vec<f32>, Vec<(usize, usize)>) {
+
+    let mut nodes: Vec<Entity> = vec![root_node];
+    let mut connections: Vec<(usize, usize)> = Vec::new();
+
+    let mut i = 0;
+    loop {
+        if i >= nodes.len() {break;}
+        if let Ok(node_connections) = connections_query.get(nodes[i]) {
+            for child_node_id in node_connections.children.iter() {
+                nodes.push(*child_node_id);
+                connections.push((i, nodes.len() - 1));
+            }
+        }
+        i += 1;
+    }
+
+    let mut positions: Vec<Vector3> = Vec::new();
+    let mut thicknesses: Vec<f32> = Vec::new();
+    for id in nodes.iter() {
+        if let Ok(node_data) = nodes_query.get(*id) {
+            positions.push(node_data.position);
+            thicknesses.push(node_data.thickness);
+        } else {
+            panic!("oh god oh why")
+        }
+    }
+    
+    (positions, thicknesses, connections)
 }

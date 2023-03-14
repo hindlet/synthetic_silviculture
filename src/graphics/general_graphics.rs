@@ -9,7 +9,7 @@ use vulkano::{
     swapchain::{Surface, Swapchain, SwapchainCreateInfo},
     shader::ShaderModule,
     render_pass::{RenderPass, Framebuffer, FramebufferCreateInfo, Subpass},
-    image::{SwapchainImage, ImageAccess, view::ImageView, AttachmentImage, ImageUsage},
+    image::{SwapchainImage, ImageAccess, view::ImageView, AttachmentImage, ImageUsage, swapchain},
     format::Format,
     pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint,
     graphics::{depth_stencil::DepthStencilState, viewport::{Viewport, ViewportState}, input_assembly::InputAssemblyState, vertex_input::BuffersDefinition}
@@ -20,12 +20,13 @@ use vulkano::{
     memory::allocator::StandardMemoryAllocator,
 };
 use vulkano_win::VkSurfaceBuild;
-use winit::window::{WindowBuilder, Window};
+use winit::{window::{WindowBuilder, Window}, event::VirtualKeyCode};
 use winit::event_loop::EventLoop;
 use bytemuck::{Pod, Zeroable};
-use crate::graphics::camera_maths::Camera;
+use crate::{graphics::camera_maths::Camera, general::vector_three::Vector3};
 use crate::general::matrix_four::Matrix4;
 use crate::general::matrix_three::Matrix3;
+use crate::graphics::gui::{GUIResources, create_gui_subpass};
 
 
 
@@ -33,11 +34,18 @@ use crate::general::matrix_three::Matrix3;
 // define Vertex and Normal Structs
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
-pub struct Vertex {
+pub struct ColouredVertex {
     pub position: [f32; 3],
     pub color: [f32; 3],
 }
-impl_vertex!(Vertex, position, color);
+impl_vertex!(ColouredVertex, position, color);
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
+pub struct Vertex {
+    pub position: [f32; 3],
+}
+impl_vertex!(Vertex, position);
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
@@ -51,7 +59,7 @@ impl_vertex!(Normal, normal);
 
 
 // returns the basic things needed for graphics processing
-pub fn base_setup() -> (
+pub fn base_graphics_setup() -> (
     Arc<Queue>,
     Arc<Device>,
     Arc<PhysicalDevice>,
@@ -228,6 +236,7 @@ pub fn window_size_dependent_setup(
     fs: &ShaderModule,
     images: &[Arc<SwapchainImage>],
     render_pass: &Arc<RenderPass>,
+    buffers_def: BuffersDefinition,
 ) -> (Arc<GraphicsPipeline>, Vec<Arc<Framebuffer>>) {
     let dimensions = images[0].dimensions().width_height();
 
@@ -251,11 +260,10 @@ pub fn window_size_dependent_setup(
         })
         .collect::<Vec<_>>();
 
+
     let pipeline = GraphicsPipeline::start()
         .vertex_input_state(
-            BuffersDefinition::new()
-                .vertex::<Vertex>()
-                .vertex::<Normal>()
+            buffers_def
         )
         .vertex_shader(vs.entry_point("main").unwrap(), ())
         .input_assembly_state(InputAssemblyState::new())
@@ -295,98 +303,3 @@ pub fn get_generic_uniforms(
     (scale * camera.get_view_matrix(), proj)
 }
 
-
-#[derive(Resource)]
-pub struct GraphicsResources {
-    queue: Arc<Queue>,
-    device: Arc<Device>,
-    physical_device: Arc<PhysicalDevice>,
-    surface: Arc<Surface>,
-}
-
-
-pub fn add_world_graphics_resources(
-    world: &mut World,
-    queue: Arc<Queue>,
-    device: Arc<Device>,
-    physical_device: Arc<PhysicalDevice>,
-    surface: Arc<Surface>,
-) {
-    world.insert_resource(GraphicsResources {
-        queue, device, physical_device, surface
-    })
-}
-
-
-
-
-
-// was trying something, it didn't work but when i wanna try again it's here
-
-
-// #[macro_export]
-// macro_rules! build_command_buffer_creation_function {
-
-//     ($name:tt, $uniform_buffer_type:ty) => {
-//         use std::sync::Arc;
-//         use vulkano::{
-//             device::{Device, Queue},
-//             pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint},
-//             render_pass::Framebuffer,
-//             buffer::{CpuAccessibleBuffer, cpu_pool::CpuBufferPoolSubbuffer, TypedBufferAccess},
-//             command_buffer::{PrimaryAutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents},
-//             memory::pool::StandardMemoryPool,
-//             descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
-//         };
-
-//         fn $name(
-//             device: &Arc<Device>,
-//             queue: &Arc<Queue>,
-//             pipeline: &Arc<GraphicsPipeline>,
-//             framebuffers: &Vec<Arc<Framebuffer>>,
-//             vertex_buffer: &Arc<CpuAccessibleBuffer<[Vertex]>>,
-//             uniform_buffer_subbuffer: &Arc<CpuBufferPoolSubbuffer<&$uniform_buffer_type, Arc<StandardMemoryPool>>>,
-//             image_num: usize
-//         ) -> PrimaryAutoCommandBuffer{
-
-//             let layout = pipeline.layout().set_layouts().get(0).unwrap();
-//             let set = PersistentDescriptorSet::new(
-//                 layout.clone(),
-//                 [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer.clone())],
-//             )
-//             .unwrap();
-
-//             let mut builder = AutoCommandBufferBuilder::primary(
-//                 device.clone(),
-//                 queue.queue_family_index(),
-//                 CommandBufferUsage::OneTimeSubmit,
-//             )
-//             .unwrap();
-//             builder
-//                 .begin_render_pass(
-//                     RenderPassBeginInfo {
-//                         clear_values: vec![
-//                             Some([0.0, 0.0, 1.0, 1.0].into()),
-//                             Some(1f32.into()),
-//                         ],
-//                         ..RenderPassBeginInfo::framebuffer(framebuffers[image_num].clone())
-//                     },
-//                     SubpassContents::Inline,
-//                 )
-//                 .unwrap()
-//                 .bind_pipeline_graphics(pipeline.clone())
-//                 .bind_descriptor_sets(
-//                     PipelineBindPoint::Graphics,
-//                     pipeline.layout().clone(),
-//                     0,
-//                     set,
-//                 )
-//                 .bind_vertex_buffers(0, vertex_buffer.clone())
-//                 .draw(vertex_buffer.len() as u32, 1, 0, 0)
-//                 .unwrap()
-//                 .end_render_pass()
-//                 .unwrap();
-//             builder.build().unwrap()
-//         }
-//     };
-// }

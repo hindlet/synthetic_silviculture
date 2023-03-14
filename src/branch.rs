@@ -6,7 +6,7 @@ use crate::{
     transform::Transform,
     bounding_sphere::BoundingSphere,
     branch_node::{BranchNodeData, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip},
-    branch_prototypes::{BranchPrototypeRef}
+    branch_prototypes::{BranchPrototypeRef}, graphics::branch_mesh_gen::BranchMesh
 };
 
 
@@ -48,6 +48,7 @@ pub struct BranchBundle {
     pub data: BranchData,
     pub growth_data: BranchGrowthData,
     pub connections: BranchConnectionData,
+    pub mesh: BranchMesh,
 }
 
 #[derive(Component)]
@@ -77,6 +78,7 @@ impl Default for BranchBundle {
             data: BranchData::default(),
             growth_data: BranchGrowthData::default(),
             connections: BranchConnectionData::default(),
+            mesh: BranchMesh::empty(),
         }
     }
 }
