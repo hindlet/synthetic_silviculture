@@ -116,6 +116,28 @@ pub fn create_gui_subpass(
     gui
 }
 
+pub fn create_gui_from_subpass(
+    event_loop: &EventLoop<()>,
+    surface: &Arc<Surface>,
+    queue: &Arc<Queue>,
+    subpass: &Subpass,
+) -> Gui{
+    let gui = Gui::new_with_subpass(
+        event_loop,
+        surface.clone(),
+        queue.clone(),
+        subpass.clone(),
+        GuiConfig {
+            preferred_format: Some(vulkano::format::Format::B8G8R8A8_SRGB),
+            // Must match your pipeline's sample count
+            samples: SampleCount::Sample4,
+            ..Default::default()
+        },
+    );
+    set_gui_style(&gui.context());
+    gui
+}
+
 pub fn get_gui_commands(
     gui: &mut Gui,
     dimensions: [u32; 2]

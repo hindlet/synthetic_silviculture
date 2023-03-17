@@ -1,7 +1,7 @@
 use std::{f32::consts::PI, ops::AddAssign};
 
 use crate::{general::{vector_three::{self, Vector3}, matrix_three::Matrix3}, plant::{PlantData, PlantTag}, branch::{BranchTag, BranchConnectionData, BranchData, get_branches_base_to_tip}, branch_node::{BranchNodeConnectionData, BranchNodeTag, get_node_data_and_connections_base_to_tip, BranchNodeData}};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemState};
 
 use super::{general_graphics::{Vertex, Normal}, branch_graphics::BranchGraphicsResources};
 
@@ -83,7 +83,44 @@ pub fn update_next_mesh(
             return;
         } else {queue.0.remove(0);}
     }
+}
 
+
+pub fn check_for_force_update(
+    queue_qry: Query<&MeshUpdateQueue>,
+    plants_query: Query<&PlantData, With<PlantTag>>,
+    branch_data: Query<&BranchData, With<BranchTag>>,
+    mut branch_meshes: Query<&mut BranchMesh, With<BranchTag>>,
+    branch_connections: Query<&BranchConnectionData, With<BranchTag>>,
+    node_connections: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
+    node_data: Query<&BranchNodeData, With<BranchNodeTag>>,
+    branch_graphics_res: Res<BranchGraphicsResources>,
+) {
+    if branch_graphics_res.is_changed() {
+        force_update_all_meshes(&queue_qry, &plants_query, &branch_data, &mut branch_meshes, &branch_connections, &node_connections, &node_data, &branch_graphics_res)
+    }
+}
+
+/// forcibly updates all the meshes, will be very slow with large numbers of meshes (I think)
+fn force_update_all_meshes(
+    queue_qry: &Query<&MeshUpdateQueue>,
+    plants_query: &Query<&PlantData, With<PlantTag>>,
+    branch_data: &Query<&BranchData, With<BranchTag>>,
+    mut branch_meshes: &mut Query<&mut BranchMesh, With<BranchTag>>,
+    branch_connections: &Query<&BranchConnectionData, With<BranchTag>>,
+    node_connections: &Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
+    node_data: &Query<&BranchNodeData, With<BranchNodeTag>>,
+    branch_graphics_res: &Res<BranchGraphicsResources>,
+) {
+    let queue = queue_qry.single();
+    let polygons = &branch_graphics_res.polygon_vectors;
+
+    for id in queue.0.iter() {
+        if let Ok(plant) = plants_query.get(*id) {
+            if plant.root_node.is_none() {continue;}
+            update_plant_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, get_branches_base_to_tip(&branch_connections, plant.root_node.unwrap()), polygons);
+        }
+    }
 }
 
 

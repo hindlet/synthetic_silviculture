@@ -1,14 +1,19 @@
+use std::sync::Arc;
+
 use synthetic_silviculture::branch::{BranchBundle, BranchData};
-use synthetic_silviculture::graphics::branch_mesh_gen::{MeshUpdateQueue, update_next_mesh};
+use synthetic_silviculture::graphics::branch_mesh_gen::{MeshUpdateQueue, update_next_mesh, check_for_force_update};
 use synthetic_silviculture::general::vector_three::Vector3;
 use synthetic_silviculture::graphics::camera_maths::Camera;
 use synthetic_silviculture::graphics::{branch_graphics::*, gui::*, general_graphics::*};
 use synthetic_silviculture::plant::{PlantBundle, PlantData};
 use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
-use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents};
+use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents, CommandBufferInheritanceInfo};
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
+use vulkano::device::Device;
+use vulkano::format::Format;
 use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
-use vulkano::swapchain::{SwapchainCreateInfo, SwapchainCreationError, acquire_next_image, SwapchainPresentInfo, AcquireError};
+use vulkano::render_pass::{RenderPass, Subpass};
+use vulkano::swapchain::{acquire_next_image, SwapchainPresentInfo, AcquireError, Swapchain};
 use vulkano::sync::{self, GpuFuture};
 use vulkano::sync::FlushError;
 use winit::event::ElementState;
@@ -25,8 +30,6 @@ fn main() {
     let mut world = World::new();
 
     // add stuff to the world
-    add_world_branch_graphics_resources(&mut world);
-
     let node_5_id = world.spawn(BranchNodeBundle {
         data: BranchNodeData {
             position: Vector3::new(1.5, 4.5, -1.0),
@@ -85,11 +88,16 @@ fn main() {
         0: vec![plant]
     });
 
+    
+    
 
     // do all the shader stuff
     let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup();
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
-    let render_pass = get_renderpass(&device, &swapchain);
+    let render_pass = gui_and_branch_renderpass(&device, &swapchain);
+    let branch_subpass = Subpass::from(render_pass.clone(), 0).unwrap();
+    let gui_subpass = Subpass::from(render_pass.clone(), 1).unwrap();
+
 
     let mut camera = Camera{position: Vector3::X() * -10.0, ..Default::default()};
 
@@ -112,11 +120,34 @@ fn main() {
     let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone());
     let command_buffer_allocator = StandardCommandBufferAllocator::new(device.clone(), Default::default());
 
-    let mut startup_schedule = Schedule::default();
+    // gui
+    let gui = create_gui_from_subpass(&event_loop, &surface, &queue, &gui_subpass);
+    add_world_gui_resources(&mut world, gui);
+    add_world_branch_graphics_resources(&mut world);
+
+    // scheduling
     #[derive(StageLabel)]
     struct StartupStage;
+    #[derive(StageLabel)]
+    struct DrawStage;
+    #[derive(StageLabel)]
+    struct UpdateStage;
+
+    let mut startup_schedule = Schedule::default();
     startup_schedule.add_stage(StartupStage, SystemStage::parallel());
     startup_schedule.add_system_to_stage(StartupStage, update_next_mesh);
+    startup_schedule.add_system_to_stage(StartupStage, create_branch_resources_gui);
+
+    let mut gui_schedule = Schedule::default();
+    gui_schedule.add_stage(DrawStage, SystemStage::parallel());
+    gui_schedule.add_system_to_stage(DrawStage, draw_gui_objects);
+    gui_schedule.add_stage_after(DrawStage, UpdateStage, SystemStage::parallel());
+    gui_schedule.add_system_to_stage(UpdateStage, update_branch_resources);
+
+    let mut update_schedule = Schedule::default();
+    update_schedule.add_stage(UpdateStage, SystemStage::parallel());
+    update_schedule.add_system_to_stage(UpdateStage, check_for_force_update);
+
     
     startup_schedule.run_once(&mut world);
 
@@ -126,31 +157,29 @@ fn main() {
     event_loop.run(move |event, _, control_flow| {
         match event {
             
-            // close the window if needed
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => { *control_flow = ControlFlow::Exit; }
-
-            // recreate the swapchain if window resized
-            Event::WindowEvent {
-                event: WindowEvent::Resized(_),
-                ..
-            } => { recreate_swapchain = true }
-
-            // handle camera control
-            Event::WindowEvent {
-                event: WindowEvent::KeyboardInput {
-                    input:winit::event::KeyboardInput {
-                        virtual_keycode: Some(keycode),
-                        state,
-                        ..
-                    },
-                    .. 
-                },
-                ..
-            } => {
-                camera.process_key(keycode, state == ElementState::Pressed);
+            Event::WindowEvent { window_id: _, event } => {
+                // pass things to gui
+                let _pass_events_to_game = !pass_winit_event_to_gui(world.get_resource_mut::<GUIResources>(), &event);
+                // check for resize or close
+                match event {
+                    WindowEvent::Resized(_) => {
+                        recreate_swapchain = true
+                    }
+                    WindowEvent::CloseRequested => {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:winit::event::KeyboardInput {
+                            virtual_keycode: Some(keycode),
+                            state,
+                            ..
+                        },
+                        .. 
+                    } => {
+                        camera.process_key(keycode, state == ElementState::Pressed);
+                    }
+                    _ => (),
+                }
             }
 
             Event::MainEventsCleared => {
@@ -170,28 +199,23 @@ fn main() {
 
                 // reacreate swapchain if nessesary
                 if recreate_swapchain {
-                    // get a new swapchain and images
-                    let (new_swapchain, new_swapchain_images) = 
-                        match swapchain.recreate(SwapchainCreateInfo {
-                            image_extent: dimensions.into(),
-                            ..swapchain.create_info()
-                        }) {
-                            Ok(r) => r,
-                            Err(SwapchainCreationError::ImageExtentNotSupported { .. }) => return,
-                            Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
-                        };
-                    swapchain = new_swapchain;
-                    
-                    // get a new pipeline and framebuffers
-                    let buffers_defintion = BuffersDefinition::new()
-                        .vertex::<Vertex>()
-                        .vertex::<Normal>();
-                    let (new_pipeline, new_framebuffers) = window_size_dependent_setup(&memory_allocator, &vs, &fs, &new_swapchain_images, &render_pass, buffers_defintion);
-                    pipeline = new_pipeline;
-                    framebuffers = new_framebuffers;
 
-                    recreate_swapchain = false
+                    let buffers_defintion = BuffersDefinition::new()
+                    .vertex::<Vertex>()
+                    .vertex::<Normal>();
+
+                    if let Ok((new_swapchain, new_pipeline, new_framebuffers)) = recreate_swapchain_and_pipeline(swapchain.clone(), dimensions, &memory_allocator, &vs, &fs, &render_pass, buffers_defintion) {
+                        swapchain = new_swapchain;
+                        pipeline = new_pipeline;
+                        framebuffers = new_framebuffers;
+                        recreate_swapchain = false
+                    }
                 }
+
+                // gui
+                gui_schedule.run(&mut world);
+                // update
+                update_schedule.run(&mut world);
 
                 // get the image number and future for the next freame
                 let (image_num, suboptimal, acquire_future) =
@@ -208,8 +232,9 @@ fn main() {
                     recreate_swapchain = true;
                 }
 
-                // create uniform and command buffers for the frame  
+                // branch commands
                 let mut builder = AutoCommandBufferBuilder::primary(&command_buffer_allocator, queue.queue_family_index(), CommandBufferUsage::OneTimeSubmit).unwrap();
+
                 builder
                     .begin_render_pass(
                         RenderPassBeginInfo {
@@ -219,23 +244,37 @@ fn main() {
                             ],
                             ..RenderPassBeginInfo::framebuffer(framebuffers[image_num as usize].clone())
                         },
-                        SubpassContents::Inline,
+                        SubpassContents::SecondaryCommandBuffers,
                     )
                     .unwrap();
 
-                let branch_uniforms = update_branch_uniform_buffer(&swapchain, &camera, &branch_uniform_buffer);
+                let mut secondary_builder = AutoCommandBufferBuilder::secondary(
+                    &command_buffer_allocator,
+                    queue.queue_family_index(),
+                    CommandBufferUsage::MultipleSubmit,
+                    CommandBufferInheritanceInfo {
+                        render_pass: Some(branch_subpass.clone().into()),
+                        ..Default::default()
+                    },
+                ).unwrap();
                     
+                let branch_uniforms = update_branch_uniform_buffer(&swapchain, &camera, &branch_uniform_buffer);
+                add_branch_draw_commands(&mut secondary_builder, &pipeline, &descriptor_set_allocator, &branch_uniforms, &memory_allocator, &mut world);
+                
+                builder.execute_commands(secondary_builder.build().unwrap()).unwrap();
+                builder.next_subpass(SubpassContents::SecondaryCommandBuffers).unwrap();
 
-                add_branch_draw_commands(&mut builder, &pipeline, &descriptor_set_allocator, &branch_uniforms, &memory_allocator, &mut world);
-
-                builder.end_render_pass().unwrap();
-                let branch_commands = builder.build().unwrap();
+                // gui commands
+            
+                let gui_command_buffer = get_gui_resource_commands(world.get_resource_mut::<GUIResources>(), dimensions.into());
+                builder.execute_commands(gui_command_buffer).unwrap().end_render_pass().unwrap();
+                let draw_commands = builder.build().unwrap();
 
                 let future = previous_frame_end
                     .take()
                     .unwrap()
                     .join(acquire_future)
-                    .then_execute(queue.clone(), branch_commands)
+                    .then_execute(queue.clone(), draw_commands)
                     .unwrap()
                     .then_swapchain_present(
                         queue.clone(),
@@ -263,4 +302,32 @@ fn main() {
             _ => (),
         }
     })
+}
+
+
+fn gui_and_branch_renderpass(
+    device: &Arc<Device>,
+    swapchain: &Arc<Swapchain>,
+) -> Arc<RenderPass> {
+
+    vulkano::ordered_passes_renderpass!(device.clone(),
+        attachments: {
+            color: {
+                load: Clear,
+                store: Store,
+                format: swapchain.image_format(),
+                samples: 1,
+            },
+            depth: {
+                load: Clear,
+                store: DontCare,
+                format: Format::D16_UNORM,
+                samples: 1,
+            }
+        },
+        passes: [
+                { color: [color], depth_stencil: {depth}, input: [] }, // Draw what you want on this pass
+                { color: [color], depth_stencil: {depth}, input: [] } // Gui render pass
+            ]
+    ).unwrap()
 }

@@ -6,7 +6,7 @@ use vulkano::{
     VulkanLibrary,
     instance::{Instance, InstanceCreateInfo},
     device::{Device, DeviceExtensions, DeviceCreateInfo, physical::{PhysicalDevice, PhysicalDeviceType}, Queue, QueueCreateInfo, DeviceOwned},
-    swapchain::{Surface, Swapchain, SwapchainCreateInfo},
+    swapchain::{Surface, Swapchain, SwapchainCreateInfo, SwapchainCreationError},
     shader::ShaderModule,
     render_pass::{RenderPass, Framebuffer, FramebufferCreateInfo, Subpass},
     image::{SwapchainImage, ImageAccess, view::ImageView, AttachmentImage, ImageUsage, swapchain},
@@ -20,7 +20,7 @@ use vulkano::{
     memory::allocator::StandardMemoryAllocator,
 };
 use vulkano_win::VkSurfaceBuild;
-use winit::{window::{WindowBuilder, Window}, event::VirtualKeyCode};
+use winit::{window::{WindowBuilder, Window}, event::VirtualKeyCode, dpi::PhysicalSize};
 use winit::event_loop::EventLoop;
 use bytemuck::{Pod, Zeroable};
 use crate::{graphics::camera_maths::Camera, general::vector_three::Vector3};
@@ -201,8 +201,33 @@ pub fn get_swapchain(
     .unwrap()
 }
 
+pub fn recreate_swapchain_and_pipeline(
+    old_swapchain: Arc<Swapchain>,
+    dimensions: PhysicalSize<u32>,
+    memory_allocator: &StandardMemoryAllocator,
+    vs: &Arc<ShaderModule>,
+    fs: &Arc<ShaderModule>,
+    render_pass: &Arc<RenderPass>,
+    buffers_def: BuffersDefinition,
+) -> Result<(Arc<Swapchain>, Arc<GraphicsPipeline>, Vec<Arc<Framebuffer>>), ()> {
 
-pub fn get_renderpass (
+    let (new_swapchain, new_swapchain_images) = 
+        match old_swapchain.recreate(SwapchainCreateInfo {
+            image_extent: dimensions.into(),
+            ..old_swapchain.create_info()
+        }) {
+            Ok(r) => r,
+            Err(SwapchainCreationError::ImageExtentNotSupported { .. }) => return Err(()),
+            Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+        };
+    
+    // get a new pipeline and framebuffers
+    let (new_pipeline, new_framebuffers) = window_size_dependent_setup(memory_allocator, vs, fs, &new_swapchain_images, render_pass, buffers_def);
+    Ok((new_swapchain, new_pipeline, new_framebuffers))
+}
+
+
+pub fn get_single_renderpass (
     device: &Arc<Device>,
     swapchain: &Arc<Swapchain>,
 ) -> Arc<RenderPass> {

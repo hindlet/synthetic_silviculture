@@ -48,7 +48,7 @@ mod fs {
 fn main() {
     let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup();
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
-    let render_pass = get_renderpass(&device, &swapchain);
+    let render_pass = get_single_renderpass(&device, &swapchain);
     
 
     // create data buffers

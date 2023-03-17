@@ -220,7 +220,7 @@ fn get_plants_mesh_data(
 
 /// adds the commands to draw branches to the given builder
 pub fn add_branch_draw_commands(
-    builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+    builder: &mut AutoCommandBufferBuilder<SecondaryAutoCommandBuffer>,
     graph_pipeline: &Arc<GraphicsPipeline>,
     descriptor_allocator: &StandardDescriptorSetAllocator,
     uniform_buffer_subbuffer: &Arc<CpuBufferPoolSubbuffer<branch_vert_shader::ty::Data>>,

@@ -2,11 +2,13 @@
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use crate::{
-    vector_three::Vector3,
     transform::Transform,
-    bounding_sphere::BoundingSphere,
     branch_node::{BranchNodeData, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip},
     branch_prototypes::{BranchPrototypeRef}, graphics::branch_mesh_gen::BranchMesh
+};
+use super::{
+    vector_three::Vector3,
+    bounding_sphere::BoundingSphere
 };
 
 
