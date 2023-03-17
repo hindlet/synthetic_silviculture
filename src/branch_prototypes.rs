@@ -8,14 +8,10 @@ use voronator::{
     CentroidDiagram,
     VoronoiDiagram,
 };
-use image::{GenericImageView, DynamicImage};
+use image::{GenericImageView, DynamicImage, ImageBuffer};
 use rand::Rng;
 
 use crate::branch::BranchBundle;
-
-
-
-const TEMP_IMAGE_PATH: &str = "assets/temp_voronoi.png";
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -25,7 +21,7 @@ const TEMP_IMAGE_PATH: &str = "assets/temp_voronoi.png";
 #[derive(Default, Component)]
 pub struct BranchPrototypesTag;
 
-#[derive(Default, Component)]
+#[derive(Resource)]
 pub struct BranchPrototypesSampler {
     pub prototypes: HashMap<image::Rgba<u8>, BranchPrototypeRef>,
     pub voronoi: DynamicImage,
@@ -47,12 +43,6 @@ pub struct BranchNodePrototypeData {
 
 }
 
-#[derive(Default, Bundle)]
-pub struct BranchPrototypesBundle {
-    pub tag: BranchPrototypesTag,
-    pub branch_prototypes: BranchPrototypesSampler,
-}
-
 
 
 
@@ -63,12 +53,12 @@ pub struct BranchPrototypesBundle {
 
 impl BranchPrototypesSampler {
 
-    pub fn get_prototype(&self, apical: f32, determinancy: f32) {
+    pub fn get_prototype(&self, apical: f32, determinancy: f32) -> Entity {
 
         let x: u32 = (apical * (self.voronoi.dimensions().0 as f32 / self.max_apical)).round() as u32;
         let y: u32 = (determinancy * (self.voronoi.dimensions().1 as f32 / self.max_determinancy)).round() as u32;
         
-        println!("{:?}", self.voronoi.get_pixel(x, y));
+        self.prototypes.get(&self.voronoi.get_pixel(x, y)).unwrap().0
     }
 
     // I use a temporary image file to move the data from plotter to image, it's an awful solution but there didnt seem to be another way
@@ -104,36 +94,47 @@ impl BranchPrototypesSampler {
         )
         .unwrap();
 
-
-        let root = BitMapBackend::new(TEMP_IMAGE_PATH, sampler.voronoi.dimensions()).into_drawing_area();
-        root.fill(&WHITE);
-
-
-        let root = root.apply_coord_spec(RangedCoord::<RangedCoordf32, RangedCoordf32>::new(
-            0f32..sampler.max_apical as f32,
-            0f32..sampler.max_determinancy as f32,
-            (0..sampler.voronoi.dimensions().0 as i32, 0..sampler.voronoi.dimensions().1 as i32),
-        ));
-
-
-        for i in 0..points.len() {
-            let p: Vec<(f32, f32)> = diagram.cells()[i].points().into_iter().map(|x| (x.x as f32, x.y as f32)).collect();
-            let color = RGBColor{
-                0: colors[i][0],
-                1: colors[i][1],
-                2: colors[i][2],
-            };
-
-            let poly = Polygon::new(p.clone(), ShapeStyle{color: color.to_rgba(), filled: true, stroke_width: 2});
-            root.draw(&poly);
+        let mut image_buf: Vec<u8> = Vec::new();
+        for _i in 0..(size.0 * size.1) * 3 {
+            image_buf.push(0);
         }
 
-        root.present();
+        println!("{}", image_buf.len());
+        println!("{}", size.0 * size.1);
+        
+        {
+            let root = BitMapBackend::with_buffer(&mut image_buf, sampler.voronoi.dimensions()).into_drawing_area();
+            root.fill(&WHITE);
 
-        sampler.voronoi = image::open(TEMP_IMAGE_PATH).unwrap();
+
+            let root = root.apply_coord_spec(RangedCoord::<RangedCoordf32, RangedCoordf32>::new(
+                0f32..sampler.max_apical as f32,
+                0f32..sampler.max_determinancy as f32,
+                (0..sampler.voronoi.dimensions().0 as i32, 0..sampler.voronoi.dimensions().1 as i32),
+            ));
+
+
+            for i in 0..points.len() {
+                let p: Vec<(f32, f32)> = diagram.cells()[i].points().into_iter().map(|x| (x.x as f32, x.y as f32)).collect();
+                let color = RGBColor{
+                    0: colors[i][0],
+                    1: colors[i][1],
+                    2: colors[i][2],
+                };
+
+                let poly = Polygon::new(p.clone(), ShapeStyle{color: color.to_rgba(), filled: true, stroke_width: 2});
+                root.draw(&poly);
+            }
+
+            root.present();
+        }
+
+        // sampler.voronoi = image::open(TEMP_IMAGE_PATH).unwrap();
+        sampler.voronoi = DynamicImage::ImageRgb8(ImageBuffer::from_raw(size.0, size.1, image_buf).unwrap());
 
         sampler
     }
+
 }
 
 impl BranchPrototypeRef {
