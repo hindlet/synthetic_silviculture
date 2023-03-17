@@ -5,6 +5,7 @@ use crate::plant::PlantTag;
 use crate::vector_three::Vector3;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
+use itertools::Itertools;
 use vulkano::DeviceSize;
 use vulkano::buffer::BufferUsage;
 use vulkano::buffer::CpuAccessibleBuffer;
@@ -198,7 +199,7 @@ fn get_plants_mesh_data(
     plants: &Query<&PlantData, With<PlantTag>>,
     branch_meshes: &Query<&BranchMesh, With<BranchTag>>,
     branch_connections: &Query<&BranchConnectionData, With<BranchTag>>,
-)-> (Vec<Vertex>, Vec<Normal>, Vec<u32>) {
+) -> (Vec<Vertex>, Vec<Normal>, Vec<u32>) {
 
     let mut vertices: Vec<Vertex> = vec![];
     let mut normals: Vec<Normal> = vec![];
@@ -218,6 +219,36 @@ fn get_plants_mesh_data(
     (vertices, normals, indices)
 }
 
+/// flat shades a set of triangles
+fn flat_shade(
+    in_vertices: Vec<Vertex>,
+    in_indices: Vec<u32>,
+) -> (Vec<Vertex>, Vec<Normal>, Vec<u32>) {
+    let mut vertices: Vec<Vertex> = Vec::new();
+    let mut normals: Vec<Normal> = Vec::new();
+
+    for i in (0..in_indices.len()-1).step_by(3) {
+        let v_one: Vector3 = in_vertices[in_indices[i as usize + 0] as usize].into();
+        let v_two: Vector3 = in_vertices[in_indices[i as usize + 1] as usize].into();
+        let v_thr: Vector3 = in_vertices[in_indices[i as usize + 2] as usize].into();
+
+        let normal = {
+            let normal = (v_two - v_one).cross(&(v_thr - v_one));
+            Normal{normal: normal.into()}
+        };
+
+        vertices.push(Vertex { position: v_one.into() });
+        vertices.push(Vertex { position: v_two.into() });
+        vertices.push(Vertex { position: v_thr.into() });
+        normals.push(normal);
+        normals.push(normal);
+        normals.push(normal);
+    }
+
+    let indices = (0..(vertices.len() - 1) as u32).collect_vec();
+    (vertices, normals, indices)
+}
+
 /// adds the commands to draw branches to the given builder
 pub fn add_branch_draw_commands(
     builder: &mut AutoCommandBufferBuilder<SecondaryAutoCommandBuffer>,
@@ -234,11 +265,19 @@ pub fn add_branch_draw_commands(
         Query<&PlantData, With<PlantTag>>,
         Query<&BranchMesh, With<BranchTag>>,
         Query<&BranchConnectionData, With<BranchTag>>,
+        Res<BranchGraphicsResources>,
     )> = SystemState::new(world);
 
-    let (plants, branch_meshes, branch_connections) = state.get(world);
+    let (plants, branch_meshes, branch_connections, branch_graphics_res) = state.get(world);
 
-    let (vertices, normals, indices) = get_plants_mesh_data(&plants, &branch_meshes, &branch_connections);
+    let (vertices, normals, indices) = {
+        if branch_graphics_res.flat_shaded {
+            let (vertices, _normals, indices) = get_plants_mesh_data(&plants, &branch_meshes, &branch_connections);
+            flat_shade(vertices, indices)
+        } else {
+            get_plants_mesh_data(&plants, &branch_meshes, &branch_connections)
+        }
+    };
 
     let vertex_buffer = CpuAccessibleBuffer::from_iter(
         mem_allocator,
