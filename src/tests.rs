@@ -21,9 +21,11 @@ use std::f32::consts::PI;
 #[cfg(test)]
 mod plant_bounds_tests {
 
+    use bevy_ecs::schedule::IntoSystemConfig;
+
     use super::{World, PlantBundle, PlantTag, Vector3, BoundingBox,
-        StageLabel, SystemStage, Schedule, update_plant_intersections,
-        Stage, With, Query, BranchBundle, BoundingSphere,
+        Schedule, update_plant_intersections,
+        With, Query, BranchBundle, BoundingSphere,
         BranchTag, BranchData, update_branch_intersections,
         update_plant_bounds, PlantData, BranchConnectionData,
         PlantGrowthControlFactors, PlantBounds, BranchBounds
@@ -70,17 +72,9 @@ mod plant_bounds_tests {
             growth_factors: PlantGrowthControlFactors::default(),
         });
 
-        #[derive(StageLabel)]
-        pub struct TestRunLabel;
-
-
-        
-
         let mut test_schedule = Schedule::default();
-
-        test_schedule.add_stage(TestRunLabel, SystemStage::parallel());
         
-        test_schedule.add_system_to_stage(TestRunLabel, update_plant_intersections);
+        test_schedule.add_system(update_plant_intersections);
         
         test_schedule.run(&mut test_world);
 
@@ -153,21 +147,7 @@ mod plant_bounds_tests {
 
         let mut test_schedule = Schedule::default();
 
-        #[derive(StageLabel)]
-        pub struct StageOne;
-        #[derive(StageLabel)]
-        pub struct StageTwo;
-        #[derive(StageLabel)]
-        pub struct StageThree;
-
-
-        test_schedule.add_stage(StageOne, SystemStage::parallel());
-        test_schedule.add_stage(StageTwo, SystemStage::parallel());
-        test_schedule.add_stage(StageThree, SystemStage::parallel());
-        
-        test_schedule.add_system_to_stage(StageOne, update_plant_bounds);
-        test_schedule.add_system_to_stage(StageTwo, update_plant_intersections);
-        test_schedule.add_system_to_stage(StageThree, update_branch_intersections);
+        test_schedule.add_systems((update_plant_bounds, update_plant_intersections.after(update_plant_bounds), update_branch_intersections.after(update_plant_intersections)));
         
         test_schedule.run(&mut test_world);
 
@@ -197,10 +177,12 @@ mod plant_bounds_tests {
 #[cfg(test)]
 mod vigor_and_light_exposure_tests {
 
+    use bevy_ecs::schedule::IntoSystemConfig;
+
     use super::{BranchBundle, BranchConnectionData,
     PlantBundle, Query, BranchData, BoundingSphere, With, BranchTag, Entity,
     calculate_branch_light_exposure, Vector3, World, Schedule,
-    StageLabel, SystemStage, Stage, calculate_branch_intersection_volumes, PI,
+    calculate_branch_intersection_volumes, PI,
     QueryState, calculate_growth_vigor, PlantData, PlantGrowthControlFactors,
     BranchGrowthData, BranchBounds};
 
@@ -256,15 +238,8 @@ mod vigor_and_light_exposure_tests {
         .id();
 
         let mut test_schedule = Schedule::default();
-        #[derive(StageLabel)]
-        pub struct StageOne;
-        test_schedule.add_stage(StageOne, SystemStage::parallel());
-        #[derive(StageLabel)]
-        pub struct StageTwo;
-        test_schedule.add_stage(StageTwo, SystemStage::parallel());
 
-        test_schedule.add_system_to_stage(StageOne, testing_branch_intersections);
-        test_schedule.add_system_to_stage(StageTwo, calculate_branch_intersection_volumes);
+        test_schedule.add_systems((testing_branch_intersections, calculate_branch_intersection_volumes.after(testing_branch_intersections)));
         test_schedule.run(&mut test_world);
 
         let mut total_intersection_count: usize = 0;
@@ -392,14 +367,8 @@ mod vigor_and_light_exposure_tests {
         test_add_branch_child(&mut connections_query, branch_six_id, branch_seven_id, &mut test_world);
 
         let mut test_schedule = Schedule::default();
-        #[derive(StageLabel)]
-        pub struct StageOne;
-        test_schedule.add_stage(StageOne, SystemStage::parallel());
-        #[derive(StageLabel)]
-        pub struct StageTwo;
-        test_schedule.add_stage(StageTwo, SystemStage::parallel());
 
-        test_schedule.add_system_to_stage(StageOne, calculate_growth_vigor);
+        test_schedule.add_system(calculate_growth_vigor);
         test_schedule.run(&mut test_world);
 
         let mut branch_query = test_world.query::<&BranchGrowthData>();

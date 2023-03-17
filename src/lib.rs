@@ -1,22 +1,32 @@
 #![allow(unused_imports)]
 
 pub mod branch;
-use branch::*;
-
 mod branch_prototypes;
-use branch_prototypes::*;
-
+pub mod general;
 pub mod plant;
+pub mod branch_node;
+pub mod graphics;
+
+use bevy_ecs::schedule::{SystemSet, Schedule};
+use branch::*;
+use branch_prototypes::*;
 use plant::*;
+use general::*;
+
 
 mod tests;
 
-pub mod general;
-use general::*;
 
-pub mod graphics;
-
-pub mod branch_node;
 use branch_node::*;
 
 mod transform;
+
+
+pub fn get_simulation_schedule() -> Schedule {
+    let schedule = Schedule::default();
+
+    
+
+
+    schedule
+}

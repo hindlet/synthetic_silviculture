@@ -126,30 +126,19 @@ fn main() {
     add_world_branch_graphics_resources(&mut world);
 
     // scheduling
-    #[derive(StageLabel)]
-    struct StartupStage;
-    #[derive(StageLabel)]
-    struct DrawStage;
-    #[derive(StageLabel)]
-    struct UpdateStage;
 
     let mut startup_schedule = Schedule::default();
-    startup_schedule.add_stage(StartupStage, SystemStage::parallel());
-    startup_schedule.add_system_to_stage(StartupStage, update_next_mesh);
-    startup_schedule.add_system_to_stage(StartupStage, create_branch_resources_gui);
+    startup_schedule.add_system(update_next_mesh);
+    startup_schedule.add_system(create_branch_resources_gui);
 
     let mut gui_schedule = Schedule::default();
-    gui_schedule.add_stage(DrawStage, SystemStage::parallel());
-    gui_schedule.add_system_to_stage(DrawStage, draw_gui_objects);
-    gui_schedule.add_stage_after(DrawStage, UpdateStage, SystemStage::parallel());
-    gui_schedule.add_system_to_stage(UpdateStage, update_branch_resources);
+    gui_schedule.add_systems((draw_gui_objects, update_branch_resources.after(draw_gui_objects)));
 
     let mut update_schedule = Schedule::default();
-    update_schedule.add_stage(UpdateStage, SystemStage::parallel());
-    update_schedule.add_system_to_stage(UpdateStage, check_for_force_update);
+    update_schedule.add_system(check_for_force_update);
 
     
-    startup_schedule.run_once(&mut world);
+    startup_schedule.run(&mut world);
 
     // uniforms
     let branch_uniform_buffer = create_branch_uniform_buffer(&memory_allocator);

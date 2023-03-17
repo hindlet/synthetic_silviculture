@@ -279,6 +279,8 @@ pub fn add_branch_draw_commands(
         }
     };
 
+    if vertices.len() == 0 {return;}
+
     let vertex_buffer = CpuAccessibleBuffer::from_iter(
         mem_allocator,
         BufferUsage{
