@@ -77,7 +77,12 @@ fn main() {
 
     // gui
     add_world_gui_resources(&mut world, gui);
-    add_world_branch_graphics_resources(&mut world);
+
+    
+
+    // startup
+    let mut startup_schedule = Schedule::default();
+    startup_schedule.add_system(create_branch_resources_gui);
 
     // sceduling
     let mut gui_schedule = Schedule::default();
@@ -89,14 +94,10 @@ fn main() {
     let plant_update_schedule = get_plant_schedule(); // i put this in a seperate fn bc it was kinda long
     let mut fixed_plant_update = FixedSchedule::new(Duration::from_secs_f32(0.1), plant_update_schedule);
 
-    let mut debug_schedule = Schedule::default();
-    // debug_schedule.add_system(debug_log_branches);
-    let mut fixed_debug = FixedSchedule::new(Duration::from_secs_f32(2.5), debug_schedule);
 
-    // gravity
+    // resources
     create_gravity_resource(&mut world, -Vector3::Y(), 0.05);
-
-    // physical age step
+    add_world_branch_graphics_resources(&mut world);
     create_physical_age_time_step(&mut world, 0.75);
 
     // branch prototypes
@@ -126,8 +127,6 @@ fn main() {
     });
 
     world.insert_resource(BranchPrototypesSampler::create(vec![([0, 255, 0], 10.0, 10.0)], (200, 200), 20.0, 20.0));
-
-    
 
 
     // plant
@@ -169,7 +168,10 @@ fn main() {
 
     // mesh queue
     world.spawn(MeshUpdateQueue{0: vec![plant_id]});
-    
+
+
+    // run startup
+    startup_schedule.run(&mut world);
 
     ///////////////////// run /////////////////////
     let mut last_frame_time = Instant::now();
@@ -210,7 +212,6 @@ fn main() {
             Event::RedrawEventsCleared => {
                 // fixed schedules
                 let delta_time = last_frame_time.elapsed();
-                fixed_debug.run(&mut world, delta_time);
                 fixed_plant_update.run(&mut world, delta_time);
                 last_frame_time = Instant::now();
                 
@@ -386,33 +387,3 @@ fn gui_and_branch_renderpass(
     ).unwrap()
 }
 
-fn debug_log_branches(branch_query: Query<(&BranchData, &BranchGrowthData, &BranchBounds), With<BranchTag>>, node_query: Query<&BranchNodeData, With<BranchNodeTag>>) {
-    for branch in branch_query.iter() {
-        println!("{:?}, \n{:?}, \n{:?} \n{:?} \n", branch.0, branch.1, branch.2, node_query.get(branch.0.root_node.unwrap()).unwrap().position);
-    }
-    println!("\n \n");
-}
-
-fn debug_log_nodes(node_query: Query<(Entity, &BranchNodeData, &BranchNodeConnectionData), With<BranchNodeTag>>) {
-    for node in node_query.iter() {
-        println!("{:?}, \n{:?} \n{:?}\n", node.0, node.1, node.2);
-    }
-    println!("\n \n")
-}
-
-fn debug_log_nodes_and_branches(branch_query: Query<(Entity, &BranchData, &BranchGrowthData, &BranchBounds), With<BranchTag>>, node_query: Query<&BranchNodeData, With<BranchNodeTag>>, node_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>) {
-    for branch in branch_query.iter() {
-        println!("{:?}, \n{:?}, \n{:?} \n{:?} \n{:?} \n\n", branch.0, branch.1, branch.2, branch.3, node_query.get(branch.1.root_node.unwrap()).unwrap().position);
-        for id in get_nodes_base_to_tip(&node_connections_query, branch.1.root_node.unwrap()) {
-            println!("{:?}", id);
-            if let Ok(node) = node_query.get(id) {
-                println!("{:?}", node);
-            }
-            if let Ok(node) = node_connections_query.get(id) {
-                println!("{:?} \n", node)
-            }
-        }
-        println!("\n \n \n")
-    }
-    println!("\n\n\n\n\n")
-}
