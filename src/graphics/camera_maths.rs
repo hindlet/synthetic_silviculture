@@ -25,7 +25,7 @@ impl Default for Camera {
                 y: 0.0,
                 z: 0.0
             },
-            up: -Vector3::up(),
+            up: -Vector3::Y(),
             move_speed: 0.1,
             rotate_speed: 0.02,
             movement: [false; 10]

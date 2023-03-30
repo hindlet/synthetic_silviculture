@@ -1,24 +1,20 @@
-//! An example of how to write the code to render a branch
-//! 
-//! - This example includes gui to control how detailed the branch is as well as how it is shaded
-//! - There is also gui to control the branch's normal, note that if all are set to zero the branch will dissapear, this is fine as it will never actually happen
-
-
-
-
-use std::sync::Arc;
+use std::{sync::Arc, time::{Duration, Instant}};
 use synthetic_silviculture::{
-    branch::{BranchBundle, BranchData, BranchTag},
-    plant::{PlantBundle, PlantData},
-    branch_node::{BranchNodeBundle, BranchNodeData, BranchNodeConnectionData},
+    branch::*,
+    plant::*,
+    branch_development::*,
+    branch_node::*,
     general::vector_three::Vector3,
     graphics::{
-        branch_mesh_gen::{MeshUpdateQueue, update_next_mesh},
+        branch_mesh_gen::{update_next_mesh, check_for_force_update, MeshUpdateQueue},
         camera_maths::Camera,
         branch_graphics::*, 
         gui::*, 
         general_graphics::*
     },
+    fixed_schedule::FixedSchedule,
+    branch_prototypes::{BranchPrototypesSampler, BranchPrototypes, BranchPrototypeData, BranchPrototypeRef},
+    environment::{create_gravity_resource, create_physical_age_time_step},
 };
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents, CommandBufferInheritanceInfo, allocator::StandardCommandBufferAllocator},
@@ -37,85 +33,17 @@ use winit::{
 };
 use bevy_ecs::prelude::*;
 
-
 fn main() {
-    let mut world = World::new();
 
-    // add stuff to the world
-    let node_5_id = world.spawn(BranchNodeBundle {
-        data: BranchNodeData {
-            position: Vector3::new(1.5, 4.5, -1.0),
-            thickness: 0.2,
-            ..Default::default()
-        },
-        ..Default::default()
-    }).id();
-
-    let node_4_id = world.spawn(BranchNodeBundle {
-        data: BranchNodeData {
-            position: Vector3::new(2.0, 4.0, 1.0),
-            thickness: 0.2,
-            ..Default::default()
-        },
-        ..Default::default()
-    }).id();
-    
-    let node_3_id = world.spawn(BranchNodeBundle {
-        data: BranchNodeData {
-            position: Vector3::new(-1.0, 2.2, 0.5),
-            thickness: 0.25,
-            ..Default::default()
-        },
-        ..Default::default()
-    }).id();
-
-    let node_2_id = world.spawn(BranchNodeBundle{
-        data: BranchNodeData{
-            position: Vector3::new(0.0, 2.5, 0.0),
-            thickness: 0.3,
-            ..Default::default()
-        },
-        connections: BranchNodeConnectionData{parent: None, children: vec![node_4_id, node_5_id]},
-        ..Default::default()
-    }).id();
-
-    let node_1_id = world.spawn(BranchNodeBundle{
-        data: BranchNodeData{
-            position: Vector3::ZERO(),
-            thickness: 0.4,
-            ..Default::default()
-        },
-        connections: BranchNodeConnectionData{parent: None, children: vec![node_2_id, node_3_id]},
-        ..Default::default()
-    }).id();
-
-    let branch_id = world.spawn(BranchBundle{
-        data: BranchData{root_node: Some(node_1_id), normal: Vector3::Y(), ..Default::default()},
-        ..Default::default()
-    }).id();
-
-
-
-
-    let plant = world.spawn(PlantBundle{data: PlantData{root_node: Some(branch_id), ..Default::default()}, ..Default::default()}).id();
-
-
-    world.spawn(MeshUpdateQueue {
-        0: vec![plant]
-    });
-
-    
-    
-
-    // do all the shader stuff
-    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("branch_render".to_string());
+    ///////////////////// graphics stuff /////////////////////
+    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("branch render example".to_string());
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
     let render_pass = gui_and_branch_renderpass(&device, &swapchain);
     let branch_subpass = Subpass::from(render_pass.clone(), 0).unwrap();
     let gui_subpass = Subpass::from(render_pass.clone(), 1).unwrap();
 
 
-    let mut camera = Camera{position: Vector3::X() * -10.0, ..Default::default()};
+    let mut camera = Camera{position: Vector3::new(-4.0, 3.0, 0.0), ..Default::default()};
 
     let (vs, fs) = get_branch_shaders(&device);
 
@@ -138,31 +66,113 @@ fn main() {
 
     // gui
     let gui = create_gui_from_subpass(&event_loop, &surface, &queue, &gui_subpass);
-    add_world_gui_resources(&mut world, gui);
-    add_world_branch_graphics_resources(&mut world);
-    world.spawn(GUIData {
-        name: "Branch Settings".to_string(),
-        f32_sliders: vec![("normal-x".to_string(), 0.0, -1.0..=1.0), ("normal-y".to_string(), 1.0, -1.0..=1.0), ("normal-z".to_string(), 0.0, -1.0..=1.0)],
-        ..Default::default()
-    });
-
-    // scheduling
-
-    let mut startup_schedule = Schedule::default();
-    startup_schedule.add_system(update_next_mesh);
-    startup_schedule.add_system(create_branch_resources_gui);
-
-    let mut gui_schedule = Schedule::default();
-    gui_schedule.add_systems((draw_gui_objects, update_branch_resources.after(draw_gui_objects)));
-
-    let mut update_schedule = Schedule::default();
-    update_schedule.add_systems((update_next_mesh, update_branch_normal));
-
     
-    startup_schedule.run(&mut world);
 
     // uniforms
     let branch_uniform_buffer = create_branch_uniform_buffer(&memory_allocator);
+
+
+    ///////////////////// ecs stuff /////////////////////
+    let mut world = World::new();
+
+    // gui
+    add_world_gui_resources(&mut world, gui);
+    add_world_branch_graphics_resources(&mut world);
+
+    // sceduling
+    let mut gui_schedule = Schedule::default();
+    gui_schedule.add_systems((draw_gui_objects, update_branch_resources.after(draw_gui_objects)));
+
+    let mut graphics_update_schedule = Schedule::default();
+    graphics_update_schedule.add_systems((check_for_force_update, update_next_mesh));
+
+    let plant_update_schedule = get_plant_schedule(); // i put this in a seperate fn bc it was kinda long
+    let mut fixed_plant_update = FixedSchedule::new(Duration::from_secs_f32(0.1), plant_update_schedule);
+
+    let mut debug_schedule = Schedule::default();
+    // debug_schedule.add_system(debug_log_branches);
+    let mut fixed_debug = FixedSchedule::new(Duration::from_secs_f32(2.5), debug_schedule);
+
+    // gravity
+    create_gravity_resource(&mut world, -Vector3::Y(), 0.05);
+
+    // physical age step
+    create_physical_age_time_step(&mut world, 0.75);
+
+    // branch prototypes
+    world.insert_resource(BranchPrototypes{
+        prototypes: vec![
+            BranchPrototypeData{
+                mature_age: 25.0,
+                layers: 4,
+                node_counts: vec![vec![2], vec![1, 2], vec![2, 1, 2]],
+                directions: vec![
+                    Vector3::new(0.743, 0.371, 0.557),
+                    Vector3::new(0.192, 0.962, 0.192),
+
+                    Vector3::new(0.557, 0.743, 0.371),
+                    Vector3::new(0.236, 0.943, 0.236),
+                    Vector3::new(0.588, 0.784, 0.196),
+
+                    Vector3::new(0.802, 0.535, 0.267),
+                    Vector3::new(-0.535, 0.267, 0.802),
+                    Vector3::new(-0.302, 0.905, 0.302),
+                    Vector3::new(-0.333, 0.667, -0.667),
+                    Vector3::new(0.301, 0.904, 0.301),
+                ],
+            },
+
+        ]
+    });
+
+    world.insert_resource(BranchPrototypesSampler::create(vec![([0, 255, 0], 10.0, 10.0)], (200, 200), 20.0, 20.0));
+
+    
+
+
+    // plant
+    let root_node_id = world.spawn(BranchNodeBundle{
+        data: BranchNodeData{
+            thickening_factor: 0.05,
+            ..Default::default()
+        },
+        ..Default::default()
+    }).id();
+
+    let root_branch_id = world.spawn(BranchBundle{
+        data: BranchData {
+            root_node: Some(root_node_id),
+            ..Default::default()
+        },
+        prototype: BranchPrototypeRef(0),
+        ..Default::default()
+    }).id();
+
+    let plant_id = world.spawn(PlantBundle{
+        growth_factors: PlantGrowthControlFactors{
+            max_age: 500000.0,
+            max_vigor: 42.0,
+            min_vigor: 2.0,
+            apical_control: 0.62,
+            growth_rate: 0.19,
+            tropism_time_control: 0.38,
+            max_branch_segment_length: 1.0,
+            branch_segment_length_scaling_coef: 1.0,
+            ..Default::default()
+        },
+        data: PlantData {
+            root_node: Some(root_branch_id),
+            ..Default::default()
+        },
+        ..Default::default()
+    }).id();
+
+    // mesh queue
+    world.spawn(MeshUpdateQueue{0: vec![plant_id]});
+    
+
+    ///////////////////// run /////////////////////
+    let mut last_frame_time = Instant::now();
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -198,6 +208,21 @@ fn main() {
 
             // do the actual stuff
             Event::RedrawEventsCleared => {
+                // fixed schedules
+                let delta_time = last_frame_time.elapsed();
+                fixed_debug.run(&mut world, delta_time);
+                fixed_plant_update.run(&mut world, delta_time);
+                last_frame_time = Instant::now();
+                
+
+                // schedules
+                gui_schedule.run(&mut world);
+                graphics_update_schedule.run(&mut world);
+                
+
+
+
+                ///////////////////// graphics stuff /////////////////////
 
                 // check theres actually a window to draw on
                 let dimensions = surface.object().unwrap().downcast_ref::<Window>().unwrap().inner_size();
@@ -221,11 +246,6 @@ fn main() {
                         recreate_swapchain = false
                     }
                 }
-
-                // gui
-                gui_schedule.run(&mut world);
-                // update
-                update_schedule.run(&mut world);
 
                 // get the image number and future for the next freame
                 let (image_num, suboptimal, acquire_future) =
@@ -315,19 +335,29 @@ fn main() {
 }
 
 
-fn update_branch_normal(
-    mut branch_query: Query<&mut BranchData, With<BranchTag>>,
-    gui_query: Query<&GUIData>,
-) {
-    let mut branch = branch_query.single_mut();
-    for gui in gui_query.iter() {
-        if gui.name == "Branch Settings" {
-            let mut normal = Vector3::new(gui.f32_sliders[0].1, gui.f32_sliders[1].1, gui.f32_sliders[2].1);
-            normal.normalise();
-            branch.normal = normal;
-        }
-    }
+fn get_plant_schedule() -> Schedule {
+    let mut plant_schedule = Schedule::default();
+
+    plant_schedule.add_systems((
+        update_branch_bounds,
+        update_plant_bounds,
+        update_plant_intersections,
+        update_branch_intersections,
+        calculate_branch_intersection_volumes,
+        calculate_branch_light_exposure,
+        calculate_growth_vigor,
+        assign_growth_rates,
+        step_physiological_age,
+        update_branch_nodes,
+        determine_create_new_branches,
+        apply_system_buffers, // this makes sure nodes and branches have spawned
+        assign_thicknesses,
+        calculate_segment_lengths_and_tropism,
+    ).chain());
+
+    plant_schedule
 }
+
 
 fn gui_and_branch_renderpass(
     device: &Arc<Device>,
@@ -354,4 +384,35 @@ fn gui_and_branch_renderpass(
                 { color: [color], depth_stencil: {depth}, input: [] } // Gui render pass
             ]
     ).unwrap()
+}
+
+fn debug_log_branches(branch_query: Query<(&BranchData, &BranchGrowthData, &BranchBounds), With<BranchTag>>, node_query: Query<&BranchNodeData, With<BranchNodeTag>>) {
+    for branch in branch_query.iter() {
+        println!("{:?}, \n{:?}, \n{:?} \n{:?} \n", branch.0, branch.1, branch.2, node_query.get(branch.0.root_node.unwrap()).unwrap().position);
+    }
+    println!("\n \n");
+}
+
+fn debug_log_nodes(node_query: Query<(Entity, &BranchNodeData, &BranchNodeConnectionData), With<BranchNodeTag>>) {
+    for node in node_query.iter() {
+        println!("{:?}, \n{:?} \n{:?}\n", node.0, node.1, node.2);
+    }
+    println!("\n \n")
+}
+
+fn debug_log_nodes_and_branches(branch_query: Query<(Entity, &BranchData, &BranchGrowthData, &BranchBounds), With<BranchTag>>, node_query: Query<&BranchNodeData, With<BranchNodeTag>>, node_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>) {
+    for branch in branch_query.iter() {
+        println!("{:?}, \n{:?}, \n{:?} \n{:?} \n{:?} \n\n", branch.0, branch.1, branch.2, branch.3, node_query.get(branch.1.root_node.unwrap()).unwrap().position);
+        for id in get_nodes_base_to_tip(&node_connections_query, branch.1.root_node.unwrap()) {
+            println!("{:?}", id);
+            if let Ok(node) = node_query.get(id) {
+                println!("{:?}", node);
+            }
+            if let Ok(node) = node_connections_query.get(id) {
+                println!("{:?} \n", node)
+            }
+        }
+        println!("\n \n \n")
+    }
+    println!("\n\n\n\n\n")
 }

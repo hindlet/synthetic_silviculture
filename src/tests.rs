@@ -628,19 +628,17 @@ mod branch_nodes_tests {
 
 #[cfg(test)]
 mod branch_prototype_tests {
-    use super::{BranchPrototypesSampler, BranchPrototypeRef, GenericImageView,
+    use super::{BranchPrototypesSampler, GenericImageView,
     World, BranchNodeTag};
 
     #[test]
     fn sampling_test() {
-        let mut test_world = World::new();
-        let random_entity = test_world.spawn(BranchNodeTag).id();
-
+        
         let prototypes = BranchPrototypesSampler::create(
-            vec![(BranchPrototypeRef::new(random_entity), [0, 200, 0], 0.4, 0.4),
-            (BranchPrototypeRef::new(random_entity), [200, 0, 0], 0.0, 0.0),
-            (BranchPrototypeRef::new(random_entity), [0, 0, 200], 0.8, 0.8),
-            (BranchPrototypeRef::new(random_entity), [150, 0, 150], 0.4, 0.3)],
+            vec![([0, 200, 0], 0.4, 0.4),
+            ([200, 0, 0], 0.0, 0.0),
+            ([0, 0, 200], 0.8, 0.8),
+            ([150, 0, 150], 0.4, 0.3)],
             (200, 200),
             1.0,
             1.0

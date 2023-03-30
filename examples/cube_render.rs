@@ -46,7 +46,7 @@ mod fs {
 
 
 fn main() {
-    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup();
+    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("cube render example".to_string());
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
     let render_pass = get_single_renderpass(&device, &swapchain);
     

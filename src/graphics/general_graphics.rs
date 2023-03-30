@@ -59,7 +59,7 @@ impl_vertex!(Normal, normal);
 
 
 // returns the basic things needed for graphics processing
-pub fn base_graphics_setup() -> (
+pub fn base_graphics_setup(title: String) -> (
     Arc<Queue>,
     Arc<Device>,
     Arc<PhysicalDevice>,
@@ -82,6 +82,7 @@ pub fn base_graphics_setup() -> (
     // setup window and event loop
     let event_loop = EventLoop::new();
     let surface = WindowBuilder::new()
+        .with_title(title)
         .build_vk_surface(&event_loop, instance.clone())
         .unwrap();
 

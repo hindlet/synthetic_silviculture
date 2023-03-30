@@ -4,10 +4,11 @@ use bevy_ecs::prelude::*;
 use itertools::*;
 use plotters::data;
 use crate::{
-    branch::{BranchTag, BranchData, get_branches_base_to_tip, get_branches_tip_to_base, get_children_vigor, BranchConnectionData, BranchGrowthData, BranchBounds},
+    branch::{BranchTag, BranchData, get_branches_base_to_tip, get_branches_tip_to_base, get_non_terminal_branches, get_children_vigor, BranchConnectionData, BranchGrowthData, BranchBounds},
     vector_three::Vector3,
     bounding_box::BoundingBox,
     bounding_sphere::BoundingSphere,
+    environment::PhysicalAgeStep,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -37,6 +38,9 @@ pub struct PlantGrowthControlFactors {
     pub orientation_angle: f32,
     pub distribution_control_two: f32, // range 0..1
     pub growth_rate: f32,
+    pub max_branch_segment_length: f32,
+    pub branch_segment_length_scaling_coef: f32,
+    pub tropism_time_control: f32,
 }
 
 #[derive(Component)]
@@ -107,6 +111,9 @@ impl Default for PlantGrowthControlFactors {
             orientation_angle: 0.0,
             distribution_control_two: 0.5,
             growth_rate: 1.0,
+            max_branch_segment_length: 1.0,
+            branch_segment_length_scaling_coef: 1.0,
+            tropism_time_control: 1.0,
         }
     }
 }   
@@ -221,10 +228,21 @@ pub fn update_branch_intersections(
     }
 }
 
+/// steps the ages of all plants by the phyical age step
+/// also adjusts max vigor where appropriate
+pub fn step_plant_age(
+    plant_query: Query<(&PlantData, &PlantGrowthControlFactors), With<PlantTag>>,
+    timestep: Res<PhysicalAgeStep>
+) {
+    for plant in plant_query.iter() {
+
+    }
+}
+
 /// takes data from the branches and distributes it, we do a tip to base pass and sum light exposure at branching points
 /// after this we use a helper function to distribute growth vigor up the plant
 /// this means that branches closer to the root have a higher growth vigor than those further away
-pub fn calculate_growth_vigor (
+pub fn calculate_growth_vigor(
     plant_query: Query<(&PlantData, &PlantGrowthControlFactors), With<PlantTag>>,
     mut branch_query: Query<&mut BranchGrowthData, With<BranchTag>>,
     branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>
@@ -234,12 +252,9 @@ pub fn calculate_growth_vigor (
         if plant_data.0.root_node.is_none() {continue;}
         
         // reset light exposure in all none-tip branches
-        for id in get_branches_base_to_tip(&branch_connections_query, plant_data.0.root_node.unwrap()) {
+        for id in get_non_terminal_branches(&branch_connections_query, plant_data.0.root_node.unwrap()) {
             if let Ok(mut branch_data) = branch_query.get_mut(id){
-                if let Ok(branch_connections) = branch_connections_query.get(id) {
-                    if branch_connections.children.0.is_none() && branch_connections.children.1.is_none() {continue;}
-                    branch_data.light_exposure = 0.0;
-                }
+                branch_data.light_exposure = 0.0;
             }
         }
 
@@ -259,7 +274,7 @@ pub fn calculate_growth_vigor (
         }
 
         if let Ok(mut root_data) = branch_query.get_mut(plant_data.0.root_node.unwrap()) {
-            root_data.growth_vigor = root_data.light_exposure;
+            root_data.growth_vigor = root_data.light_exposure.max(plant_data.1.max_vigor);
         }
         // distribute vigor to branches
         for id in get_branches_base_to_tip(&branch_connections_query, plant_data.0.root_node.unwrap()) {

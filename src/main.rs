@@ -1,4 +1,15 @@
 #![allow(dead_code, unused_variables, unused_imports)]
+mod branch;
+mod plant;
+mod graphics;
+mod general;
+mod branch_node;
+mod branch_prototypes;
+mod transform;
+mod branch_development;
+mod environment;
+mod fixed_schedule;
+
 use std::sync::Arc;
 
 use bevy_ecs::prelude::*;
@@ -15,35 +26,18 @@ use winit::{
     window::Window,
     event_loop::ControlFlow,
 };
-
 use image::*;
 use rand::*;
-
-mod branch;
 use branch::*;
-
-mod branch_prototypes;
 use branch_prototypes::*;
-
-mod plant;
 use plant::*;
-
-mod tests;
-
-mod general;
 use general::*;
 use vector_three::Vector3;
-
-mod graphics;
 use graphics::{branch_mesh_gen::*, branch_graphics::*, general_graphics::*, camera_maths::*, gui::*};
-
-mod branch_node;
 use branch_node::*;
-
-mod transform;
 use transform::*;
 
-mod branch_development;
+
 
 
 fn double_sample_render_pass(
@@ -78,7 +72,7 @@ fn main() {
 
 
     // do all the shader stuff
-    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup();
+    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("synthetic silviculture".to_string());
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
     let render_pass = double_sample_render_pass(&device, &swapchain);
     let branch_subpass = Subpass::from(render_pass.clone(), 0).unwrap();

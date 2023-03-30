@@ -66,14 +66,6 @@ impl Vector3 {
         }
     }
 
-    pub fn up() -> Vector3 {
-        Vector3 {
-            x: 0.0,
-            y: 1.0,
-            z: 0.0,
-        }
-    }
-
 
     pub fn sqr_magnitude(&self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z

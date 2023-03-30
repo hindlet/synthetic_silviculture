@@ -2,6 +2,7 @@ use crate::{
     vector_three::Vector3,
     bounding_box::BoundingBox,
     bounding_sphere::BoundingSphere,
+    matrix_three::Matrix3,
 };
 use std::f32::consts::PI;
 
@@ -252,5 +253,43 @@ mod bounding_box_tests {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////// Tree Diagram ///////////////////////////////////////
+////////////////////////////////// Matrices ///////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
+
+#[cfg(test)]
+mod matrix_tests {
+    use super::{Vector3, Matrix3, PI};
+
+    #[test]
+    fn euler_angles_x_test() {
+        let angles = Vector3::new(PI, 0.0, 0.0);
+
+        assert_eq!(Matrix3::from_angle_x(PI), Matrix3::from_euler_angles(angles))
+    }
+
+    #[test]
+    fn euler_angles_y_test() {
+        let angles = Vector3::new(0.0, PI, 0.0);
+
+        assert_eq!(Matrix3::from_angle_y(PI), Matrix3::from_euler_angles(angles))
+    }
+
+    #[test]
+    fn euler_angles_z_test() {
+        let angles = Vector3::new(0.0, 0.0, PI);
+
+        assert_eq!(Matrix3::from_angle_z(PI), Matrix3::from_euler_angles(angles))
+    }
+
+    #[test]
+    fn euler_angles_all_test() {
+        let angles = Vector3::new(PI, PI, PI);
+
+        // these are functionally the same, but there is a tiny difference in rounding, so they will not be equal
+        //
+        // left: `Matrix3 { x: Vector3 { x: 1.0, y: -8.742278e-8, z: -8.742278e-8 }, y: Vector3 { x: 8.742277e-8, y: 1.0, z: -8.742278e-8 }, z: Vector3 { x: 8.7422784e-8, y: 8.742277e-8, z: 1.0 } }`,
+        // right: `Matrix3 { x: Vector3 { x: 1.0, y: -8.7422784e-8, z: -8.742277e-8 }, y: Vector3 { x: 8.742278e-8, y: 1.0, z: -8.7422784e-8 }, z: Vector3 { x: 8.742278e-8, y: 8.742278e-8, z: 1.0 } }
+        assert_ne!(Matrix3::from_angle_x(PI) * Matrix3::from_angle_y(PI) * Matrix3::from_angle_z(PI), Matrix3::from_euler_angles(angles))
+    }
+
+}

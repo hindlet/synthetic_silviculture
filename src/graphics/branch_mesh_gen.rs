@@ -76,8 +76,7 @@ pub fn update_next_mesh(
         if queue.0.len() == 0 {return;}
         let id = queue.0[0];
         if let Ok(plant) = plants_query.get(id) {
-            queue.0.remove(0);
-            queue.0.push(id);
+            queue.0.rotate_left(1);
             if plant.root_node.is_none() {continue;}
             update_plant_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, get_branches_base_to_tip(&branch_connections, plant.root_node.unwrap()), polygons);
             return;
@@ -137,8 +136,9 @@ fn update_plant_mesh(
             if let Ok(branch) = branch_data.get(id.clone()) {
                 if branch.root_node.is_none() {return;}
                 let (pos, thick, connections) = get_node_data_and_connections_base_to_tip(node_connections, node_data, branch.root_node.unwrap());
-                create_branch_mesh(pos, thick, connections, polygon_directions)
-        } else {panic!("we are but pawns in a game of chess played by shrimp")}};
+                create_branch_mesh(branch.normal, pos, thick, connections, polygon_directions)
+            } else {panic!("we are but pawns in a game of chess played by shrimp")}
+        };
         if let Ok(mut mesh) = branch_meshes.get_mut(id.clone()) {
             mesh.set(new_mesh);
         }
@@ -147,12 +147,19 @@ fn update_plant_mesh(
 
 /// generates a mesh for a branch from node pairs and polygon directions
 fn create_branch_mesh(
+    branch_normal: Vector3,
     node_pos: Vec<Vector3>,
     node_thicknesses: Vec<f32>,
     node_pairs:  Vec<(usize, usize)>,
     polygon_directions: &Vec<Vector3>,
 ) -> BranchMesh {
 
+    let branch_rotation_matrix = {
+        let mut rotation_axis = branch_normal.cross(&Vector3::Y());
+        rotation_axis.normalise();
+        let rotation_angle = branch_normal.angle_to(&Vector3::Y());
+        Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
+    };
     
 
     let mut vertices: Vec<Vertex> = Vec::new();
@@ -161,9 +168,12 @@ fn create_branch_mesh(
 
     let num_indices = polygon_directions.len() as u32 * 2;
 
+    let root_pos = node_pos[0];
+
     for pair in node_pairs.iter() {
         let (node_1, node_2) = (node_pos[pair.0], node_pos[pair.1]);
         let (thick_1, thick_2) = (node_thicknesses[pair.0], node_thicknesses[pair.1]);
+        
 
         let branch_line = node_2 - node_1;
 
@@ -180,8 +190,10 @@ fn create_branch_mesh(
         let mut incr: u32 = 0;
         for direction in polygon_directions.iter() {
             let new_dir = direction.clone().transform(rotation_matrix);
-            vertices.push(Vertex{position: (node_1 + new_dir * thick_1).into()});
-            vertices.push(Vertex{position: (node_2 + new_dir * thick_2).into()});
+            vertices.push(Vertex{position: ((node_1 + (new_dir * thick_1) - root_pos).transform(branch_rotation_matrix) + root_pos).into()});
+            vertices.push(Vertex{position: ((node_2 + (new_dir * thick_2) - root_pos).transform(branch_rotation_matrix) + root_pos).into()});
+            // vertices.push(Vertex{position: (node_1 + new_dir * thick_1).into()});
+            // vertices.push(Vertex{position: (node_2 + new_dir * thick_2).into()});
 
             // magic index stuff, this is just how it works, idk how else to explain it
             // it needed to loop round so that's where the mod comes in

@@ -1,14 +1,13 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
-use crate::{
+use super::{
+    vector_three::Vector3,
+    bounding_sphere::BoundingSphere,
+    matrix_three::Matrix3,
     transform::Transform,
     branch_node::{BranchNodeData, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip},
     branch_prototypes::{BranchPrototypeRef}, graphics::branch_mesh_gen::BranchMesh
-};
-use super::{
-    vector_three::Vector3,
-    bounding_sphere::BoundingSphere
 };
 
 
@@ -18,26 +17,29 @@ use super::{
 ///////////////////////////////////////////////////////////////////////////////////////
 
 
-#[derive(Default, Component)]
+#[derive(Debug, Default, Component)]
 pub struct BranchTag;
 
 
-#[derive(Component)]
+#[derive(Debug, Component)]
 pub struct BranchData {
     pub intersections_volume: f32,
+    pub normal: Vector3,
     pub intersection_list: Vec<Entity>,
-    pub root_node: Option<Entity>
+    pub root_node: Option<Entity>,
+    pub parent_node: Option<Entity>, // a reference to the node on another branch that this branch started from
 }
 
-#[derive(Component)]
+#[derive(Debug, Component)]
 pub struct BranchGrowthData {
     pub light_exposure: f32,
     pub growth_vigor: f32,
     pub growth_rate: f32,
     pub physiological_age: f32,
+    pub layers: u32,
 }
 
-#[derive(Component)]
+#[derive(Debug, Component)]
 pub struct BranchBounds  {
     pub bounds: BoundingSphere
 }
@@ -51,9 +53,10 @@ pub struct BranchBundle {
     pub growth_data: BranchGrowthData,
     pub connections: BranchConnectionData,
     pub mesh: BranchMesh,
+    pub prototype: BranchPrototypeRef,
 }
 
-#[derive(Component)]
+#[derive(Debug, Component)]
 pub struct BranchConnectionData {
     pub parent: Option<Entity>,
     pub children: (Option<Entity>, Option<Entity>),
@@ -62,7 +65,7 @@ pub struct BranchConnectionData {
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////// impl /////////////////////////////////////////////
+////////////////////////////////// Impl ///////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
 impl BranchBundle {
@@ -81,6 +84,7 @@ impl Default for BranchBundle {
             growth_data: BranchGrowthData::default(),
             connections: BranchConnectionData::default(),
             mesh: BranchMesh::empty(),
+            prototype: BranchPrototypeRef(0)
         }
     }
 }
@@ -102,8 +106,10 @@ impl Default for BranchData {
     fn default() -> Self {
         BranchData {
             intersections_volume: 0.0,
+            normal: Vector3::Y(),
             intersection_list: Vec::new(),
             root_node: None,
+            parent_node: None,
         }
     }
 }
@@ -115,6 +121,7 @@ impl Default for BranchGrowthData {
             growth_rate: 0.0,
             light_exposure: 0.0,
             physiological_age: 0.0,
+            layers: 1,
         }
     }
 }
@@ -132,35 +139,51 @@ impl Default for BranchConnectionData {
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////// systems ////////////////////////////////////////////
+////////////////////////////////// Systems ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
 
 
 // updates branch bounds
 pub fn update_branch_bounds(
-    nodes_transforms_query: Query<&Transform, With<BranchNodeTag>>,
+    node_data: Query<&BranchNodeData, With<BranchNodeTag>>,
     nodes_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     mut branches_query: Query<(&mut BranchBounds, &BranchData), With<BranchTag>>
 ) {
     for (mut bounds, data) in &mut branches_query {
         if data.root_node.is_none() {continue;}
+
+        let branch_rotation_matrix = {
+            let mut rotation_axis = data.normal.cross(&Vector3::Y());
+            rotation_axis.normalise();
+            let rotation_angle = data.normal.angle_to(&Vector3::Y());
+            Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
+        };
+
         let mut node_positions: Vec<Vector3> = Vec::new();
 
         for id in get_nodes_base_to_tip(&nodes_connections_query, data.root_node.unwrap()) {
-            if let Ok(node_transform) = nodes_transforms_query.get(id) {
-                node_positions.push(node_transform.translation);
+            if let Ok(node_data) = node_data.get(id) {
+                node_positions.push(node_data.position.clone().transform(branch_rotation_matrix));
             }
         }
 
-        let new_bounds = BoundingSphere::from_points(&node_positions);
+        let new_bounds = 
+            if node_positions.len() == 1 {
+                BoundingSphere{centre: node_positions[0], radius: 0.01}
+            }
+            else {
+                BoundingSphere::from_points(&node_positions)
+            };
+        
+
         bounds.bounds = new_bounds;
     }
 }
 
 /// calculates branch intersection volumes
 /// we use two querys so that we can get mutable borrows from both at once, you cannot do this with one query
-pub fn calculate_branch_intersection_volumes (
+pub fn calculate_branch_intersection_volumes(
     mut branch_query: Query<(&mut BranchData, &BranchBounds, Entity), With<BranchTag>>,
 ) {
     let mut intersection_lists: Vec<(Entity, BoundingSphere, Vec<Entity>)> = Vec::new();
@@ -190,13 +213,18 @@ pub fn calculate_branch_intersection_volumes (
 }
 
 
-pub fn calculate_branch_light_exposure (
+pub fn calculate_branch_light_exposure(
     mut branches_query: Query<(&mut BranchGrowthData, &BranchData), With<BranchTag>>,
 ) {
     for mut data in branches_query.iter_mut() {
         data.0.light_exposure = (-data.1.intersections_volume).exp();
     }
 }
+
+
+///////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////// Branch Sorting ////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
 
 
 pub fn get_branches_tip_to_base(
@@ -222,7 +250,7 @@ pub fn get_branches_tip_to_base(
 
 /// returns all branches from a root that can still have children
 pub fn get_terminal_branches(
-    connections_query: &Query<&BranchConnectionData, With<BranchTag>>,
+    connections_query: &Query<&mut BranchConnectionData, With<BranchTag>>,
     root_branch: Entity,
 ) -> Vec<Entity> {
 
@@ -243,6 +271,28 @@ pub fn get_terminal_branches(
             list.remove(i);
         }
         
+    }
+
+    list
+}
+
+/// returns all non-terminal branches from a tree
+pub fn get_non_terminal_branches(
+    connections_query: &Query<&BranchConnectionData, With<BranchTag>>,
+    root_branch: Entity
+) -> Vec<Entity> {
+
+    let mut list: Vec<Entity> = vec![root_branch];
+
+    let mut i = 0;
+    loop {
+        if i >= list.len() {break;}
+        if let Ok(branch) = connections_query.get(list[i]) {
+            if branch.children.0.is_some() {list.push(branch.children.0.unwrap())}
+            if branch.children.1.is_some() {list.push(branch.children.1.unwrap())}
+            if branch.children.0.is_none() && branch.children.1.is_none() {list.swap_remove(i);}
+            else {i += 1;}
+        }
     }
 
     list
