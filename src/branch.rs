@@ -7,7 +7,7 @@ use super::{
     matrix_three::Matrix3,
     transform::Transform,
     branch_node::{BranchNodeData, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip},
-    branch_prototypes::{BranchPrototypeRef}, graphics::branch_mesh_gen::BranchMesh
+    branch_prototypes::{BranchPrototypeRef}, graphics::mesh::Mesh
 };
 
 
@@ -52,7 +52,7 @@ pub struct BranchBundle {
     pub data: BranchData,
     pub growth_data: BranchGrowthData,
     pub connections: BranchConnectionData,
-    pub mesh: BranchMesh,
+    pub mesh: Mesh,
     pub prototype: BranchPrototypeRef,
 }
 
@@ -83,7 +83,7 @@ impl Default for BranchBundle {
             data: BranchData::default(),
             growth_data: BranchGrowthData::default(),
             connections: BranchConnectionData::default(),
-            mesh: BranchMesh::empty(),
+            mesh: Mesh::empty(),
             prototype: BranchPrototypeRef(0)
         }
     }

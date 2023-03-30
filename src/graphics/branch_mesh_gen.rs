@@ -3,7 +3,7 @@ use std::{f32::consts::PI, ops::AddAssign};
 use crate::{general::{vector_three::{self, Vector3}, matrix_three::Matrix3}, plant::{PlantData, PlantTag}, branch::{BranchTag, BranchConnectionData, BranchData, get_branches_base_to_tip}, branch_node::{BranchNodeConnectionData, BranchNodeTag, get_node_data_and_connections_base_to_tip, BranchNodeData}};
 use bevy_ecs::{prelude::*, system::SystemState};
 
-use super::{general_graphics::{Vertex, Normal}, branch_graphics::BranchGraphicsResources};
+use super::{general_graphics::{Vertex, Normal}, branch_graphics::BranchGraphicsResources, mesh::Mesh};
 
 const HALF_PI: f32 = PI / 2.0;
 
@@ -35,35 +35,13 @@ impl Normal {
 pub struct MeshUpdateQueue (pub Vec<Entity>);
 
 
-#[derive(Component)]
-pub struct BranchMesh {
-    pub vertices: Vec<Vertex>,
-    pub normals: Vec<Normal>,
-    pub indices: Vec<u32>,
-}
-
-impl BranchMesh {
-    pub fn empty() -> Self {
-        BranchMesh {
-            vertices: Vec::new(),
-            normals: Vec::new(),
-            indices: Vec::new()
-        }
-    }
-
-    pub fn set(&mut self, new: BranchMesh) {
-        self.vertices = new.vertices;
-        self.normals = new.normals;
-        self.indices = new.indices;
-    }
-}
 
 
 pub fn update_next_mesh(
     mut queue_qry: Query<&mut MeshUpdateQueue>,
     plants_query: Query<&PlantData, With<PlantTag>>,
     branch_data: Query<&BranchData, With<BranchTag>>,
-    mut branch_meshes: Query<&mut BranchMesh, With<BranchTag>>,
+    mut branch_meshes: Query<&mut Mesh, With<BranchTag>>,
     branch_connections: Query<&BranchConnectionData, With<BranchTag>>,
     node_connections: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     node_data: Query<&BranchNodeData, With<BranchNodeTag>>,
@@ -89,7 +67,7 @@ pub fn check_for_force_update(
     queue_qry: Query<&MeshUpdateQueue>,
     plants_query: Query<&PlantData, With<PlantTag>>,
     branch_data: Query<&BranchData, With<BranchTag>>,
-    mut branch_meshes: Query<&mut BranchMesh, With<BranchTag>>,
+    mut branch_meshes: Query<&mut Mesh, With<BranchTag>>,
     branch_connections: Query<&BranchConnectionData, With<BranchTag>>,
     node_connections: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     node_data: Query<&BranchNodeData, With<BranchNodeTag>>,
@@ -105,7 +83,7 @@ fn force_update_all_meshes(
     queue_qry: &Query<&MeshUpdateQueue>,
     plants_query: &Query<&PlantData, With<PlantTag>>,
     branch_data: &Query<&BranchData, With<BranchTag>>,
-    mut branch_meshes: &mut Query<&mut BranchMesh, With<BranchTag>>,
+    mut branch_meshes: &mut Query<&mut Mesh, With<BranchTag>>,
     branch_connections: &Query<&BranchConnectionData, With<BranchTag>>,
     node_connections: &Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     node_data: &Query<&BranchNodeData, With<BranchNodeTag>>,
@@ -124,7 +102,7 @@ fn force_update_all_meshes(
 
 
 fn update_plant_mesh(
-    branch_meshes: &mut Query<&mut BranchMesh, With<BranchTag>>,
+    branch_meshes: &mut Query<&mut Mesh, With<BranchTag>>,
     branch_data: &Query<&BranchData, With<BranchTag>>,
     node_connections: &Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     node_data: &Query<&BranchNodeData, With<BranchNodeTag>>,
@@ -152,7 +130,7 @@ fn create_branch_mesh(
     node_thicknesses: Vec<f32>,
     node_pairs:  Vec<(usize, usize)>,
     polygon_directions: &Vec<Vector3>,
-) -> BranchMesh {
+) -> Mesh {
 
     let branch_rotation_matrix = {
         let mut rotation_axis = branch_normal.cross(&Vector3::Y());
@@ -238,7 +216,7 @@ fn create_branch_mesh(
     //     println!("{:?}", vertex);
     // }
 
-    BranchMesh {
+    Mesh {
         vertices,
         normals,
         indices

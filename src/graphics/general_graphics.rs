@@ -47,12 +47,24 @@ pub struct Vertex {
 }
 impl_vertex!(Vertex, position);
 
+impl From<Vector3> for Vertex {
+    fn from(value: Vector3) -> Self {
+        Vertex {position: value.into()}
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
 pub struct Normal {
     pub normal: [f32; 3],
 }
 impl_vertex!(Normal, normal);
+
+impl From<Vector3> for Normal {
+    fn from(value: Vector3) -> Self {
+        Normal {normal: value.into()}
+    }
+}
 
 
 
