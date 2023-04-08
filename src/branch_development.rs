@@ -2,11 +2,11 @@
 use bevy_ecs::prelude::*;
 use crate::{
     plant::{PlantData, PlantGrowthControlFactors, PlantTag},
-    branch::{BranchGrowthData, BranchTag, BranchConnectionData, get_branches_base_to_tip, get_terminal_branches, BranchData, get_branches_tip_to_base, BranchBundle},
+    branch::{BranchGrowthData, BranchTag, BranchConnectionData, get_branches_base_to_tip, get_terminal_branches, BranchData, get_branches_tip_to_base, BranchBundle, get_branch_parent_id},
     branch_node::{BranchNodeGrowthData, BranchNodeConnectionData, BranchNodeTag, get_terminal_nodes, get_nodes_tip_to_base, get_nodes_base_to_tip, get_nodes_and_connections_base_to_tip, BranchNodeData, get_nodes_on_layer, BranchNodeBundle},
     branch_prototypes::{BranchPrototypes, BranchPrototypeRef, BranchPrototypesTag, BranchPrototypesSampler},
     environment::{GravityResources, PhysicalAgeStep},
-    general::vector_three::Vector3, graphics::branch_mesh_gen::MeshUpdateQueue,
+    general::{vector_three::Vector3, matrix_three::Matrix3}, graphics::branch_mesh_gen::MeshUpdateQueue,
 };
 
 
@@ -192,12 +192,12 @@ pub fn determine_create_new_branches(
                 if let Ok(mut connections) = branch_connections_query.get_mut(id) {
                     
                     if connections.children.0.is_none() {
-                        let child_root_id = commands.spawn(BranchNodeBundle{data: BranchNodeData{thickening_factor: possible_terminal_nodes.0.unwrap().2, ..Default::default()}, ..Default::default()}).id();
+                        let child_root_id = commands.spawn(BranchNodeBundle{data: BranchNodeData{thickening_factor: possible_terminal_nodes.0.unwrap().1, ..Default::default()}, ..Default::default()}).id();
                         let child_id = commands.spawn(BranchBundle{
                             data: BranchData {
                                 parent_node: Some(possible_terminal_nodes.0.unwrap().0),
                                 root_node: Some(child_root_id),
-                                normal: possible_terminal_nodes.0.unwrap().1,
+                                normal: branch_data.normal,
                                 ..Default::default()
                             },
                             connections: BranchConnectionData{
@@ -215,12 +215,12 @@ pub fn determine_create_new_branches(
                     if connections.children.1.is_none() {
                         if possible_terminal_nodes.0.is_none() && possible_terminal_nodes.1.is_none() {continue;}
                         let parent_node = {if possible_terminal_nodes.0.is_some() {possible_terminal_nodes.0} else {possible_terminal_nodes.1}};
-                        let child_root_id = commands.spawn(BranchNodeBundle{data: BranchNodeData{thickening_factor: parent_node.unwrap().2, ..Default::default()}, ..Default::default()}).id();
+                        let child_root_id = commands.spawn(BranchNodeBundle{data: BranchNodeData{thickening_factor: parent_node.unwrap().1, ..Default::default()}, ..Default::default()}).id();
                         let child_id = commands.spawn(BranchBundle{
                             data: BranchData {
                                 parent_node: Some(parent_node.unwrap().0),
                                 root_node: Some(child_root_id),
-                                normal: parent_node.unwrap().1,
+                                normal: branch_data.normal,
                                 ..Default::default()
                             },
                             connections: BranchConnectionData{
@@ -251,7 +251,7 @@ fn get_possible_new_branch_nodes(
     node_connections_query: &Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     root_node: Entity,
     branch_min_vigor: f32,
-) -> (Option<(Entity, Vector3, f32)>, Option<(Entity, Vector3, f32)>) {
+) -> (Option<(Entity, f32)>, Option<(Entity, f32)>) {
     
 
     // sum up light exposure at branching points
@@ -321,17 +321,7 @@ fn get_possible_new_branch_nodes(
         if let Ok(node_data) = node_data_query.get(id) {
             if node_data.0.growth_vigor <= branch_min_vigor {continue;}
 
-            let mut normal = {
-                if let Ok(connections) = node_connections_query.get(id) {
-                    if connections.parent.is_none() {continue;}
-                    if let Ok(parent_data) = node_data_query.get(connections.parent.unwrap()) {
-                        node_data.1.position - parent_data.1.position
-                    } else {continue;}
-                } else {continue;}
-            };
-            normal.normalise();
-
-            possible_nodes.push(((id, normal, node_data.1.thickening_factor), node_data.0.growth_vigor));
+            possible_nodes.push(((id, node_data.1.thickening_factor), node_data.0.growth_vigor));
         }
     }
 
@@ -369,6 +359,42 @@ fn get_possible_new_branch_nodes(
 
     // return the two best nodes
     (Some(best_nodes.0.0), Some(best_nodes.1.0))
+}
+
+
+/// helper function to calculate the normal of a new branch module
+/// 
+/// The normal is based on 1 of 4 options, whichever has the smallest value from the distribution fn
+fn get_new_normal(
+    plant_angle: f32,
+    plant_dist_control: f32,
+    parent_normal: Vector3,
+) {
+    let parent_angles = Vector3::direction_to_euler_angles(&parent_normal);
+    let angles_set = vec![Vector3::X() * plant_angle, Vector3::X() * -plant_angle, Vector3::Z() * plant_angle, Vector3::Z() * -plant_angle];
+
+    for angle in angles_set {
+
+    }
+}
+
+
+fn distribution(
+
+) {
+
+}
+
+fn tropism(
+
+) {
+
+}
+
+fn possible_collisions_volume(
+
+) {
+
 }
 
 
@@ -447,7 +473,7 @@ pub fn calculate_segment_lengths_and_tropism(
     plant_query: Query<(&PlantData, &PlantGrowthControlFactors), With<PlantTag>>,
 
     branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>,
-    branch_data_query: Query<(&BranchData, &BranchGrowthData, &BranchPrototypeRef), With<BranchTag>>,
+    mut branch_data_query: Query<(&mut BranchData, &BranchGrowthData, &BranchPrototypeRef), With<BranchTag>>,
 
     branch_prototypes: Res<BranchPrototypes>,
 
@@ -471,7 +497,28 @@ pub fn calculate_segment_lengths_and_tropism(
 
         for id in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()) {
 
-            if let Ok((branch_data, branch_growth_data, prototype_ref)) = branch_data_query.get(id) {
+            let (parent_offset, parent_rotation_matrix) = {
+                let parent_id = get_branch_parent_id(id, &branch_connections_query);
+                
+                if parent_id.is_none() {
+                    (Vector3::ZERO(), Matrix3::identity())
+                }
+                else if let Ok(branch_parent_data) = branch_data_query.get(parent_id.unwrap()) {
+                    
+                    let rotation_matrix = {
+                        let rotation_axis = branch_parent_data.0.normal.cross(&Vector3::Y());
+                        let rotation_angle = branch_parent_data.0.normal.angle_to(&Vector3::Y());
+                        Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
+                    };
+                    (branch_parent_data.0.root_position, rotation_matrix)
+
+                } else {
+                    (Vector3::ZERO(), Matrix3::identity())
+                }
+            };
+
+
+            if let Ok((mut branch_data, branch_growth_data, prototype_ref)) = branch_data_query.get_mut(id) {
 
                 if branch_data.root_node.is_none() {continue;}
                 let branch_age = branch_growth_data.physiological_age;
@@ -484,10 +531,7 @@ pub fn calculate_segment_lengths_and_tropism(
                             parent_node.position
                         } else {panic!("failed to get branch parent node")}
                     };
-
-                    if let Ok(mut root_node) = branch_node_query.get_mut(branch_data.root_node.unwrap()) {
-                        root_node.position = root_position;
-                    }
+                    branch_data.root_position = root_position.transform(&parent_rotation_matrix) + parent_offset;
                 }
 
                 // update all node positions

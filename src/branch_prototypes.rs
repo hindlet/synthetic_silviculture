@@ -2,7 +2,7 @@
 use std::{collections::HashMap};
 
 use bevy_ecs::prelude::*;
-use plotters::prelude::*;
+use plotters::{prelude::*, palette::white_point::C};
 use voronator::{
     delaunator::Point,
     CentroidDiagram,
@@ -11,7 +11,13 @@ use voronator::{
 use image::{GenericImageView, DynamicImage, ImageBuffer};
 use rand::Rng;
 
-use crate::{branch::BranchBundle, general::vector_three::Vector3};
+use crate::{
+    branch::BranchBundle,
+    general::{
+        vector_three::Vector3,
+        bounding_sphere::BoundingSphere, matrix_three::Matrix3
+    }
+};
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -46,8 +52,115 @@ pub struct BranchPrototypeRef (pub usize);
 pub struct BranchPrototypeData {
     pub mature_age: f32, // the mature age of the branch, used to interpolate growth
     pub layers: u32, // the number of layers in the tree diagram, used for interpolating growth
-    pub node_counts: Vec<Vec<u32>>, // the number of nodes in each layer of the tree diagram: len() == layers
+    pub node_counts: Vec<Vec<u32>>, // the number of nodes in each layer of the tree diagram: len() == layers - 1
     pub directions: Vec<Vector3>, // the directions of all the node pairs
+    cuml_nodes: Vec<u32>,
+}
+
+
+impl BranchPrototypeData {
+    pub fn new(mature_age: f32, node_counts: Vec<Vec<u32>>, directions: Vec<Vector3>) -> Self {
+        let (layers, cuml_nodes) = {
+            let mut layer_count = 1;
+            let mut nodes = vec![1];
+            for count_set in node_counts.iter() {
+                layer_count += 1;
+                let mut layer_node_count = 0;
+                for count in count_set {
+                    layer_node_count += count;
+                }
+                nodes.push(layer_node_count + nodes.last().unwrap());
+            }
+            (layer_count, nodes)
+        };
+
+
+        BranchPrototypeData {
+            mature_age,
+            layers,
+            node_counts,
+            directions,
+            cuml_nodes
+        }
+    }
+
+
+    /// calculates and returns the possible bounds of the branch at max age for a set of possible rotations
+    /// 
+    /// used to decide on an optimal rotation for a new branch module
+    pub fn get_possible_bounds(&self, max_length: f32, initial_rot: Vector3, possible_rots: Vec<Vector3>, root_pos: Vector3) -> Vec<BoundingSphere>{
+        
+        // calculate the branch node positions at max age
+
+        // this creates a list of all the directions from each node to its children
+        let dirs = {
+            let mut dirs = Vec::new();
+            let mut count = 0;
+            for layer_child_count in self.node_counts.iter() {
+
+                for node_child_count in layer_child_count.iter() {
+                    let mut child_dirs = Vec::new();
+                    for _i in 0..*node_child_count {
+                        child_dirs.push(self.directions[count]);
+                        count += 1;
+                    }
+                    dirs.push(child_dirs);
+                }
+            }
+            dirs
+        };
+
+        let node_positions = {
+            let mut nodes: Vec<Vector3> = vec![Vector3::ZERO()];
+            let mut i = 0;
+            for dir_set in dirs {
+                for dir in dir_set {
+                    nodes.push(nodes[i] + dir * max_length);
+                }
+                i += 1;
+            }
+            nodes
+        };
+
+        // calculate possible normals
+        let possible_normals = {
+            let mut norms = Vec::new();
+            for rot in possible_rots {
+                norms.push(Vector3::euler_angles_to_direction(&(initial_rot + rot)));
+            }
+            norms
+        };
+
+        // calculate all the rotations of it
+        let possible_bounds = {
+            let mut bounds = Vec::new();
+            for norm in possible_normals {
+
+                let branch_rotation_matrix = {
+                    let mut rotation_axis = norm.cross(&Vector3::Y());
+                    rotation_axis.normalise();
+                    let rotation_angle = norm.angle_to(&Vector3::Y());
+                    Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
+                };
+
+                let new_nodes: Vec<Vector3> = node_positions.iter().map(|n| n.transform(&branch_rotation_matrix)).collect();
+
+                if new_nodes.len() == 1 {
+                    bounds.push(BoundingSphere::new(new_nodes[0], 0.01))
+                } else {
+                    bounds.push(BoundingSphere::from_points(&new_nodes))
+                }
+            }
+            for bound in bounds.iter_mut() {
+                bound.centre += root_pos;
+            }
+            bounds
+        };
+
+        possible_bounds
+    }
+
+    
 }
 
 
@@ -57,6 +170,7 @@ pub struct BranchPrototypes {
 }
 
 impl BranchPrototypes {
+    /// returns a set of directions
     pub fn get_directions(&self) -> Vec<&Vec<Vector3>> {
         let mut out: Vec<&Vec<Vector3>> = Vec::new();
         for prototype in self.prototypes.iter() {

@@ -1,9 +1,11 @@
 #![allow(dead_code)]
 use crate::vector_two::Vector2;
 use crate::matrix_three::Matrix3;
+use std::f32::consts::PI;
 use std::ops::*;
 use std::cmp::Ordering;
 
+const HALF_PI: f32 = PI / 2.0;
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Vector3 {
@@ -139,12 +141,19 @@ impl Vector3 {
         return (self.dot(rhs)/(self.magnitude() * rhs.magnitude())).acos();
     }
 
-    pub fn transform(&mut self, transform: Matrix3) -> Self {
-        let (x, y, z) = (self.x, self.y, self.z); 
-        self.x = x * transform.x.x + y * transform.x.y + z * transform.x.z;
-        self.y = x * transform.y.x + y * transform.y.y + z * transform.y.z;
-        self.z = x * transform.z.x + y * transform.z.y + z * transform.z.z;
-        *self
+
+    pub fn transform(&self, transform: &Matrix3) -> Vector3 {
+        let x = self.dot(&transform.x);
+        let y = self.dot(&transform.y);
+        let z = self.dot(&transform.z);
+        Vector3::new(x, y, z)
+    }
+
+    pub fn mut_transform(&mut self, transform: &Matrix3) {
+        let new = self.transform(transform);
+        self.x = new.x;
+        self.y = new.y;
+        self.z = new.z;
     }
 
     pub fn xy(&self) -> Vector2 {
@@ -157,6 +166,39 @@ impl Vector3 {
 
     pub fn yz(&self) -> Vector2 {
         Vector2::new(self.y, self.z)
+    }
+
+    /// gets the appropriate euler angles for a given direction vector, where (0, 0, 0)euler is equivivelant to (0, 1, 0)direction
+    pub fn direction_to_euler_angles(start_dir: &Vector3) -> Vector3{
+        let dir = {
+            let mut dir = start_dir.clone();
+            dir.normalise();
+            dir
+        };
+        if dir == Vector3::Y() * -1.0 {
+            Vector3::new(PI, 0.0, 0.0)
+        } else if dir == Vector3::Y() {
+            Vector3::ZERO()
+        } else {
+            let cross_mat = {
+                let cross = dir.cross(&Vector3::Y());
+                Matrix3::new(
+                    0.0, -cross.z, cross.y,
+                    cross.z, 0.0, -cross.x,
+                    -cross.y, cross.x, 0.0
+                )
+            };
+            let angle_cos = dir.dot(&Vector3::Y());
+            let rot_mat =  Matrix3::identity() + cross_mat + cross_mat * cross_mat * (1.0 / (1.0 + angle_cos));
+            Matrix3::euler_angles_from(&rot_mat)
+        }
+
+    }
+
+    // gets the approriate direction vector for given euler angles, where (0, 1, 0)direction is equivelant to (0, 0, 0)euler
+    pub fn euler_angles_to_direction(rot: &Vector3) -> Vector3 {
+        let matrix = Matrix3::from_euler_angles(rot);
+        Vector3::Y().transform(&matrix)
     }
 }
 

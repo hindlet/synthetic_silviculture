@@ -36,7 +36,7 @@ pub struct PlantGrowthControlFactors {
     pub min_vigor: f32,
     pub apical_control: f32, // range 0..1
     pub orientation_angle: f32,
-    pub distribution_control_two: f32, // range 0..1
+    pub tropism_angle_weight: f32, // range 0..1
     pub growth_rate: f32,
     pub max_branch_segment_length: f32,
     pub branch_segment_length_scaling_coef: f32,
@@ -57,10 +57,23 @@ pub struct PlantBundle {
     pub growth_factors: PlantGrowthControlFactors,
 }
 
+#[derive(Resource)]
+pub struct PlantDeathRate {
+    pub v_max_decrease: f32,
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////// impls /////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
+
+impl PlantDeathRate {
+    pub fn new(death_rate: f32) -> Self {
+        PlantDeathRate {
+            v_max_decrease: death_rate,
+        }
+    }
+}
 
 
 impl Default for PlantBundle {
@@ -109,7 +122,7 @@ impl Default for PlantGrowthControlFactors {
             max_age: 0.0,
             apical_control: 0.5,
             orientation_angle: 0.0,
-            distribution_control_two: 0.5,
+            tropism_angle_weight: 0.5,
             growth_rate: 1.0,
             max_branch_segment_length: 1.0,
             branch_segment_length_scaling_coef: 1.0,
@@ -231,11 +244,15 @@ pub fn update_branch_intersections(
 /// steps the ages of all plants by the phyical age step
 /// also adjusts max vigor where appropriate
 pub fn step_plant_age(
-    plant_query: Query<(&PlantData, &PlantGrowthControlFactors), With<PlantTag>>,
-    timestep: Res<PhysicalAgeStep>
+    mut plant_query: Query<(&mut PlantData, &mut PlantGrowthControlFactors), With<PlantTag>>,
+    timestep: Res<PhysicalAgeStep>,
+    descrease_rate: Res<PlantDeathRate>
 ) {
-    for plant in plant_query.iter() {
-
+    for (mut plant_data, mut plant_growth_data) in plant_query.iter_mut() {
+        plant_data.age += timestep.step;
+        if plant_data.age > plant_growth_data.max_age {
+            plant_growth_data.max_vigor = 0.0_f32.max(plant_growth_data.max_vigor - descrease_rate.v_max_decrease);
+        }
     }
 }
 

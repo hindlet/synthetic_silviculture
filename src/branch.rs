@@ -28,6 +28,7 @@ pub struct BranchData {
     pub intersection_list: Vec<Entity>,
     pub root_node: Option<Entity>,
     pub parent_node: Option<Entity>, // a reference to the node on another branch that this branch started from
+    pub root_position: Vector3,
 }
 
 #[derive(Debug, Component)]
@@ -110,6 +111,7 @@ impl Default for BranchData {
             intersection_list: Vec::new(),
             root_node: None,
             parent_node: None,
+            root_position: Vector3::ZERO(),
         }
     }
 }
@@ -164,18 +166,19 @@ pub fn update_branch_bounds(
 
         for id in get_nodes_base_to_tip(&nodes_connections_query, data.root_node.unwrap()) {
             if let Ok(node_data) = node_data.get(id) {
-                node_positions.push(node_data.position.clone().transform(branch_rotation_matrix));
+                node_positions.push(node_data.position.clone().transform(&branch_rotation_matrix));
             }
         }
 
-        let new_bounds = 
+        let mut new_bounds = 
             if node_positions.len() == 1 {
-                BoundingSphere{centre: node_positions[0], radius: 0.01}
+                BoundingSphere::new(node_positions[0], 0.01)
             }
             else {
                 BoundingSphere::from_points(&node_positions)
             };
         
+        new_bounds.centre += data.root_position;
 
         bounds.bounds = new_bounds;
     }
@@ -225,6 +228,17 @@ pub fn calculate_branch_light_exposure(
 ///////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// Branch Sorting ////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
+
+
+pub fn get_branch_parent_id(
+    child_id: Entity,
+    connections_query: &Query<&BranchConnectionData, With<BranchTag>>
+) -> Option<Entity> {
+    if let Ok(child_data) = connections_query.get(child_id) {
+        return child_data.parent;
+    }
+    else {panic!("Failed to get parent branch")}
+}
 
 
 pub fn get_branches_tip_to_base(

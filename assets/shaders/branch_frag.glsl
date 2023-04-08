@@ -5,13 +5,14 @@ layout(location = 2) in vec3 v_position;
 
 layout(location = 0) out vec4 f_color;
 
-const vec3 LIGHT = vec3(0.0, 0.5, 1.0);
+const vec3 LIGHT = vec3(0.0, 0.5, 1.0); // TODO: Add light data as uniforms
 const float AMBIENT = 0.3;
 const float DIFFUSE = 0.8;
 
-const vec3 BRANCHCOLOR = vec3(0.305, 0.208, 0.141);
+const vec3 BRANCHCOLOR = vec3(0.305, 0.208, 0.141); // literally just the colour brown
 
 
+// TODO: Add light intensity degrading over distance
 void main() {
     vec3 ambient_color = AMBIENT * BRANCHCOLOR;
     vec3 diffuse_color = DIFFUSE * BRANCHCOLOR;

@@ -629,7 +629,7 @@ mod branch_nodes_tests {
 #[cfg(test)]
 mod branch_prototype_tests {
     use super::{BranchPrototypesSampler, GenericImageView,
-    World, BranchNodeTag};
+    World, BranchNodeTag, BranchPrototypeData, Vector3};
 
     #[test]
     fn sampling_test() {

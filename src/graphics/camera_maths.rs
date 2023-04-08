@@ -121,11 +121,11 @@ impl Camera {
         // rotate
         if self.movement[6] {
             let rotation = Matrix3::from_angle_and_axis(self.rotate_speed, self.up);
-            self.direction.transform(rotation);
+            self.direction.mut_transform(&rotation);
         }
         if self.movement[7] {
             let rotation = Matrix3::from_angle_and_axis(-self.rotate_speed, self.up);
-            self.direction.transform(rotation);
+            self.direction.mut_transform(&rotation);
         }
 
         // spin around left
@@ -134,11 +134,11 @@ impl Camera {
         // rotate
         if self.movement[8] {
             let rotation = Matrix3::from_angle_and_axis(self.rotate_speed, left);
-            self.direction.transform(rotation);
+            self.direction.mut_transform(&rotation);
         }
         if self.movement[9] {
             let rotation = Matrix3::from_angle_and_axis(-self.rotate_speed, left);
-            self.direction.transform(rotation);
+            self.direction.mut_transform(&rotation);
         }
     }
 }

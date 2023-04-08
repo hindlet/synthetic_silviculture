@@ -13,10 +13,10 @@ use std::cmp::{max, min};
 use std::f32::consts::PI;
 
 impl BoundingSphere {
-    pub fn new() -> Self {
+    pub fn new(centre: Vector3, radius: f32) -> Self {
         BoundingSphere {
-            centre: Vector3::ZERO(),
-            radius: 0.0
+            centre,
+            radius
         }
     }
 

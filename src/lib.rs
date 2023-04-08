@@ -9,6 +9,7 @@ pub mod graphics;
 pub mod fixed_schedule;
 pub mod branch_development;
 pub mod environment;
+pub mod debug;
 
 use bevy_ecs::schedule::{SystemSet, Schedule};
 use branch::*;

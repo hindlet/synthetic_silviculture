@@ -103,11 +103,10 @@ fn main() {
     // branch prototypes
     world.insert_resource(BranchPrototypes{
         prototypes: vec![
-            BranchPrototypeData{
-                mature_age: 25.0,
-                layers: 4,
-                node_counts: vec![vec![2], vec![1, 2], vec![2, 1, 2]],
-                directions: vec![
+            BranchPrototypeData::new(
+                25.0,
+                vec![vec![2], vec![1, 2], vec![2, 1, 2]],
+                vec![
                     Vector3::new(0.743, 0.371, 0.557),
                     Vector3::new(0.192, 0.962, 0.192),
 
@@ -121,12 +120,12 @@ fn main() {
                     Vector3::new(-0.333, 0.667, -0.667),
                     Vector3::new(0.301, 0.904, 0.301),
                 ],
-            },
-
+            ),
         ]
     });
 
     world.insert_resource(BranchPrototypesSampler::create(vec![([0, 255, 0], 10.0, 10.0)], (200, 200), 20.0, 20.0));
+    world.insert_resource(PlantDeathRate::new(0.5));
 
 
     // plant
@@ -149,7 +148,7 @@ fn main() {
 
     let plant_id = world.spawn(PlantBundle{
         growth_factors: PlantGrowthControlFactors{
-            max_age: 500000.0,
+            max_age: 200.0,
             max_vigor: 42.0,
             min_vigor: 2.0,
             apical_control: 0.62,
