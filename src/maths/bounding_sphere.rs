@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
-use crate::general::vector_three::Vector3;
+use crate::maths::vector_three::Vector3;
 
 
 #[derive(Default, Component, Debug, PartialEq, Clone, Copy)]

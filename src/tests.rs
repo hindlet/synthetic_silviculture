@@ -1,14 +1,15 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
-use image::{GenericImageView};
+use image::GenericImageView;
 use crate::{
-    vector_three::Vector3,
-    bounding_sphere::BoundingSphere,
-    bounding_box::BoundingBox,
+    maths::{vector_three::Vector3, bounding_sphere::BoundingSphere, bounding_box::BoundingBox},
     plant::*,
     branch::*,
     branch_prototypes::*,
     branch_node::*,
+    general_update::*,
+    plant_development::*,
+    branch_development::*,
 };
 use std::f32::consts::PI;
 

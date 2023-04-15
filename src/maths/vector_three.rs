@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use crate::vector_two::Vector2;
-use crate::matrix_three::Matrix3;
+use super::vector_two::Vector2;
+use super::matrix_three::Matrix3;
 use std::f32::consts::PI;
 use std::ops::*;
 use std::cmp::Ordering;

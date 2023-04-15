@@ -4,7 +4,7 @@ use synthetic_silviculture::{
     plant::*,
     branch_development::*,
     branch_node::*,
-    general::vector_three::Vector3,
+    maths::vector_three::Vector3,
     graphics::{
         branch_mesh_gen::{update_next_mesh, check_for_force_update, MeshUpdateQueue},
         camera_maths::Camera,
@@ -15,6 +15,8 @@ use synthetic_silviculture::{
     fixed_schedule::FixedSchedule,
     branch_prototypes::{BranchPrototypesSampler, BranchPrototypes, BranchPrototypeData, BranchPrototypeRef},
     environment::{create_gravity_resource, create_physical_age_time_step},
+    general_update::*,
+    plant_development::*,
 };
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents, CommandBufferInheritanceInfo, allocator::StandardCommandBufferAllocator},

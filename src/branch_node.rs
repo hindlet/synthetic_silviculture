@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
 use crate::{
-    vector_three::Vector3, graphics::general_graphics::Vertex,
+    maths::vector_three::Vector3, graphics::general_graphics::Vertex,
 };
 
 #[derive(Component)]

@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
-use crate::general::vector_three::*;
-use crate::general::bounding_sphere::BoundingSphere;
+use crate::maths::vector_three::*;
+use crate::maths::bounding_sphere::BoundingSphere;
 
 
 #[derive(Default, Component, Debug, PartialEq, Clone, Copy)]

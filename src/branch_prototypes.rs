@@ -13,7 +13,7 @@ use rand::Rng;
 
 use crate::{
     branch::BranchBundle,
-    general::{
+    maths::{
         vector_three::Vector3,
         bounding_sphere::BoundingSphere, matrix_three::Matrix3
     }

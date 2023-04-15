@@ -6,11 +6,18 @@ use crate::{
     branch_node::{BranchNodeGrowthData, BranchNodeConnectionData, BranchNodeTag, get_terminal_nodes, get_nodes_tip_to_base, get_nodes_base_to_tip, get_nodes_and_connections_base_to_tip, BranchNodeData, get_nodes_on_layer, BranchNodeBundle},
     branch_prototypes::{BranchPrototypes, BranchPrototypeRef, BranchPrototypesTag, BranchPrototypesSampler},
     environment::{GravityResources, PhysicalAgeStep},
-    general::{vector_three::Vector3, matrix_three::Matrix3}, graphics::branch_mesh_gen::MeshUpdateQueue,
+    maths::{vector_three::Vector3, matrix_three::Matrix3}, graphics::branch_mesh_gen::MeshUpdateQueue,
 };
 
 
 
+pub fn calculate_branch_light_exposure(
+    mut branches_query: Query<(&mut BranchGrowthData, &BranchData), With<BranchTag>>,
+) {
+    for mut data in branches_query.iter_mut() {
+        data.0.light_exposure = (-data.1.intersections_volume).exp();
+    }
+}
 
 /// Calculates growth rates for all branches
 /// 

@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::vector_three::Vector3;
+use super::vector_three::Vector3;
 use std::{ops::*, f32::consts::PI};
 
 #[derive(Default, Clone, Copy, Debug, PartialEq)]

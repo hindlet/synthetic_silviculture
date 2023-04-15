@@ -23,9 +23,9 @@ use vulkano_win::VkSurfaceBuild;
 use winit::{window::{WindowBuilder, Window}, event::VirtualKeyCode, dpi::PhysicalSize};
 use winit::event_loop::EventLoop;
 use bytemuck::{Pod, Zeroable};
-use crate::{graphics::camera_maths::Camera, general::vector_three::Vector3};
-use crate::general::matrix_four::Matrix4;
-use crate::general::matrix_three::Matrix3;
+use crate::{graphics::camera_maths::Camera, maths::vector_three::Vector3};
+use crate::maths::matrix_four::Matrix4;
+use crate::maths::matrix_three::Matrix3;
 use crate::graphics::gui::{GUIResources, create_gui_subpass};
 
 

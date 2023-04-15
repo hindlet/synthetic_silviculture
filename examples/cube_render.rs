@@ -1,5 +1,5 @@
 use synthetic_silviculture::graphics::{test_cube, general_graphics::*, camera_maths::*};
-use synthetic_silviculture::general::{matrix_three::Matrix3, matrix_four::Matrix4, vector_three::*};
+use synthetic_silviculture::maths::{matrix_three::Matrix3, matrix_four::Matrix4, vector_three::*};
 
 use vulkano::buffer::{CpuAccessibleBuffer, BufferUsage, CpuBufferPool, cpu_pool::CpuBufferPoolSubbuffer, TypedBufferAccess};
 use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;

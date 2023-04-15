@@ -1,7 +1,7 @@
 #![allow(dead_code)]
-use crate::vector_four::Vector4;
-use crate::matrix_three::Matrix3;
-use crate::vector_three::Vector3;
+use super::vector_four::Vector4;
+use super::matrix_three::Matrix3;
+use super::vector_three::Vector3;
 use std::ops::*;
 
 #[derive(Default, Clone, Copy, Debug, PartialEq)]

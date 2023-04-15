@@ -11,7 +11,7 @@ use synthetic_silviculture::{
     branch::{BranchBundle, BranchData, BranchTag},
     plant::{PlantBundle, PlantData},
     branch_node::{BranchNodeBundle, BranchNodeData, BranchNodeConnectionData},
-    general::vector_three::Vector3,
+    maths::vector_three::Vector3,
     graphics::{
         branch_mesh_gen::{MeshUpdateQueue, update_next_mesh},
         camera_maths::Camera,

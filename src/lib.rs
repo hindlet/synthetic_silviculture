@@ -2,7 +2,7 @@
 
 pub mod branch;
 pub mod branch_prototypes;
-pub mod general;
+pub mod maths;
 pub mod plant;
 pub mod branch_node;
 pub mod graphics;
@@ -10,22 +10,8 @@ pub mod fixed_schedule;
 pub mod branch_development;
 pub mod environment;
 pub mod debug;
-
-use bevy_ecs::schedule::{SystemSet, Schedule};
-use branch::*;
-use branch_prototypes::*;
-use plant::*;
-use general::*;
+pub mod general_update;
+pub mod plant_development;
 mod tests;
-use branch_node::*;
-mod transform;
 
 
-pub fn get_simulation_schedule() -> Schedule {
-    let schedule = Schedule::default();
-
-    
-
-
-    schedule
-}

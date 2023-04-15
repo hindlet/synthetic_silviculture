@@ -2,7 +2,7 @@
 
 
 use bevy_ecs::prelude::*;
-use crate::general::vector_three::Vector3;
+use crate::maths::vector_three::Vector3;
 use itertools::Itertools;
 use super::general_graphics::{Vertex, Normal};
 

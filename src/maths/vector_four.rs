@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use crate::vector_three::Vector3;
-use crate::vector_two::Vector2;
+use super::vector_three::Vector3;
+use super::vector_two::Vector2;
 use std::ops::*;
 
 

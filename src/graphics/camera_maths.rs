@@ -1,9 +1,6 @@
 use bevy_ecs::prelude::Component;
 use winit::event::VirtualKeyCode;
-use crate::vector_three::{Vector3, cross};
-use crate::vector_two::Vector2;
-use crate::matrix_four::Matrix4;
-use crate::matrix_three::Matrix3;
+use crate::maths::{vector_three::{Vector3, cross}, matrix_three::Matrix3, matrix_four::Matrix4};
 
 
 #[derive(Component)]
