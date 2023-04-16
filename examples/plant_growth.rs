@@ -168,7 +168,7 @@ fn main() {
     }).id();
 
     // mesh queue
-    world.spawn(MeshUpdateQueue{0: vec![plant_id]});
+    world.spawn(MeshUpdateQueue::new_from_single(plant_id));
 
 
     // run startup

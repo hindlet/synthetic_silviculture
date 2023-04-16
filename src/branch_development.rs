@@ -162,10 +162,8 @@ pub fn determine_create_new_branches(
     mut node_data_query: Query<(&mut BranchNodeGrowthData, &BranchNodeData), With<BranchNodeTag>>,
     node_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
 
-    mut mesh_queue: Query<&mut MeshUpdateQueue>,
     mut commands: Commands
 ) {
-    let mut queue = mesh_queue.single_mut();
     for (plant_data, plant_growth_factors) in plant_query.iter() {
         if plant_data.root_node.is_none() {continue;}
 
@@ -216,7 +214,6 @@ pub fn determine_create_new_branches(
                         }).id();
                         possible_terminal_nodes.0 = None;
                         connections.children.0 = Some(child_id);
-                        queue.0.push(child_id);
                     }
                     
                     if connections.children.1.is_none() {
@@ -238,7 +235,6 @@ pub fn determine_create_new_branches(
                             ..Default::default()
                         }).id();
                         connections.children.1 = Some(child_id);
-                        queue.0.push(child_id);
                     }
                 }
 

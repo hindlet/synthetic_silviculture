@@ -97,15 +97,11 @@ fn main() {
 
 
 
-    let plant = world.spawn(PlantBundle{data: PlantData{root_node: Some(branch_id), ..Default::default()}, ..Default::default()}).id();
+    let plant_id = world.spawn(PlantBundle{data: PlantData{root_node: Some(branch_id), ..Default::default()}, ..Default::default()}).id();
 
 
-    world.spawn(MeshUpdateQueue {
-        0: vec![plant]
-    });
+    world.spawn(MeshUpdateQueue::new_from_single(plant_id));
 
-    
-    
 
     // do all the shader stuff
     let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("branch_render".to_string());

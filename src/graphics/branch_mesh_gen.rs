@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, ops::AddAssign};
+use std::{f32::consts::PI, ops::AddAssign, collections::VecDeque};
 
 use crate::{maths::{vector_three::{self, Vector3}, matrix_three::Matrix3}, plant::{PlantData, PlantTag}, branch::{BranchTag, BranchConnectionData, BranchData, get_branches_base_to_tip}, branch_node::{BranchNodeConnectionData, BranchNodeTag, get_node_data_and_connections_base_to_tip, BranchNodeData}};
 use bevy_ecs::{prelude::*, system::SystemState};
@@ -31,9 +31,17 @@ impl Normal {
 
 
 #[derive(Component)]
-pub struct MeshUpdateQueue (pub Vec<Entity>);
+pub struct MeshUpdateQueue (pub VecDeque<Entity>);
 
+impl MeshUpdateQueue {
+    pub fn new_from_single(id: Entity) -> Self {
+        MeshUpdateQueue(VecDeque::from([id]))
+    }
 
+    pub fn new_from_many(ids: Vec<Entity>) -> Self {
+        MeshUpdateQueue(VecDeque::from(ids))
+    }
+}
 
 
 pub fn update_next_mesh(
@@ -50,14 +58,14 @@ pub fn update_next_mesh(
     let polygons = &branch_graphics_res.polygon_vectors;
 
     loop {
-        if queue.0.len() == 0 {return;}
-        let id = queue.0[0];
+        if queue.0.len() == 0 {break;}
+        let id = queue.0.pop_front().unwrap();
         if let Ok(plant) = plants_query.get(id) {
-            queue.0.rotate_left(1);
             if plant.root_node.is_none() {continue;}
             update_plant_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, get_branches_base_to_tip(&branch_connections, plant.root_node.unwrap()), polygons);
-            return;
-        } else {queue.0.remove(0);}
+            queue.0.push_back(id);
+            break;
+        }
     }
 }
 
