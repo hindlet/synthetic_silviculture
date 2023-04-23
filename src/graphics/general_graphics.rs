@@ -5,19 +5,18 @@ use bevy_ecs::prelude::*;
 use vulkano::{
     VulkanLibrary,
     instance::{Instance, InstanceCreateInfo},
-    device::{Device, DeviceExtensions, DeviceCreateInfo, physical::{PhysicalDevice, PhysicalDeviceType}, Queue, QueueCreateInfo, DeviceOwned},
+    device::{Device, DeviceExtensions, DeviceCreateInfo, physical::{PhysicalDevice, PhysicalDeviceType}, Queue, QueueCreateInfo, DeviceOwned, QueueFlags},
     swapchain::{Surface, Swapchain, SwapchainCreateInfo, SwapchainCreationError},
     shader::ShaderModule,
     render_pass::{RenderPass, Framebuffer, FramebufferCreateInfo, Subpass},
     image::{SwapchainImage, ImageAccess, view::ImageView, AttachmentImage, ImageUsage, swapchain},
     format::Format,
     pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint,
-    graphics::{depth_stencil::DepthStencilState, viewport::{Viewport, ViewportState}, input_assembly::InputAssemblyState, vertex_input::BuffersDefinition}
+    graphics::{depth_stencil::DepthStencilState, viewport::{Viewport, ViewportState}, input_assembly::InputAssemblyState, vertex_input::Vertex}, PipelineLayout, layout::PipelineLayoutCreateInfo
     },
-    impl_vertex, buffer::BufferContents,
-    buffer::{CpuAccessibleBuffer, cpu_pool::CpuBufferPoolSubbuffer, TypedBufferAccess},
+    buffer::{BufferContents, BufferUsage, Buffer, BufferCreateInfo, Subbuffer},
     command_buffer::{PrimaryAutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents},
-    memory::allocator::StandardMemoryAllocator,
+    memory::allocator::{StandardMemoryAllocator, GenericMemoryAllocator, FreeListAllocator, MemoryUsage, AllocationCreateInfo},
 };
 use vulkano_win::VkSurfaceBuild;
 use winit::{window::{WindowBuilder, Window}, event::VirtualKeyCode, dpi::PhysicalSize};
@@ -26,39 +25,42 @@ use bytemuck::{Pod, Zeroable};
 use crate::{graphics::camera_maths::Camera, maths::vector_three::Vector3};
 use crate::maths::matrix_four::Matrix4;
 use crate::maths::matrix_three::Matrix3;
-use crate::graphics::gui::{GUIResources, create_gui_subpass};
+use crate::graphics::gui::{create_gui_subpass};
+
+
 
 
 
 
 // define Vertex and Normal Structs
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
+#[derive(Clone, Copy, Debug, Default, Zeroable, Pod, Vertex)]
 pub struct ColouredVertex {
+    #[format(R32G32B32_SFLOAT)]
     pub position: [f32; 3],
+    #[format(R32G32_SFLOAT)]
     pub color: [f32; 3],
 }
-impl_vertex!(ColouredVertex, position, color);
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
-pub struct Vertex {
+#[derive(Clone, Copy, Debug, Default, Zeroable, Pod, Vertex)]
+pub struct PositionVertex {
+    #[format(R32G32B32_SFLOAT)]
     pub position: [f32; 3],
 }
-impl_vertex!(Vertex, position);
 
-impl From<Vector3> for Vertex {
+impl From<Vector3> for PositionVertex {
     fn from(value: Vector3) -> Self {
-        Vertex {position: value.into()}
+        PositionVertex {position: value.into()}
     }
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
+#[derive(Clone, Copy, Debug, Default, Zeroable, Pod, Vertex)]
 pub struct Normal {
+    #[format(R32G32B32_SFLOAT)]
     pub normal: [f32; 3],
 }
-impl_vertex!(Normal, normal);
 
 impl From<Vector3> for Normal {
     fn from(value: Vector3) -> Self {
@@ -147,7 +149,7 @@ fn get_physical_device (
                 // find the first suitable queue family
                 // if there isn't one, None is returned and device is disqualified
                 .position(|(i, q)| {
-                    q.queue_flags.graphics && p.surface_support(i as u32, &surface).unwrap_or(false)
+                    q.queue_flags.intersects(QueueFlags::GRAPHICS) && p.surface_support(i as u32, &surface).unwrap_or(false)
                 })
                 .map(|q| (p, q as u32))
         })
@@ -172,7 +174,10 @@ pub fn get_swapchain(
         .expect("failed to get surface capabilities");
 
     let dimensions = surface.object().unwrap().downcast_ref::<Window>().unwrap().inner_size();
-    let composite_alpha = caps.supported_composite_alpha.iter().next().unwrap();
+    let surface_capabilities = device
+        .physical_device()
+        .surface_capabilities(&surface, Default::default())
+        .unwrap();
     let image_format = Some(
         physical_device
             .surface_formats(&surface, Default::default())
@@ -199,13 +204,10 @@ pub fn get_swapchain(
             min_image_count: surface_capabilities.min_image_count,
             image_format,
             image_extent: dimensions.into(),
-            image_usage: ImageUsage {
-                color_attachment: true,
-                ..ImageUsage::empty()
-            },
+            image_usage: ImageUsage::COLOR_ATTACHMENT,
             composite_alpha: surface_capabilities
                 .supported_composite_alpha
-                .iter()
+                .into_iter()
                 .next()
                 .unwrap(),
             ..Default::default()
@@ -214,15 +216,12 @@ pub fn get_swapchain(
     .unwrap()
 }
 
-pub fn recreate_swapchain_and_pipeline(
+pub fn recreate_swapchain_and_framebuffers(
     old_swapchain: Arc<Swapchain>,
     dimensions: PhysicalSize<u32>,
     memory_allocator: &StandardMemoryAllocator,
-    vs: &Arc<ShaderModule>,
-    fs: &Arc<ShaderModule>,
     render_pass: &Arc<RenderPass>,
-    buffers_def: BuffersDefinition,
-) -> Result<(Arc<Swapchain>, Arc<GraphicsPipeline>, Vec<Arc<Framebuffer>>), ()> {
+) -> Result<(Arc<Swapchain>, Vec<Arc<Framebuffer>>, [u32; 2]), ()> {
 
     let (new_swapchain, new_swapchain_images) = 
         match old_swapchain.recreate(SwapchainCreateInfo {
@@ -235,8 +234,8 @@ pub fn recreate_swapchain_and_pipeline(
         };
     
     // get a new pipeline and framebuffers
-    let (new_pipeline, new_framebuffers) = window_size_dependent_setup(memory_allocator, vs, fs, &new_swapchain_images, render_pass, buffers_def);
-    Ok((new_swapchain, new_pipeline, new_framebuffers))
+    let (new_framebuffers, new_dimensions) = get_framebuffers(memory_allocator, &new_swapchain_images, render_pass);
+    Ok((new_swapchain, new_framebuffers, new_dimensions))
 }
 
 
@@ -268,14 +267,11 @@ pub fn get_single_renderpass (
 }
 
 
-pub fn window_size_dependent_setup(
+pub fn get_framebuffers(
     memory_allocator: &StandardMemoryAllocator,
-    vs: &ShaderModule,
-    fs: &ShaderModule,
     images: &[Arc<SwapchainImage>],
-    render_pass: &Arc<RenderPass>,
-    buffers_def: BuffersDefinition,
-) -> (Arc<GraphicsPipeline>, Vec<Arc<Framebuffer>>) {
+    render_pass: &Arc<RenderPass>
+) -> (Vec<Arc<Framebuffer>>, [u32; 2]) {
     let dimensions = images[0].dimensions().width_height();
 
     let depth_buffer = ImageView::new_default(
@@ -298,27 +294,7 @@ pub fn window_size_dependent_setup(
         })
         .collect::<Vec<_>>();
 
-
-    let pipeline = GraphicsPipeline::start()
-        .vertex_input_state(
-            buffers_def
-        )
-        .vertex_shader(vs.entry_point("main").unwrap(), ())
-        .input_assembly_state(InputAssemblyState::new())
-        .viewport_state(ViewportState::viewport_fixed_scissor_irrelevant([
-            Viewport {
-                origin: [0.0, 0.0],
-                dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                depth_range: 0.0..1.0,
-            },
-        ]))
-        .fragment_shader(fs.entry_point("main").unwrap(), ())
-        .depth_stencil_state(DepthStencilState::simple_depth_test())
-        .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-        .build(memory_allocator.device().clone())
-        .unwrap();
-
-    (pipeline, framebuffers)
+    (framebuffers, dimensions)
 }
 
 
@@ -341,3 +317,19 @@ pub fn get_generic_uniforms(
     (scale * camera.get_view_matrix(), proj)
 }
 
+
+
+
+
+pub mod basic_frag_shader {
+    vulkano_shaders::shader!{
+        ty: "fragment",
+        path: "assets/shaders/basic_frag.glsl",
+    }
+}
+
+pub fn get_basic_frag_shader(
+    device: &Arc<Device>
+) -> Arc<ShaderModule> {
+    basic_frag_shader::load(device.clone()).unwrap()
+}

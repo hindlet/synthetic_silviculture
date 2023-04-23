@@ -25,7 +25,6 @@ use vulkano::{
     descriptor_set::allocator::StandardDescriptorSetAllocator,
     device::Device,
     format::Format,
-    pipeline::graphics::vertex_input::BuffersDefinition,
     render_pass::{RenderPass, Subpass},
     swapchain::{acquire_next_image, SwapchainPresentInfo, AcquireError, Swapchain},
     sync::{self, GpuFuture, FlushError},
@@ -113,13 +112,10 @@ fn main() {
 
     let mut camera = Camera{position: Vector3::X() * -10.0, ..Default::default()};
 
-    let (vs, fs) = get_branch_shaders(&device);
 
-    let buffers_defintion = BuffersDefinition::new()
-        .vertex::<Vertex>()
-        .vertex::<Normal>();
 
-    let (mut pipeline, mut framebuffers) = window_size_dependent_setup(&memory_allocator, &vs, &fs, &swapchain_images, &render_pass, buffers_defintion);
+    let (mut framebuffers, window_dimensions) = get_framebuffers(&memory_allocator, &swapchain_images, &render_pass);
+    let mut branch_pipeline = get_branch_pipeline(window_dimensions, &device, &render_pass);
 
 
     // this determines if the swapchain needs to be rebuilt
@@ -133,9 +129,8 @@ fn main() {
     let command_buffer_allocator = StandardCommandBufferAllocator::new(device.clone(), Default::default());
 
     // gui
-    let gui = create_gui_from_subpass(&event_loop, &surface, &queue, &gui_subpass);
-    add_world_gui_resources(&mut world, gui);
-    add_world_branch_graphics_resources(&mut world);
+    let mut gui = create_gui_from_subpass(&event_loop, &surface, &queue, &gui_subpass);
+    add_world_branch_graphics_resources(&mut world, memory_allocator.clone());
     world.spawn(GUIData {
         name: "Branch Settings".to_string(),
         f32_sliders: vec![("normal-x".to_string(), 0.0, -1.0..=1.0), ("normal-y".to_string(), 1.0, -1.0..=1.0), ("normal-z".to_string(), 0.0, -1.0..=1.0)],
@@ -145,27 +140,24 @@ fn main() {
     // scheduling
 
     let mut startup_schedule = Schedule::default();
-    startup_schedule.add_system(update_next_mesh);
-    startup_schedule.add_system(create_branch_resources_gui);
-
-    let mut gui_schedule = Schedule::default();
-    gui_schedule.add_systems((draw_gui_objects, update_branch_resources.after(draw_gui_objects)));
+    startup_schedule.add_systems((update_next_mesh, create_branch_resources_gui, init_mesh_buffers_res).chain());
 
     let mut update_schedule = Schedule::default();
-    update_schedule.add_systems((update_next_mesh, update_branch_normal));
+    update_schedule.add_systems((update_next_mesh, update_branch_normal, update_branch_resources));
 
     
     startup_schedule.run(&mut world);
 
     // uniforms
     let branch_uniform_buffer = create_branch_uniform_buffer(&memory_allocator);
+    let lighting_uniforms = get_branch_light_buffers(Vec::new(), vec![(Vector3::new(1.0, -0.3, 0.0), 2.0)], &memory_allocator);
 
     event_loop.run(move |event, _, control_flow| {
         match event {
             
             Event::WindowEvent { window_id: _, event } => {
                 // pass things to gui
-                let _pass_events_to_game = !pass_winit_event_to_gui(world.get_resource_mut::<GUIResources>(), &event);
+                let _pass_events_to_game = !pass_winit_event_to_gui(&mut gui, &event);
                 // check for resize or close
                 match event {
                     WindowEvent::Resized(_) => {
@@ -206,20 +198,16 @@ fn main() {
                 // reacreate swapchain if nessesary
                 if recreate_swapchain {
 
-                    let buffers_defintion = BuffersDefinition::new()
-                    .vertex::<Vertex>()
-                    .vertex::<Normal>();
-
-                    if let Ok((new_swapchain, new_pipeline, new_framebuffers)) = recreate_swapchain_and_pipeline(swapchain.clone(), dimensions, &memory_allocator, &vs, &fs, &render_pass, buffers_defintion) {
+                    if let Ok((new_swapchain, new_framebuffers, new_dimensions)) = recreate_swapchain_and_framebuffers(swapchain.clone(), dimensions, &memory_allocator, &render_pass) {
                         swapchain = new_swapchain;
-                        pipeline = new_pipeline;
+                        branch_pipeline = get_branch_pipeline(new_dimensions, &device, &render_pass);
                         framebuffers = new_framebuffers;
                         recreate_swapchain = false
                     }
                 }
 
                 // gui
-                gui_schedule.run(&mut world);
+                run_gui_commands(&mut world, &mut gui);
                 // update
                 update_schedule.run(&mut world);
 
@@ -265,14 +253,15 @@ fn main() {
                 ).unwrap();
                     
                 let branch_uniforms = update_branch_uniform_buffer(&swapchain, &camera, &branch_uniform_buffer);
-                add_branch_draw_commands(&mut secondary_builder, &pipeline, &descriptor_set_allocator, &branch_uniforms, &memory_allocator, &mut world);
+                add_branch_draw_commands(&mut secondary_builder, &branch_pipeline, &descriptor_set_allocator, &branch_uniforms, &lighting_uniforms, &mut world);
+                
                 
                 builder.execute_commands(secondary_builder.build().unwrap()).unwrap();
                 builder.next_subpass(SubpassContents::SecondaryCommandBuffers).unwrap();
 
                 // gui commands
             
-                let gui_command_buffer = get_gui_resource_commands(world.get_resource_mut::<GUIResources>(), dimensions.into());
+                let gui_command_buffer = get_gui_resource_commands(&mut gui, dimensions.into());
                 builder.execute_commands(gui_command_buffer).unwrap().end_render_pass().unwrap();
                 let draw_commands = builder.build().unwrap();
 

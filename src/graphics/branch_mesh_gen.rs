@@ -3,11 +3,11 @@ use std::{f32::consts::PI, ops::AddAssign, collections::VecDeque};
 use crate::{maths::{vector_three::{self, Vector3}, matrix_three::Matrix3}, plant::{PlantData, PlantTag}, branch::{BranchTag, BranchConnectionData, BranchData, get_branches_base_to_tip}, branch_node::{BranchNodeConnectionData, BranchNodeTag, get_node_data_and_connections_base_to_tip, BranchNodeData}};
 use bevy_ecs::{prelude::*, system::SystemState};
 
-use super::{general_graphics::{Vertex, Normal}, branch_graphics::BranchGraphicsResources, mesh::Mesh};
+use super::{general_graphics::{PositionVertex, Normal}, branch_graphics::BranchGraphicsResources, mesh::Mesh};
 
 
 // useful conversions and such for me here
-impl Into<Vector3> for Vertex {
+impl Into<Vector3> for PositionVertex {
     fn into(self) -> Vector3 {
         Vector3::from(self.position)
     }
@@ -153,7 +153,7 @@ fn create_branch_mesh(
 
     
 
-    let mut vertices: Vec<Vertex> = Vec::new();
+    let mut vertices: Vec<PositionVertex> = Vec::new();
     let mut normals: Vec<Normal> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
 
@@ -178,8 +178,8 @@ fn create_branch_mesh(
         let mut incr: u32 = 0;
         for direction in polygon_directions.iter() {
             let new_dir = direction.transform(&allignment_mat);
-            vertices.push(Vertex{position: (node_1 + (new_dir * thick_1)).into()});
-            vertices.push(Vertex{position: (node_2 + (new_dir * thick_2)).into()});
+            vertices.push(PositionVertex{position: (node_1 + (new_dir * thick_1)).into()});
+            vertices.push(PositionVertex{position: (node_2 + (new_dir * thick_2)).into()});
 
             // magic index stuff, this is just how it works, idk how else to explain it
             // it needed to loop round so that's where the mod comes in
@@ -220,9 +220,6 @@ fn create_branch_mesh(
         normal.normalise();
     }
 
-    // for vertex in vertices.iter() {
-    //     println!("{:?}", vertex);
-    // }
 
     Mesh {
         vertices,

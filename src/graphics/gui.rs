@@ -145,44 +145,40 @@ pub fn get_gui_commands(
     gui.draw_on_subpass_image(dimensions)
 }
 
-/////////////// systems
-/// 
-#[derive(Resource)]
-pub struct GUIResources {
-    pub gui: Gui,
-}
 
-
-pub fn add_world_gui_resources(
+fn get_gui_data_from_world(
     world: &mut World,
-    gui: Gui,
-) {
-    world.insert_resource(GUIResources {
-        gui
-    })
+) -> Vec<Mut<GUIData>>{
+    let mut query = world.query::<&mut GUIData>();
+    let mut data = Vec::new();
+    for gui_data in query.iter_mut(world) {
+        data.push(gui_data)
+    }
+    data
 }
+
 
 pub fn pass_winit_event_to_gui(
-    gui_res: Option<Mut<GUIResources>>,
+    gui: &mut Gui,
     event: &WindowEvent
 ) -> bool {
-    gui_res.unwrap().gui.update(event)
+    gui.update(event)
 }
 
 pub fn get_gui_resource_commands(
-    gui_res: Option<Mut<GUIResources>>,
+    gui: &mut Gui,
     dimensions: [u32; 2],
 ) -> SecondaryAutoCommandBuffer {
-    get_gui_commands(&mut gui_res.unwrap().gui, dimensions)
+    get_gui_commands(gui, dimensions)
 }
 
-pub fn draw_gui_objects(
-    mut gui_query: Query<&mut GUIData>,
-    mut gui_res: ResMut<GUIResources>
+fn draw_gui_objects(
+    mut gui_data: Vec<Mut<GUIData>>,
+    gui: &mut Gui
 ) {
-    gui_res.deref_mut().gui.immediate_ui(|gui| {
+    gui.immediate_ui(|gui| {
         let ctx = gui.context();
-        for mut gui_object in gui_query.iter_mut() {
+        for gui_object in gui_data.iter_mut() {
             Window::new(gui_object.name.clone())
                 .default_width(150.0)
                 .show(&ctx, |ui| {
@@ -190,4 +186,12 @@ pub fn draw_gui_objects(
                 });
         }
     });
+}
+
+pub fn run_gui_commands(
+    world: &mut World,
+    gui: &mut Gui
+) {
+    let gui_data = get_gui_data_from_world(world);
+    draw_gui_objects(gui_data, gui);
 }

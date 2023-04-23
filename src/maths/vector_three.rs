@@ -85,6 +85,12 @@ impl Vector3 {
         self.z /= length;
     }
 
+    pub fn normalised(&self) -> Vector3 {
+        let length = self.magnitude();
+
+        Vector3::new(self.x / length, self.y / length, self.z / length)
+    }
+
     pub fn dot(&self, rhs: &Vector3) -> f32{
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
     }

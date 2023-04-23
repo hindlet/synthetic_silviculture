@@ -8,20 +8,20 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy_ecs = "0.10.0"
+bevy_ecs = "0.10"
 image = "0.24.5"
 itertools = "0.10.5"
 plotters = "0.2.15"
 rand = "0.8.5"
-voronator = "0.2.0"
+voronator = "0.2"
 
-winit = "0.27.5"
-vulkano = "0.32"
+winit = "0.28"
+vulkano = "0.33"
 vulkano-util = "0.32"
-vulkano-shaders = "0.32"
-vulkano-win = "0.32.0"
-egui = "0.20.1"
-egui_winit_vulkano = "0.23.0"
+vulkano-shaders = "0.33"
+vulkano-win = "0.33"
+egui = "0.21"
+egui_winit_vulkano = "0.24"
 bytemuck = "1.12.1"
 
 [profile.dev]
