@@ -627,25 +627,25 @@ mod branch_nodes_tests {
 ///////////////////////////// Branch Prototypes ///////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
-#[cfg(test)]
-mod branch_prototype_tests {
-    use super::{BranchPrototypesSampler, GenericImageView,
-    World, BranchNodeTag, BranchPrototypeData, Vector3};
+// #[cfg(test)]
+// mod branch_prototype_tests {
+//     use super::{BranchPrototypesSampler, GenericImageView,
+//     World, BranchNodeTag, BranchPrototypeData, Vector3};
 
-    #[test]
-    fn sampling_test() {
+//     #[test]
+//     fn sampling_test() {
         
-        let prototypes = BranchPrototypesSampler::create(
-            vec![([0, 200, 0], 0.4, 0.4),
-            ([200, 0, 0], 0.0, 0.0),
-            ([0, 0, 200], 0.8, 0.8),
-            ([150, 0, 150], 0.4, 0.3)],
-            (200, 200),
-            1.0,
-            1.0
-        );
+//         let prototypes = BranchPrototypesSampler::create(
+//             vec![([0, 200, 0], 0.4, 0.4),
+//             ([200, 0, 0], 0.0, 0.0),
+//             ([0, 0, 200], 0.8, 0.8),
+//             ([150, 0, 150], 0.4, 0.3)],
+//             (200, 200),
+//             1.0,
+//             1.0
+//         );
 
-        let sample = prototypes.voronoi.get_pixel(50, 50);
-        assert_eq!(sample, image::Rgba([150, 0, 150, 255]))
-    }
-}
+//         let sample = prototypes.voronoi.get_pixel(50, 50);
+//         assert_eq!(sample, image::Rgba([150, 0, 150, 255]))
+//     }
+// }

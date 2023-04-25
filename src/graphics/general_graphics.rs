@@ -55,6 +55,12 @@ impl From<Vector3> for PositionVertex {
     }
 }
 
+impl From<[f32; 3]> for PositionVertex {
+    fn from(value: [f32; 3]) -> Self {
+        PositionVertex {position: value}
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Zeroable, Pod, Vertex)]
 pub struct Normal {

@@ -84,24 +84,28 @@ pub struct BranchMeshBuffers {
 }
 
 pub fn init_mesh_buffers_res(
-    plant_query: Query<&PlantData, With<PlantTag>>,
     branch_mesh_query: Query<&Mesh, With<BranchTag>>,
-    branch_connection_query: Query<&BranchConnectionData, With<BranchTag>>,
 
     mesh_gen_res: Res<BranchGraphicsResources>,
 
     mut commands: Commands
 ) {
     let (vertices, normals, indices) = {
-        if mesh_gen_res.flat_shaded {
-            let (vertices, _normals, indices) = get_plants_mesh_data(&plant_query, &branch_mesh_query, &branch_connection_query);
+        let (vertices, normals, indices) = get_total_branch_mesh_data(&branch_mesh_query);
+        if vertices.len() == 0 {
+            (vec![Vector3::ZERO().into(), Vector3::ZERO().into(), Vector3::ZERO().into()],
+            vec![Vector3::Y().into(), Vector3::Y().into(), Vector3::Y().into()], 
+            vec![0, 1, 2])
+        }
+        else if mesh_gen_res.flat_shaded {
             Mesh::flat_shade_components(vertices, indices)
         } else {
-            get_plants_mesh_data(&plant_query, &branch_mesh_query, &branch_connection_query)
+            (vertices, normals, indices)
         }
     };
 
-    if vertices.len() == 0 {return;}
+    
+
 
     let vertex_buffer = Buffer::from_iter(
         &mesh_gen_res.mem_allocator,
@@ -237,58 +241,27 @@ pub fn get_branch_shader(
     return branch_vert_shader::load(device.clone()).unwrap();
 }
 
-/// gets the branch meshes for one plant, effectively the plant mesh, using the same method as getting them from base to tip
-fn get_branch_meshes(
+/// combines and returns all the branch meshes in the world
+fn get_total_branch_mesh_data(
     branch_meshes: &Query<&Mesh, With<BranchTag>>,
-    connections: &Query<&BranchConnectionData, With<BranchTag>>,
-    root_branch: Entity
 ) -> (Vec<PositionVertex>, Vec<Normal>, Vec<u32>){
-
     let mut vertices: Vec<PositionVertex> = vec![];
     let mut normals: Vec<Normal> = vec![];
     let mut indices: Vec<u32> = vec![];
 
-    let branches = get_branches_base_to_tip(connections, root_branch);
-
-    for id in branches.iter() {
-        if let Ok(branch) = branch_meshes.get(*id) {
-            let current_length = vertices.len() as u32;
-
-            vertices.append(&mut branch.vertices.clone());
-            normals.append(&mut branch.normals.clone());
-            let mut new_indices = branch.indices.clone();
-            new_indices.iter_mut().for_each(|x| *x += current_length);
-            indices.append(&mut new_indices);
-        }
-    }
-
-    (vertices, normals, indices)
-}
-
-/// gets the mesh data from all the plants
-fn get_plants_mesh_data(
-    plants: &Query<&PlantData, With<PlantTag>>,
-    branch_meshes: &Query<&Mesh, With<BranchTag>>,
-    branch_connections: &Query<&BranchConnectionData, With<BranchTag>>,
-) -> (Vec<PositionVertex>, Vec<Normal>, Vec<u32>) {
-
-    let mut vertices: Vec<PositionVertex> = vec![];
-    let mut normals: Vec<Normal> = vec![];
-    let mut indices: Vec<u32> = vec![];
-
-    for plant in plants.iter() {
-        if plant.root_node.is_none() {continue;}
-        let (mut new_vertices, mut new_normals, mut new_indices) = get_branch_meshes(branch_meshes, branch_connections, plant.root_node.unwrap());
+    for mesh in branch_meshes.iter() {
         let current_length = vertices.len() as u32;
-        new_indices.iter_mut().for_each(|x| *x += current_length);
 
-        vertices.append(&mut new_vertices);
-        normals.append(&mut new_normals);
+        vertices.append(&mut mesh.vertices.clone());
+        normals.append(&mut mesh.normals.clone());
+        let mut new_indices = mesh.indices.clone();
+        new_indices.iter_mut().for_each(|x| *x += current_length);
         indices.append(&mut new_indices);
     }
 
     (vertices, normals, indices)
 }
+
 
 
 fn get_branch_graphics_pipeline_layout(
@@ -459,24 +432,26 @@ pub fn get_branch_light_buffers(
 
 
 pub fn update_branch_data_buffers(
-    plant_query: Query<&PlantData, With<PlantTag>>,
     branch_mesh_query: Query<&Mesh, With<BranchTag>>,
-    branch_connection_query: Query<&BranchConnectionData, With<BranchTag>>,
 
     mesh_gen_res: Res<BranchGraphicsResources>,
     mut buffers_res: ResMut<BranchMeshBuffers>,
 ) {
 
     let (vertices, normals, indices) = {
-        if mesh_gen_res.flat_shaded {
-            let (vertices, _normals, indices) = get_plants_mesh_data(&plant_query, &branch_mesh_query, &branch_connection_query);
+        let (vertices, normals, indices) = get_total_branch_mesh_data(&branch_mesh_query);
+        if vertices.len() == 0 {
+            (vec![Vector3::ZERO().into(), Vector3::ZERO().into(), Vector3::ZERO().into()],
+            vec![Vector3::Y().into(), Vector3::Y().into(), Vector3::Y().into()], 
+            vec![0, 1, 2])
+        }
+        else if mesh_gen_res.flat_shaded {
             Mesh::flat_shade_components(vertices, indices)
         } else {
-            get_plants_mesh_data(&plant_query, &branch_mesh_query, &branch_connection_query)
+            (vertices, normals, indices)
         }
     };
 
-    if vertices.len() == 0 {return;}
 
     let vertex_buffer = Buffer::from_iter(
         &mesh_gen_res.mem_allocator,

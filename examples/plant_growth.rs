@@ -65,21 +65,28 @@ fn main() {
     let mut gui = create_gui_from_subpass(&event_loop, &surface, &queue, &gui_subpass);
     
 
-    // uniforms
-    let branch_uniform_buffer = create_branch_uniform_buffer(&memory_allocator);
+    
 
 
     ///////////////////// ecs stuff /////////////////////
     let mut world = World::new();
 
-    
-
     // startup
+    add_world_branch_graphics_resources(&mut world, memory_allocator.clone());
     let mut startup_schedule = Schedule::default();
     startup_schedule.add_systems((create_branch_resources_gui, init_mesh_buffers_res).chain());
+    startup_schedule.run(&mut world);
+
+
+    // resources
+    create_gravity_resource(&mut world, -Vector3::Y(), 0.05);
+    create_physical_age_time_step(&mut world, 0.75);
+    world.insert_resource(BranchPrototypesSampler::create(vec![([0, 255, 0], 10.0, 10.0)], (200, 200), 20.0, 20.0));
+    world.insert_resource(PlantDeathRate::new(0.5));
+
+
 
     // sceduling
-
     let mut graphics_update_schedule = Schedule::default();
     graphics_update_schedule.add_systems((check_for_force_update, update_next_mesh));
 
@@ -87,10 +94,7 @@ fn main() {
     let mut fixed_plant_update = FixedSchedule::new(Duration::from_secs_f32(0.1), plant_update_schedule);
 
 
-    // resources
-    create_gravity_resource(&mut world, -Vector3::Y(), 0.05);
-    add_world_branch_graphics_resources(&mut world, memory_allocator.clone());
-    create_physical_age_time_step(&mut world, 0.75);
+    
 
     // branch prototypes
     world.insert_resource(BranchPrototypes{
@@ -116,8 +120,7 @@ fn main() {
         ]
     });
 
-    world.insert_resource(BranchPrototypesSampler::create(vec![([0, 255, 0], 10.0, 10.0)], (200, 200), 20.0, 20.0));
-    world.insert_resource(PlantDeathRate::new(0.5));
+    
 
 
     // plant
@@ -132,6 +135,7 @@ fn main() {
     let root_branch_id = world.spawn(BranchBundle{
         data: BranchData {
             root_node: Some(root_node_id),
+            root_position: Vector3::Z() * 2.0 + Vector3::Y() * 4.0,
             ..Default::default()
         },
         prototype: BranchPrototypeRef(0),
@@ -161,12 +165,13 @@ fn main() {
     world.spawn(MeshUpdateQueue::new_from_single(plant_id));
 
 
-    // run startup
-    startup_schedule.run(&mut world);
-
+    
     ///////////////////// run /////////////////////
     let mut last_frame_time = Instant::now();
-    let lighting_uniforms = get_branch_light_buffers(vec![(Vector3::new(0.0, 5.0, -2.5), 15.0)], Vec::new(), &memory_allocator);
+
+    // uniforms
+    let branch_uniform_buffer = create_branch_uniform_buffer(&memory_allocator);
+    let lighting_uniforms = get_branch_light_buffers(Vec::new(), vec![(Vector3::new(1.0, -0.3, 0.0), 2.0)], &memory_allocator);
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -344,6 +349,8 @@ fn get_plant_schedule() -> Schedule {
         calculate_segment_lengths_and_tropism,
         update_branch_resources,
     ).chain());
+
+    plant_schedule.add_system(update_branch_data_buffers);
 
     plant_schedule
 }

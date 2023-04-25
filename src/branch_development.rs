@@ -6,7 +6,7 @@ use crate::{
     branch_node::{BranchNodeGrowthData, BranchNodeConnectionData, BranchNodeTag, get_terminal_nodes, get_nodes_tip_to_base, get_nodes_base_to_tip, get_nodes_and_connections_base_to_tip, BranchNodeData, get_nodes_on_layer, BranchNodeBundle},
     branch_prototypes::{BranchPrototypes, BranchPrototypeRef, BranchPrototypesTag, BranchPrototypesSampler},
     environment::{GravityResources, PhysicalAgeStep},
-    maths::{vector_three::Vector3, matrix_three::Matrix3}, graphics::branch_mesh_gen::MeshUpdateQueue,
+    maths::{vector_three::Vector3, matrix_three::Matrix3, lerp}, graphics::branch_mesh_gen::MeshUpdateQueue,
 };
 
 
@@ -91,7 +91,7 @@ pub fn update_branch_nodes(
 
     for (branch_data, mut branch_growth_data, prototype_ref) in branch_data_query.iter_mut() {
         // calculate how many layers the branch should currently have
-        let target_layers = lerp(prototype_data[prototype_ref.0].0, branch_growth_data.physiological_age, prototype_data[prototype_ref.0].1);
+        let target_layers = lerp(1.0,  prototype_data[prototype_ref.0].1 as f32, branch_growth_data.physiological_age / prototype_data[prototype_ref.0].0).round() as u32;
 
         // if the branch is missing layers, keep adding more
         while branch_growth_data.layers < target_layers {
@@ -134,7 +134,7 @@ pub fn update_branch_nodes(
 
 
 /// linearly interpolates between 1 and range, using the position of current in 0->max
-fn lerp(
+fn old_lerp(
     max: f32,
     current: f32,
     range: u32,

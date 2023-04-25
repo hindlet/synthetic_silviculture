@@ -13,7 +13,7 @@ use synthetic_silviculture::{
     branch_node::{BranchNodeBundle, BranchNodeData, BranchNodeConnectionData},
     maths::vector_three::Vector3,
     graphics::{
-        branch_mesh_gen::{MeshUpdateQueue, update_next_mesh},
+        branch_mesh_gen::{MeshUpdateQueue, update_next_mesh, check_for_force_update},
         camera_maths::Camera,
         branch_graphics::*, 
         gui::*, 
@@ -140,10 +140,10 @@ fn main() {
     // scheduling
 
     let mut startup_schedule = Schedule::default();
-    startup_schedule.add_systems((update_next_mesh, create_branch_resources_gui, init_mesh_buffers_res).chain());
+    startup_schedule.add_systems((init_mesh_buffers_res, update_next_mesh, create_branch_resources_gui).chain());
 
     let mut update_schedule = Schedule::default();
-    update_schedule.add_systems((update_next_mesh, update_branch_normal, update_branch_resources));
+    update_schedule.add_systems((check_for_force_update, update_branch_normal, update_branch_resources, update_branch_data_buffers));
 
     
     startup_schedule.run(&mut world);

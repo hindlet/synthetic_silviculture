@@ -3,6 +3,7 @@ use super::{
     bounding_box::BoundingBox,
     bounding_sphere::BoundingSphere,
     matrix_three::Matrix3,
+    lerp
 };
 use std::f32::consts::PI;
 
@@ -386,5 +387,44 @@ mod vector_three_tests {
         );
         let point = Vector3::new(2.102, 1.65, 1.195);
         assert_eq!(point.transform(&mat), Vector3::new(2.6531748, -0.3184836, 1.195))
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// Lerp ///////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
+#[cfg(test)]
+mod lerp_tests {
+    use super::lerp;
+
+    #[test]
+    fn zero_lerp() {
+        assert_eq!(lerp(1.0, 3.0, 0.0), 1.0);
+    }
+
+    #[test]
+    fn one_lerp() {
+        assert_eq!(lerp(1.0, 3.0, 1.0), 3.0);
+    }
+
+    #[test]
+    fn surplus_negative_lerp() {
+        assert_eq!(lerp(1.0, 3.0, -3.0), 1.0);
+    }
+
+    #[test]
+    fn surplus_positive_lerp() {
+        assert_eq!(lerp(1.0, 3.0, 5.0), 3.0);
+    }
+
+    #[test]
+    fn half_lerp() {
+        assert_eq!(lerp(1.0, 3.0, 0.5), 2.0);
+    }
+
+    #[test]
+    fn quarter_lerp() {
+        assert_eq!(lerp(1.0, 3.0, 0.25), 1.5);
     }
 }

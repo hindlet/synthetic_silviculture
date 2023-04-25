@@ -13,6 +13,14 @@ impl Into<Vector3> for PositionVertex {
     }
 }
 
+impl AddAssign<Vector3> for PositionVertex {
+    fn add_assign(&mut self, rhs: Vector3) {
+        self.position[0] += rhs.x;
+        self.position[1] += rhs.y;
+        self.position[2] += rhs.z;
+    }
+}
+
 impl AddAssign<Vector3> for Normal {
     fn add_assign(&mut self, rhs: Vector3) {
         self.normal[0] += rhs.x;
@@ -119,7 +127,7 @@ fn update_plant_mesh(
     for id in branches.iter() {
         let new_mesh = {    
             if let Ok(branch) = branch_data.get(id.clone()) {
-                if branch.root_node.is_none() {return;}
+                if branch.root_node.is_none() {continue;}
                 let (pos, thick, connections) = get_node_data_and_connections_base_to_tip(node_connections, node_data, branch.root_node.unwrap());
                 create_branch_mesh(branch.normal, branch.root_position, pos, thick, connections, polygon_directions)
             } else {panic!("we are but pawns in a game of chess played by shrimp")}
@@ -148,7 +156,6 @@ fn create_branch_mesh(
     
     for node in node_pos.iter_mut() {
         node.mut_transform(&branch_rotation_matrix);
-        *node += root_pos;
     }
 
     
@@ -184,11 +191,11 @@ fn create_branch_mesh(
             // magic index stuff, this is just how it works, idk how else to explain it
             // it needed to loop round so that's where the mod comes in
             indices.push(vert_index + incr);
-            indices.push(vert_index + incr + 1);
-            indices.push(vert_index + 1 + (incr + 2) % num_indices);
             indices.push(vert_index + 1 + (incr + 2) % num_indices);
             indices.push(vert_index + (incr + 2) % num_indices);
+            indices.push(vert_index + 1 + (incr + 2) % num_indices);
             indices.push(vert_index + incr);
+            indices.push(vert_index + incr + 1);
             incr += 2;
         }
 
@@ -200,12 +207,12 @@ fn create_branch_mesh(
         // create normals
         for i in (0..indices.len()).step_by(3) {
             let dir_one: Vector3 = {
-                let dir: Vector3 = vertices[indices[i + 1] as usize].into();
-                dir - vertices[indices[i] as usize].into()
+                let dir: Vector3 = vertices[indices[i] as usize].into();
+                dir - vertices[indices[i + 2] as usize].into()
             };
             let dir_two: Vector3 = {
-                let dir: Vector3 = vertices[indices[i + 2] as usize].into();
-                dir - vertices[indices[i] as usize].into()
+                let dir: Vector3 = vertices[indices[i + 1] as usize].into();
+                dir - vertices[indices[i + 2] as usize].into()
             };
             let normal = dir_one.cross(&dir_two);
 
@@ -218,6 +225,11 @@ fn create_branch_mesh(
     // normalise normals
     for normal in normals.iter_mut() {
         normal.normalise();
+    }
+
+    // move mesh to root
+    for vertex in vertices.iter_mut() {
+        *vertex += root_pos;
     }
 
 
