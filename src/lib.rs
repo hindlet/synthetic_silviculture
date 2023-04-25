@@ -12,6 +12,7 @@ pub mod environment;
 pub mod debug;
 pub mod general_update;
 pub mod plant_development;
+pub mod light_cells;
 mod tests;
 
 
