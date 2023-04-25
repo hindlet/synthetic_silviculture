@@ -38,6 +38,13 @@ pub struct PlantGrowthControlFactors {
 }
 
 #[derive(Component)]
+pub struct PlantPlasticityParameters {
+    pub seeding_frequency: f32,
+    pub seeding_radius: f32,
+    pub shadow_tolerance: f32,
+}
+
+#[derive(Component)]
 pub struct PlantBounds {
     pub bounds: BoundingBox,
 }
@@ -49,6 +56,7 @@ pub struct PlantBundle {
     pub bounds: PlantBounds,
     pub data: PlantData,
     pub growth_factors: PlantGrowthControlFactors,
+    pub plasticity_params: PlantPlasticityParameters,
 }
 
 #[derive(Resource)]
@@ -77,6 +85,7 @@ impl Default for PlantBundle {
             bounds: PlantBounds::default(),
             data: PlantData::default(),
             growth_factors: PlantGrowthControlFactors::default(),
+            plasticity_params: PlantPlasticityParameters::default(),
         }
     }
 }
@@ -124,3 +133,13 @@ impl Default for PlantGrowthControlFactors {
         }
     }
 }   
+
+impl Default for PlantPlasticityParameters {
+    fn default() -> Self {
+        PlantPlasticityParameters {
+            seeding_frequency: 1.0,
+            seeding_radius: 1.0,
+            shadow_tolerance: 0.0,
+        }
+    }
+}

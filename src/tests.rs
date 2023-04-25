@@ -27,66 +27,11 @@ mod plant_bounds_tests {
     use super::{World, PlantBundle, PlantTag, Vector3, BoundingBox,
         Schedule, update_plant_intersections,
         With, Query, BranchBundle, BoundingSphere,
-        BranchTag, BranchData, update_branch_intersections,
+        BranchTag, BranchData,
         update_plant_bounds, PlantData, BranchConnectionData,
         PlantGrowthControlFactors, PlantBounds, BranchBounds
     };
 
-
-    #[test]
-    fn intersections_test() {
-        let mut test_world = World::new();
-
-        test_world.spawn(PlantBundle {
-            tag: PlantTag,
-            bounds: PlantBounds::from(BoundingBox {
-                least_corner: Vector3::ZERO(),
-                width: 5.0,
-                height: 7.0,
-                depth: 3.0,
-            }),
-            data: PlantData::default(),
-            growth_factors: PlantGrowthControlFactors::default(),
-        });
-
-        test_world.spawn(PlantBundle {
-            tag: PlantTag,
-            bounds: PlantBounds::from(BoundingBox {
-                least_corner: Vector3::new(2.0, 5.0, 2.0),
-                width: 5.0,
-                height: 7.0,
-                depth: 3.0,
-            }),
-            data: PlantData::default(),
-            growth_factors: PlantGrowthControlFactors::default(),
-        });
-
-        test_world.spawn(PlantBundle {
-            tag: PlantTag,
-            bounds: PlantBounds::from(BoundingBox {
-                least_corner: Vector3::new(6.0, 5.0, 2.0),
-                width: 5.0,
-                height: 7.0,
-                depth: 3.0,
-            }),
-            data: PlantData::default(),
-            growth_factors: PlantGrowthControlFactors::default(),
-        });
-
-        let mut test_schedule = Schedule::default();
-        
-        test_schedule.add_system(update_plant_intersections);
-        
-        test_schedule.run(&mut test_world);
-
-        let mut intersection_count: usize = 0;
-        let mut query = test_world.query::<&PlantData>();
-        for intersections in query.iter(&test_world) {
-            intersection_count += intersections.intersection_list.len();
-        }
-
-        assert_eq!(intersection_count, 2);
-    }
 
     #[test]
     fn plant_calculated_bounds_test() {
@@ -125,30 +70,26 @@ mod plant_bounds_tests {
 
 
         test_world.spawn(PlantBundle {
-            tag: PlantTag,
-            bounds: PlantBounds::default(),
             data: PlantData {
                 root_node: Some(branch_two),
                 ..Default::default()
             },
-            growth_factors: PlantGrowthControlFactors::default(),
+            ..Default::default()
         });
 
         test_world.spawn(PlantBundle {
-            tag: PlantTag,
-            bounds: PlantBounds::default(),
             data: PlantData {
                 root_node: Some(branch_three),
                 ..Default::default()
             },
-            growth_factors: PlantGrowthControlFactors::default(),
+            ..Default::default()
         });
 
 
 
         let mut test_schedule = Schedule::default();
 
-        test_schedule.add_systems((update_plant_bounds, update_plant_intersections.after(update_plant_bounds), update_branch_intersections.after(update_plant_intersections)));
+        test_schedule.add_systems((update_plant_bounds, update_plant_intersections.after(update_plant_bounds)));
         
         test_schedule.run(&mut test_world);
 
@@ -158,14 +99,8 @@ mod plant_bounds_tests {
             plant_intersection_count += intersections.intersection_list.len();
         }
 
-        let mut branch_intersection_count: usize = 0;
-        let mut branch_query = test_world.query::<&BranchData>();
-        for intersections in branch_query.iter(&test_world) {
-            branch_intersection_count += intersections.intersection_list.len();
-        }
 
         assert_eq!(plant_intersection_count, 1);
-        assert_eq!(branch_intersection_count, 2);
 
     }
 
@@ -182,8 +117,7 @@ mod vigor_and_light_exposure_tests {
 
     use super::{BranchBundle, BranchConnectionData,
     PlantBundle, Query, BranchData, BoundingSphere, With, BranchTag, Entity,
-    calculate_branch_light_exposure, Vector3, World, Schedule,
-    calculate_branch_intersection_volumes, PI,
+    calculate_branch_light_exposure, Vector3, World, Schedule, PI,
     QueryState, calculate_growth_vigor, PlantData, PlantGrowthControlFactors,
     BranchGrowthData, BranchBounds};
 
@@ -204,61 +138,6 @@ mod vigor_and_light_exposure_tests {
             if branch_one.1.bounds.is_intersecting_sphere(&branch_two.1.bounds) {
                 branch_one.0.intersection_list.push(branch_two.2);
             }
-        }
-    }
-
-    #[test]
-    fn intersection_volume_test() {
-        let mut test_world = World::new();
-
-        let branch_one_id = test_world.spawn(BranchBundle {
-            bounds: BranchBounds::from(BoundingSphere {
-                centre: Vector3::ZERO(),
-                radius: 2.0,
-            }),
-            ..Default::default()
-        })
-        .id();
-
-        let branch_two_id = test_world.spawn(BranchBundle {
-            bounds: BranchBounds::from(BoundingSphere {
-                centre: Vector3{x: -2.0, y: 2.0, z: -1.0},
-                radius: 2.0,
-            }),
-            ..Default::default()
-        })
-        .id();
-
-        let branch_three_id = test_world.spawn(BranchBundle {
-            bounds: BranchBounds::from(BoundingSphere {
-                centre: Vector3{x: -4.0, y: 4.0, z: -2.0},
-                radius: 2.0,
-            }),
-            ..Default::default()
-        })
-        .id();
-
-        let mut test_schedule = Schedule::default();
-
-        test_schedule.add_systems((testing_branch_intersections, calculate_branch_intersection_volumes.after(testing_branch_intersections)));
-        test_schedule.run(&mut test_world);
-
-        let mut total_intersection_count: usize = 0;
-        let mut branch_query = test_world.query::<&BranchData>();
-        for branch in branch_query.iter(&test_world) {
-            total_intersection_count += branch.intersection_list.len();
-        }
-
-        assert_eq!(total_intersection_count, 2);
-
-        if let Ok(branch_one) = branch_query.get(&test_world, branch_one_id) {
-            assert_eq!(branch_one.intersections_volume, PI * 11.0 / 12.0);
-        }
-        if let Ok(branch_two) = branch_query.get(&test_world, branch_two_id) {
-            assert_eq!(branch_two.intersections_volume, PI * 22.0 / 12.0);
-        }
-        if let Ok(branch_three) = branch_query.get(&test_world, branch_three_id) {
-            assert_eq!(branch_three.intersections_volume, PI * 11.0 / 12.0);
         }
     }
 

@@ -17,6 +17,7 @@ use synthetic_silviculture::{
     environment::{create_gravity_resource, create_physical_age_time_step},
     general_update::*,
     plant_development::*,
+    light_cells::LightCells,
 };
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents, CommandBufferInheritanceInfo, allocator::StandardCommandBufferAllocator},
@@ -83,6 +84,7 @@ fn main() {
     create_physical_age_time_step(&mut world, 0.75);
     world.insert_resource(BranchPrototypesSampler::create(vec![([0, 255, 0], 10.0, 10.0)], (200, 200), 20.0, 20.0));
     world.insert_resource(PlantDeathRate::new(0.5));
+    world.insert_resource(LightCells::new(3));
 
 
 
@@ -135,7 +137,6 @@ fn main() {
     let root_branch_id = world.spawn(BranchBundle{
         data: BranchData {
             root_node: Some(root_node_id),
-            root_position: Vector3::Z() * 2.0 + Vector3::Y() * 4.0,
             ..Default::default()
         },
         prototype: BranchPrototypeRef(0),
@@ -336,8 +337,6 @@ fn get_plant_schedule() -> Schedule {
         update_branch_bounds,
         update_plant_bounds,
         update_plant_intersections,
-        update_branch_intersections,
-        calculate_branch_intersection_volumes,
         calculate_branch_light_exposure,
         calculate_growth_vigor,
         assign_growth_rates,

@@ -5,8 +5,13 @@ use bevy_ecs::prelude::*;
 
 
 #[derive(Resource, Debug)]
+/// LightCells stores shadow data in a grid of 1m^3 units for growth vigor calulcations
+/// 
+/// It has two components:
+///     - cells: a hash map using cell coordinates as a key and storing the cells own shadow volume and the shadow volume gained from above
+///     - check_height: The maximum value up or down it will check for a cell existing without finding one before stopping, a value less than 5 should be fine
 pub struct LightCells {
-    // cells hash map, set out as Hashmap<id, (own_shadow, upwards_shadow)>
+    // cells hash map, set out as Hashmap<id, (own_shadow_volume, upwards_shadow_volume)>
     cells: HashMap<Vector3Int, (f32, f32)>,
     // the maximum height up or down that the code will check for cells if one isn't found
     check_height: i32,
@@ -15,6 +20,7 @@ pub struct LightCells {
 
 impl LightCells {
 
+    /// creates a new light_cells_resource with a given check height
     pub fn new(check_height: i32) -> Self{
         LightCells {
             cells: HashMap::new(),
@@ -22,47 +28,55 @@ impl LightCells {
         }
     }
 
-    /// adds a new cell to the grid, updating it's parent shadow and child shadow
-    fn add_cell(&mut self, id: Vector3Int, shadow: f32) -> f32 {
-        let parent_shadow = {
-            let parent = self.cells.get(&(id + Vector3Int::Y()));
-            if parent.is_some() {parent.unwrap().0 + parent.unwrap().1}
-            else {0.0}
-        };
-        self.cells.insert(id, (shadow, parent_shadow));
-        self.propogate_down(id);
-        self.get_cell_shadow(id)
+    /// sets all the cell shadow values to 0
+    pub fn set_all_zero(&mut self) {
+        for cell in self.cells.iter_mut() {
+            cell.1.0 = 0.0;
+            cell.1.1 = 0.0;
+        }
     }
 
-    /// sets the shadow of a given cell and propogates it downwards, adds the cell if it does not exist
-    pub fn update_cell_shadow(&mut self, id: impl Into<Vector3Int>, new_shadow: f32) {
+    /// adds a new cell to the grid, updating it's parent shadow and child shadow
+    fn add_cell(&mut self, id: Vector3Int, shadow_volume: f32) {
+        let parent_volume = match self.cells.get(&(id + Vector3Int::Y())) {
+            Some(shadow_data) => shadow_data.0 + shadow_data.1,
+            None => 0.0
+        };
+        self.cells.insert(id, (shadow_volume, parent_volume));
+        self.propogate_down(id);
+    }
+
+
+    /// increases the shadow volume of a given cell, or creates one if it does not exist
+    pub fn add_volume_to_cell(&mut self, id: impl Into<Vector3Int>, additional_volume: f32) {
         let id: Vector3Int = id.into();
 
         match self.cells.get_mut(&id) {
-            Some(shade_data) => {shade_data.0 = new_shadow; self.propogate_down(id);},
-            None => {self.add_cell(id, new_shadow);}
+            Some(shade_data) => {shade_data.0 += additional_volume; self.propogate_down(id);},
+            None => {self.add_cell(id, additional_volume);}
         }
-
     }
 
     /// returns the shadow value of a given cell, if it does not exist but a cell above within the check range exists, it's shadow value is taken
-    pub fn get_cell_shadow(&self, id: impl Into<Vector3Int>) -> f32 {
+    /// 
+    /// light_value = exp(-total_cell_shadow_volume)
+    pub fn get_cell_light(&self, id: impl Into<Vector3Int>) -> f32 {
         let id: Vector3Int = id.into();
 
         match self.cells.get(&id) {
-            Some(shade_data) => return shade_data.0 + shade_data.1,
+            Some(shade_data) => return (-shade_data.0 - shade_data.1).exp(),
             None => ()
         }
 
         let mut count = 1;
             
         loop {
-            if count > self.check_height {break 0.0;}
+            if count > self.check_height {break 1.0;}
 
             let next_id = id + Vector3Int::Y() * count;
 
             match self.cells.get(&next_id) {
-                Some(shade_data) => {break shade_data.0 + shade_data.1;},
+                Some(shade_data) => {break (-shade_data.0 - shade_data.1).exp();},
                 None => ()
             }
 
@@ -74,11 +88,9 @@ impl LightCells {
     fn propogate_down(&mut self, start_id: Vector3Int) {
         
 
-        let mut current_shadow = {
-            match self.cells.get(&start_id) {
-                Some(shade_data) => shade_data.0 + shade_data.1,
-                None => return,
-            }
+        let mut current_shadow_volume = match self.cells.get(&start_id) {
+            Some(shade_data) => shade_data.0 + shade_data.1,
+            None => return,
         };
 
         let mut count = 1;
@@ -89,7 +101,7 @@ impl LightCells {
             let next_id = start_id - Vector3Int::Y() * dist;
 
             match self.cells.get_mut(&next_id) {
-                Some(shade_data) => {shade_data.1 = current_shadow; current_shadow += shade_data.0; count = 0;},
+                Some(shade_data) => {shade_data.1 = current_shadow_volume; current_shadow_volume += shade_data.0; count = 0;},
                 None => count += 1
             }
 
@@ -108,64 +120,76 @@ mod light_cells_tests{
     fn unknown_cell_test() {
         let cells = LightCells::new(0);
 
-        assert_eq!(cells.get_cell_shadow([0, 0, 0]), 0.0);
+        assert_eq!(cells.get_cell_light([0, 0, 0]), 1.0);
     }
 
     #[test]
     fn above_cell_test() {
         let mut cells = LightCells::new(2);
 
-        cells.update_cell_shadow([0, 2, 0], 2.0);
-
-        assert_eq!(cells.get_cell_shadow([0, 0, 0]), 2.0);
+        cells.add_volume_to_cell([0, 2, 0], 2.0);
+        
+        assert_eq!(cells.get_cell_light([0, 0, 0]), (-2.0_f32).exp());
     }
 
     #[test]
     fn known_cell_test() {
         let mut cells = LightCells::new(0);
 
-        cells.update_cell_shadow([0, 0, 0], 2.0);
+        cells.add_volume_to_cell([0, 0, 0], 2.0);
 
-        assert_eq!(cells.get_cell_shadow([0, 0, 0]), 2.0);
+        assert_eq!(cells.get_cell_light([0, 0, 0]), (-2.0_f32).exp());
     }
 
     #[test]
     fn propogation_test() {
         let mut cells = LightCells::new(2);
 
-        cells.update_cell_shadow([0, 0, 0], 0.0);
+        cells.add_volume_to_cell([0, 0, 0], 0.0);
 
-        cells.update_cell_shadow([0, 2, 0], 2.0);
+        cells.add_volume_to_cell([0, 2, 0], 2.0);
 
-        assert_eq!(cells.get_cell_shadow([0, 0, 0]), 2.0);
+        assert_eq!(cells.get_cell_light([0, 0, 0]), (-2.0_f32).exp());
     }
 
     #[test]
     fn non_propogation_test() {
         let mut cells = LightCells::new(1);
 
-        cells.update_cell_shadow([0, 0, 0], 0.0);
+        cells.add_volume_to_cell([0, 0, 0], 0.0);
 
-        cells.update_cell_shadow([0, 2, 0], 2.0);
+        cells.add_volume_to_cell([0, 2, 0], 2.0);
 
-        assert_eq!(cells.get_cell_shadow([0, 0, 0]), 0.0);
+        assert_eq!(cells.get_cell_light([0, 0, 0]), 1.0);
     }
 
     #[test]
     fn multiple_propogation_test() {
         let mut cells = LightCells::new(3);
 
-        cells.update_cell_shadow([0, 0, 0], 1.0);
+        cells.add_volume_to_cell([0, 0, 0], 1.0);
 
-        cells.update_cell_shadow([0, 2, 0], 2.0);
+        cells.add_volume_to_cell([0, 2, 0], 2.0);
 
-        cells.update_cell_shadow([0, 4, 0], 3.0);
+        cells.add_volume_to_cell([0, 4, 0], 3.0);
 
-        cells.update_cell_shadow([0, 7, 0], 1.5);
+        cells.add_volume_to_cell([0, 7, 0], 1.5);
 
-        assert_eq!(cells.get_cell_shadow([0, 4, 0]), 4.5);
-        assert_eq!(cells.get_cell_shadow([0, 2, 0]), 6.5);
-        assert_eq!(cells.get_cell_shadow([0, 0, 0]), 7.5);
+        assert_eq!(cells.get_cell_light([0, 4, 0]), (-4.5_f32).exp());
+        assert_eq!(cells.get_cell_light([0, 2, 0]), (-6.5_f32).exp());
+        assert_eq!(cells.get_cell_light([0, 0, 0]), (-7.5_f32).exp());
+    }
+
+    #[test]
+    fn shadow_by_volume_test() {
+        let mut cells = LightCells::new(0);
+        let id = [0, 0, 0];
+
+        assert_eq!(cells.get_cell_light(id), 1.0);
+        cells.add_volume_to_cell(id, 1.0);
+        assert_eq!(cells.get_cell_light(id), (-1.0_f32).exp());
+        cells.add_volume_to_cell(id, 5.0);
+        assert_eq!(cells.get_cell_light(id), (-6.0_f32).exp());
     }
 }
 

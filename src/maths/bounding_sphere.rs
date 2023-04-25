@@ -1,6 +1,8 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
 use crate::maths::vector_three::Vector3;
+use std::f32::consts::PI;
+use std::cmp::{max, min};
 
 
 #[derive(Default, Component, Debug, PartialEq, Clone, Copy)]
@@ -9,8 +11,6 @@ pub struct BoundingSphere {
     pub radius: f32,
 }
 
-use std::cmp::{max, min};
-use std::f32::consts::PI;
 
 impl BoundingSphere {
     pub fn new(centre: Vector3, radius: f32) -> Self {
@@ -200,6 +200,10 @@ impl BoundingSphere {
         let distance = (self.centre - other.centre).magnitude();
         let volume = (PI / (12.0 * distance)) * (self.radius + other.radius - distance).powi(2) * (distance.powi(2) + 2.0 * distance * (self.radius + other.radius) - 3.0 * (self.radius - other.radius).powi(2));
         volume
+    }
+
+    pub fn get_volume(&self) -> f32 {
+        (4.0 * PI * self.radius * self.radius * self.radius) / 3.0
     }
 
 }

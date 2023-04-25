@@ -1,21 +1,40 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
 use crate::{
-    plant::{PlantData, PlantGrowthControlFactors, PlantTag},
-    branch::{BranchGrowthData, BranchTag, BranchConnectionData, get_branches_base_to_tip, get_terminal_branches, BranchData, get_branches_tip_to_base, BranchBundle, get_branch_parent_id},
-    branch_node::{BranchNodeGrowthData, BranchNodeConnectionData, BranchNodeTag, get_terminal_nodes, get_nodes_tip_to_base, get_nodes_base_to_tip, get_nodes_and_connections_base_to_tip, BranchNodeData, get_nodes_on_layer, BranchNodeBundle},
-    branch_prototypes::{BranchPrototypes, BranchPrototypeRef, BranchPrototypesTag, BranchPrototypesSampler},
+    plant::*,
+    branch::*,
+    branch_node::*,
+    branch_prototypes::*,
     environment::{GravityResources, PhysicalAgeStep},
-    maths::{vector_three::Vector3, matrix_three::Matrix3, lerp}, graphics::branch_mesh_gen::MeshUpdateQueue,
+    maths::{vector_three::Vector3, matrix_three::Matrix3, lerp},
+    graphics::branch_mesh_gen::MeshUpdateQueue,
+    light_cells::LightCells,
 };
 
 
 
 pub fn calculate_branch_light_exposure(
-    mut branches_query: Query<(&mut BranchGrowthData, &BranchData), With<BranchTag>>,
+    mut branches_query: Query<(&mut BranchGrowthData, &BranchBounds), With<BranchTag>>,
+    branch_connection_query: Query<&BranchConnectionData, With<BranchTag>>,
+    plant_query: Query<(&PlantPlasticityParameters, &PlantData), With<PlantTag>>,
+
+    mut light_cells: ResMut<LightCells>,
 ) {
-    for mut data in branches_query.iter_mut() {
-        data.0.light_exposure = (-data.1.intersections_volume).exp();
+    // update the light cells
+    light_cells.set_all_zero();
+    for (_growth_data, bounds) in branches_query.iter() {
+        light_cells.add_volume_to_cell(bounds.bounds.centre, bounds.bounds.get_volume());
+    }
+
+    // update light exposure
+    for (plant_params, plant_data) in plant_query.iter() {
+        if plant_data.root_node.is_none() {continue;}
+
+        for id in get_branches_base_to_tip(&branch_connection_query, plant_data.root_node.unwrap()) {
+            if let Ok((mut growth_data, bounds)) = branches_query.get_mut(id) {
+                growth_data.light_exposure = lerp(plant_params.shadow_tolerance, 1.0, light_cells.get_cell_light(bounds.bounds.centre))
+            }
+        }
     }
 }
 

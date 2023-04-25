@@ -1,6 +1,8 @@
 use std::ops::*;
 use std::cmp::Ordering;
 
+use super::vector_three::Vector3;
+
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub struct Vector3Int {
@@ -19,6 +21,13 @@ impl Vector3Int {
     #[allow(non_snake_case)]
     pub fn Y() -> Self{
         Vector3Int::new(0, 1, 0)
+    }
+}
+
+
+impl From<Vector3> for Vector3Int {
+    fn from(value: Vector3) -> Self {
+        Vector3Int::new(value.x.floor() as i32, value.y.floor() as i32, value.z.floor() as i32)
     }
 }
 
