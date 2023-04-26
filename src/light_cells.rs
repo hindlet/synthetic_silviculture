@@ -5,27 +5,33 @@ use bevy_ecs::prelude::*;
 
 
 #[derive(Resource, Debug)]
-/// LightCells stores shadow data in a grid of 1m^3 units for growth vigor calulcations
+/// LightCells stores shadow data in a grid of cube units for growth vigor calulcations
 /// 
 /// It has two components:
 ///     - cells: a hash map using cell coordinates as a key and storing the cells own shadow volume and the shadow volume gained from above
 ///     - check_height: The maximum value up or down it will check for a cell existing without finding one before stopping, a value less than 5 should be fine
+///     - cell_size: The side length of each cell in m
 pub struct LightCells {
     // cells hash map, set out as Hashmap<id, (own_shadow_volume, upwards_shadow_volume)>
     cells: HashMap<Vector3Int, (f32, f32)>,
-    // the maximum height up or down that the code will check for cells if one isn't found
     check_height: i32,
+    cell_size: f32,
 }
 
 
 impl LightCells {
 
     /// creates a new light_cells_resource with a given check height
-    pub fn new(check_height: i32) -> Self{
+    pub fn new(check_height: i32, cell_size: f32) -> Self{
         LightCells {
             cells: HashMap::new(),
-            check_height
+            check_height,
+            cell_size: cell_size.abs(),
         }
+    }
+
+    pub fn size(&self) -> f32 {
+        self.cell_size
     }
 
     /// sets all the cell shadow values to 0
@@ -115,17 +121,18 @@ impl LightCells {
 #[cfg(test)]
 mod light_cells_tests{
     use super::{LightCells};
+    use crate::maths::vector_three::Vector3;
 
     #[test]
     fn unknown_cell_test() {
-        let cells = LightCells::new(0);
+        let cells = LightCells::new(0, 1.0);
 
         assert_eq!(cells.get_cell_light([0, 0, 0]), 1.0);
     }
 
     #[test]
     fn above_cell_test() {
-        let mut cells = LightCells::new(2);
+        let mut cells = LightCells::new(2, 1.0);
 
         cells.add_volume_to_cell([0, 2, 0], 2.0);
         
@@ -134,7 +141,7 @@ mod light_cells_tests{
 
     #[test]
     fn known_cell_test() {
-        let mut cells = LightCells::new(0);
+        let mut cells = LightCells::new(0, 1.0);
 
         cells.add_volume_to_cell([0, 0, 0], 2.0);
 
@@ -143,7 +150,7 @@ mod light_cells_tests{
 
     #[test]
     fn propogation_test() {
-        let mut cells = LightCells::new(2);
+        let mut cells = LightCells::new(2, 1.0);
 
         cells.add_volume_to_cell([0, 0, 0], 0.0);
 
@@ -154,7 +161,7 @@ mod light_cells_tests{
 
     #[test]
     fn non_propogation_test() {
-        let mut cells = LightCells::new(1);
+        let mut cells = LightCells::new(1, 1.0);
 
         cells.add_volume_to_cell([0, 0, 0], 0.0);
 
@@ -165,7 +172,7 @@ mod light_cells_tests{
 
     #[test]
     fn multiple_propogation_test() {
-        let mut cells = LightCells::new(3);
+        let mut cells = LightCells::new(3, 1.0);
 
         cells.add_volume_to_cell([0, 0, 0], 1.0);
 
@@ -182,7 +189,7 @@ mod light_cells_tests{
 
     #[test]
     fn shadow_by_volume_test() {
-        let mut cells = LightCells::new(0);
+        let mut cells = LightCells::new(0, 1.0);
         let id = [0, 0, 0];
 
         assert_eq!(cells.get_cell_light(id), 1.0);
@@ -190,6 +197,22 @@ mod light_cells_tests{
         assert_eq!(cells.get_cell_light(id), (-1.0_f32).exp());
         cells.add_volume_to_cell(id, 5.0);
         assert_eq!(cells.get_cell_light(id), (-6.0_f32).exp());
+    }
+
+    #[test]
+    fn size_tests() {
+        let mut cells = LightCells::new(0, 0.5);
+        cells.add_volume_to_cell([0, 0, 0], 1.0);
+
+        assert_eq!(cells.get_cell_light(Vector3::Y()), 1.0);
+        assert_eq!(cells.get_cell_light(Vector3::new(0.0, 0.4, 0.0) / cells.size()), (-1.0_f32).exp());
+
+        let mut cells = LightCells::new(0, 2.0);
+        cells.add_volume_to_cell([0, 0, 0], 1.0);
+
+        assert_eq!(cells.get_cell_light(Vector3::Y() / cells.size()), (-1.0_f32).exp());
+        assert_eq!(cells.get_cell_light(Vector3::ZERO() / cells.size()), (-1.0_f32).exp());
+        assert_eq!(cells.get_cell_light(Vector3::Y() * 2.0 / cells.size()), 1.0);
     }
 }
 

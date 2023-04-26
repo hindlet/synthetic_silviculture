@@ -84,7 +84,7 @@ fn main() {
     create_physical_age_time_step(&mut world, 0.75);
     world.insert_resource(BranchPrototypesSampler::create(vec![([0, 255, 0], 10.0, 10.0)], (200, 200), 20.0, 20.0));
     world.insert_resource(PlantDeathRate::new(0.5));
-    world.insert_resource(LightCells::new(3));
+    world.insert_resource(LightCells::new(3, 0.5));
 
 
 

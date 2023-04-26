@@ -32,7 +32,7 @@ pub fn calculate_branch_light_exposure(
 
         for id in get_branches_base_to_tip(&branch_connection_query, plant_data.root_node.unwrap()) {
             if let Ok((mut growth_data, bounds)) = branches_query.get_mut(id) {
-                growth_data.light_exposure = lerp(plant_params.shadow_tolerance, 1.0, light_cells.get_cell_light(bounds.bounds.centre))
+                growth_data.light_exposure = lerp(plant_params.shadow_tolerance, 1.0, light_cells.get_cell_light(bounds.bounds.centre / light_cells.size()))
             }
         }
     }
