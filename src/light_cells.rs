@@ -7,7 +7,7 @@ use bevy_ecs::prelude::*;
 #[derive(Resource, Debug)]
 /// LightCells stores shadow data in a grid of cube units for growth vigor calulcations
 /// 
-/// It has two components:
+/// Components:
 ///     - cells: a hash map using cell coordinates as a key and storing the cells own shadow volume and the shadow volume gained from above
 ///     - check_height: The maximum value up or down it will check for a cell existing without finding one before stopping, a value less than 5 should be fine
 ///     - cell_size: The side length of each cell in m
