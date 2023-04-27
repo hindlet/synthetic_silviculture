@@ -19,9 +19,9 @@ pub fn update_branch_bounds(
         if data.root_node.is_none() {continue;}
 
         let branch_rotation_matrix = {
-            let mut rotation_axis = data.normal.cross(&Vector3::Y());
+            let mut rotation_axis = data.normal.cross(Vector3::Y());
             rotation_axis.normalise();
-            let rotation_angle = data.normal.angle_to(&Vector3::Y());
+            let rotation_angle = data.normal.angle_to(Vector3::Y());
             Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
         };
 
@@ -29,7 +29,7 @@ pub fn update_branch_bounds(
 
         for id in get_nodes_base_to_tip(&nodes_connections_query, data.root_node.unwrap()) {
             if let Ok(node_data) = node_data.get(id) {
-                node_positions.push(node_data.position.clone().transform(&branch_rotation_matrix));
+                node_positions.push(node_data.position.clone().transform(branch_rotation_matrix));
             }
         }
 
@@ -38,7 +38,7 @@ pub fn update_branch_bounds(
                 BoundingSphere::new(node_positions[0], 0.01)
             }
             else {
-                BoundingSphere::from_points(&node_positions)
+                BoundingSphere::from_points(node_positions)
             };
         
         new_bounds.centre += data.root_position;
@@ -96,7 +96,7 @@ pub fn update_plant_bounds(
             }
         }
 
-        let new_bounds = BoundingBox::from_spheres(&branch_bounds);
+        let new_bounds = BoundingBox::from_spheres(branch_bounds);
         bounds.bounds = new_bounds;
     }
 }
@@ -112,7 +112,7 @@ pub fn update_plant_intersections(
     // check all plant intersection options
     let mut combinations = plants_query.iter_combinations_mut();
     while let Some([mut plant_one, plant_two]) = combinations.fetch_next() {
-        if plant_one.0.bounds.is_intersecting_box(&plant_two.0.bounds) {
+        if plant_one.0.bounds.is_intersecting_box(plant_two.0.bounds) {
             plant_one.1.intersection_list.push(plant_two.2);
         }
     }

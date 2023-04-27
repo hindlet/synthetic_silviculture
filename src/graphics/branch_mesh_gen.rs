@@ -149,13 +149,13 @@ fn create_branch_mesh(
 ) -> Mesh {
 
     let branch_rotation_matrix = {
-        let rotation_axis = branch_normal.cross(&Vector3::Y());
-        let rotation_angle = branch_normal.angle_to(&Vector3::Y());
+        let rotation_axis = branch_normal.cross(Vector3::Y());
+        let rotation_angle = branch_normal.angle_to(Vector3::Y());
         Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
     };
     
     for node in node_pos.iter_mut() {
-        node.mut_transform(&branch_rotation_matrix);
+        node.mut_transform(branch_rotation_matrix);
     }
 
     
@@ -174,9 +174,9 @@ fn create_branch_mesh(
         branch_line.normalise();
 
         let allignment_mat = {
-            let mut rotation_axis = branch_line.cross(&Vector3::Y());
+            let mut rotation_axis = branch_line.cross(Vector3::Y());
             rotation_axis.normalise();
-            let rotation_angle = Vector3::Y().angle_to(&branch_line);
+            let rotation_angle = Vector3::Y().angle_to(branch_line);
             Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
         };
 
@@ -184,7 +184,7 @@ fn create_branch_mesh(
         let vert_index = vertices.len() as u32;
         let mut incr: u32 = 0;
         for direction in polygon_directions.iter() {
-            let new_dir = direction.transform(&allignment_mat);
+            let new_dir = direction.transform(allignment_mat);
             vertices.push(PositionVertex{position: (node_1 + (new_dir * thick_1)).into()});
             vertices.push(PositionVertex{position: (node_2 + (new_dir * thick_2)).into()});
 
@@ -214,7 +214,7 @@ fn create_branch_mesh(
                 let dir: Vector3 = vertices[indices[i + 1] as usize].into();
                 dir - vertices[indices[i + 2] as usize].into()
             };
-            let normal = dir_one.cross(&dir_two);
+            let normal = dir_one.cross(dir_two);
 
             normals[indices[i + 0] as usize] += normal;
             normals[indices[i + 1] as usize] += normal;

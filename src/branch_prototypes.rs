@@ -126,7 +126,7 @@ impl BranchPrototypeData {
         let possible_normals = {
             let mut norms = Vec::new();
             for rot in possible_rots {
-                norms.push(Vector3::euler_angles_to_direction(&(initial_rot + rot)));
+                norms.push(Vector3::euler_angles_to_direction(initial_rot + rot));
             }
             norms
         };
@@ -137,18 +137,18 @@ impl BranchPrototypeData {
             for norm in possible_normals {
 
                 let branch_rotation_matrix = {
-                    let mut rotation_axis = norm.cross(&Vector3::Y());
+                    let mut rotation_axis = norm.cross(Vector3::Y());
                     rotation_axis.normalise();
-                    let rotation_angle = norm.angle_to(&Vector3::Y());
+                    let rotation_angle = norm.angle_to(Vector3::Y());
                     Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
                 };
 
-                let new_nodes: Vec<Vector3> = node_positions.iter().map(|n| n.transform(&branch_rotation_matrix)).collect();
+                let new_nodes: Vec<Vector3> = node_positions.iter().map(|n| n.transform(branch_rotation_matrix)).collect();
 
                 if new_nodes.len() == 1 {
                     bounds.push(BoundingSphere::new(new_nodes[0], 0.01))
                 } else {
-                    bounds.push(BoundingSphere::from_points(&new_nodes))
+                    bounds.push(BoundingSphere::from_points(new_nodes))
                 }
             }
             for bound in bounds.iter_mut() {

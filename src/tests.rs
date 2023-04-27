@@ -135,7 +135,7 @@ mod vigor_and_light_exposure_tests {
         // check intersections
         let mut combinations = branch_query.iter_combinations_mut();
         while let Some([mut branch_one, branch_two]) = combinations.fetch_next() {
-            if branch_one.1.bounds.is_intersecting_sphere(&branch_two.1.bounds) {
+            if branch_one.1.bounds.is_intersecting_sphere(branch_two.1.bounds) {
                 branch_one.0.intersection_list.push(branch_two.2);
             }
         }

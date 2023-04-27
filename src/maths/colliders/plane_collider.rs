@@ -33,13 +33,13 @@ impl Collider for PlaneCollider {
         let (root_position, direction): (Vector3, Vector3) = (root_position.into(), direction.into());
         let direction = direction.normalised();
 
-        if (root_position == self.position) || ((self.centre - root_position).dot(&Vector3::Y()) == 0.0) {
+        if (root_position == self.position) || ((self.centre - root_position).dot(Vector3::Y()) == 0.0) {
             return Some(RayHitInfo::new(root_position, 0.0));
         }
 
-        if direction.dot(&Vector3::Y()) == 0.0 {return None;}
+        if direction.dot(Vector3::Y()) == 0.0 {return None;}
 
-        let distance = (self.centre - root_position).dot(&Vector3::Y()) / direction.dot(&Vector3::Y());
+        let distance = (self.centre - root_position).dot(Vector3::Y()) / direction.dot(Vector3::Y());
 
         if distance > max_distance {return None;}
 

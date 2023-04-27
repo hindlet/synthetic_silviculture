@@ -45,7 +45,7 @@ mod bounding_sphere_tests {
     fn zero_points_test() {
         let points: Vec<Vector3> = vec![];
 
-        assert_eq!(BoundingSphere::from_points(&points), BoundingSphere::ZERO())
+        assert_eq!(BoundingSphere::from_points(points), BoundingSphere::ZERO())
     }
 
     #[test]
@@ -57,7 +57,7 @@ mod bounding_sphere_tests {
         ];
         let mut bounds = BoundingSphere::ZERO();
         bounds.radius = 2.5;
-        assert!(bounds.contains_points(&points))
+        assert!(bounds.contains_points(points))
     }
 
     #[test]
@@ -67,8 +67,8 @@ mod bounding_sphere_tests {
             Vector3{x: 0.0, y: 2.5, z:0.0},
             Vector3{x: 0.0, y: 1.5, z: 1.5},
         ];
-        let bounds = BoundingSphere::from_points(&points);
-        assert_eq!(bounds.contains_points(&points), true)
+        let bounds = BoundingSphere::from_points(points.clone());
+        assert_eq!(bounds.contains_points(points), true)
     }
 
     #[test]
@@ -82,7 +82,7 @@ mod bounding_sphere_tests {
             radius: 2.0,
         };
 
-        assert_eq!(sphere_one.is_intersecting_sphere(&sphere_two), true)
+        assert_eq!(sphere_one.is_intersecting_sphere(sphere_two), true)
     }
 
     #[test]
@@ -96,7 +96,7 @@ mod bounding_sphere_tests {
             radius: 5.0,
         };
 
-        assert_eq!(sphere_one.is_intersecting_sphere(&sphere_two), false)
+        assert_eq!(sphere_one.is_intersecting_sphere(sphere_two), false)
     }
 
     #[test]
@@ -110,7 +110,7 @@ mod bounding_sphere_tests {
             radius: 2.0,
         };
 
-        assert_eq!(sphere_one.is_intersecting_sphere(&sphere_two), false)
+        assert_eq!(sphere_one.is_intersecting_sphere(sphere_two), false)
     }
 
     #[test]
@@ -124,7 +124,7 @@ mod bounding_sphere_tests {
             radius: 2.0,
         };
 
-        assert_eq!(sphere_one.get_intersection_volume(&sphere_two), PI * 11.0 / 12.0)
+        assert_eq!(sphere_one.get_intersection_volume(sphere_two), PI * 11.0 / 12.0)
     }
 
 }
@@ -142,21 +142,21 @@ mod matrix_tests {
     fn euler_angles_x_test() {
         let angles = Vector3::new(PI, 0.0, 0.0);
 
-        assert_eq!(Matrix3::from_angle_x(PI), Matrix3::from_euler_angles(&angles))
+        assert_eq!(Matrix3::from_angle_x(PI), Matrix3::from_euler_angles(angles))
     }
 
     #[test]
     fn euler_angles_y_test() {
         let angles = Vector3::new(0.0, PI, 0.0);
 
-        assert_eq!(Matrix3::from_angle_y(PI), Matrix3::from_euler_angles(&angles))
+        assert_eq!(Matrix3::from_angle_y(PI), Matrix3::from_euler_angles(angles))
     }
 
     #[test]
     fn euler_angles_z_test() {
         let angles = Vector3::new(0.0, 0.0, PI);
 
-        assert_eq!(Matrix3::from_angle_z(PI), Matrix3::from_euler_angles(&angles))
+        assert_eq!(Matrix3::from_angle_z(PI), Matrix3::from_euler_angles(angles))
     }
 
     #[test]
@@ -167,7 +167,7 @@ mod matrix_tests {
         //
         // left: `Matrix3 { x: Vector3 { x: 1.0, y: -8.742278e-8, z: -8.742278e-8 }, y: Vector3 { x: 8.742277e-8, y: 1.0, z: -8.742278e-8 }, z: Vector3 { x: 8.7422784e-8, y: 8.742277e-8, z: 1.0 } }`,
         // right: `Matrix3 { x: Vector3 { x: 1.0, y: -8.7422784e-8, z: -8.742277e-8 }, y: Vector3 { x: 8.742278e-8, y: 1.0, z: -8.7422784e-8 }, z: Vector3 { x: 8.742278e-8, y: 8.742278e-8, z: 1.0 } }
-        assert_ne!(Matrix3::from_angle_x(PI) * Matrix3::from_angle_y(PI) * Matrix3::from_angle_z(PI), Matrix3::from_euler_angles(&angles))
+        assert_ne!(Matrix3::from_angle_x(PI) * Matrix3::from_angle_y(PI) * Matrix3::from_angle_z(PI), Matrix3::from_euler_angles(angles))
     }
 
     #[test]
@@ -263,7 +263,7 @@ mod vector_three_tests {
             0.0, 0.0, 1.0
         );
         let point = Vector3::new(2.102, 1.65, 1.195);
-        assert_eq!(point.transform(&mat), Vector3::new(2.6531748, -0.3184836, 1.195))
+        assert_eq!(point.transform(mat), Vector3::new(2.6531748, -0.3184836, 1.195))
     }
 }
 

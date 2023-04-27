@@ -392,7 +392,7 @@ fn get_new_normal(
     plant_dist_control: f32,
     parent_normal: Vector3,
 ) {
-    let parent_angles = Vector3::direction_to_euler_angles(&parent_normal);
+    let parent_angles = Vector3::direction_to_euler_angles(parent_normal);
     let angles_set = vec![Vector3::X() * plant_angle, Vector3::X() * -plant_angle, Vector3::Z() * plant_angle, Vector3::Z() * -plant_angle];
 
     for angle in angles_set {
@@ -528,8 +528,8 @@ pub fn calculate_segment_lengths_and_tropism(
                 else if let Ok(branch_parent_data) = branch_data_query.get(parent_id.unwrap()) {
                     
                     let rotation_matrix = {
-                        let rotation_axis = branch_parent_data.0.normal.cross(&Vector3::Y());
-                        let rotation_angle = branch_parent_data.0.normal.angle_to(&Vector3::Y());
+                        let rotation_axis = branch_parent_data.0.normal.cross(Vector3::Y());
+                        let rotation_angle = branch_parent_data.0.normal.angle_to(Vector3::Y());
                         Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
                     };
                     (branch_parent_data.0.root_position, rotation_matrix)
@@ -553,7 +553,7 @@ pub fn calculate_segment_lengths_and_tropism(
                             parent_node.position
                         } else {panic!("failed to get branch parent node")}
                     };
-                    branch_data.root_position = root_position.transform(&parent_rotation_matrix) + parent_offset;
+                    branch_data.root_position = root_position.transform(parent_rotation_matrix) + parent_offset;
                 }
 
                 // update all node positions

@@ -100,11 +100,13 @@ impl Vector3 {
         Vector3::new(self.x / length, self.y / length, self.z / length)
     }
 
-    pub fn dot(&self, rhs: &Vector3) -> f32{
+    pub fn dot(&self, rhs: impl Into<Vector3>) -> f32{
+        let rhs: Vector3 = rhs.into();
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
     }
 
-    pub fn cross(&self, rhs: &Vector3) -> Vector3 {
+    pub fn cross(&self, rhs: impl Into<Vector3>) -> Vector3 {
+        let rhs: Vector3 = rhs.into();
         Vector3 {
             x: self.y * rhs.z - self.z * rhs.y,
             y: self.z * rhs.x - self.x * rhs.z,
@@ -152,19 +154,20 @@ impl Vector3 {
         ]
     }
 
-    pub fn angle_to(&self, rhs: &Vector3) -> f32 {
+    pub fn angle_to(&self, rhs: impl Into<Vector3>) -> f32 {
+        let rhs: Vector3 = rhs.into();
         return (self.dot(rhs)/(self.magnitude() * rhs.magnitude())).acos();
     }
 
 
-    pub fn transform(&self, transform: &Matrix3) -> Vector3 {
-        let x = self.dot(&transform.x);
-        let y = self.dot(&transform.y);
-        let z = self.dot(&transform.z);
+    pub fn transform(&self, transform: Matrix3) -> Vector3 {
+        let x = self.dot(transform.x);
+        let y = self.dot(transform.y);
+        let z = self.dot(transform.z);
         Vector3::new(x, y, z)
     }
 
-    pub fn mut_transform(&mut self, transform: &Matrix3) {
+    pub fn mut_transform(&mut self, transform: Matrix3) {
         let new = self.transform(transform);
         self.x = new.x;
         self.y = new.y;
@@ -184,36 +187,33 @@ impl Vector3 {
     }
 
     /// gets the appropriate euler angles for a given direction vector, where (0, 0, 0)euler is equivivelant to (0, 1, 0)direction
-    pub fn direction_to_euler_angles(start_dir: &Vector3) -> Vector3{
-        let dir = {
-            let mut dir = start_dir.clone();
-            dir.normalise();
-            dir
-        };
-        if dir == Vector3::Y() * -1.0 {
+    pub fn direction_to_euler_angles(start_dir: impl Into<Vector3>) -> Vector3{
+        let mut start_dir: Vector3 = start_dir.into();
+        start_dir.normalise();
+        if start_dir == Vector3::Y() * -1.0 {
             Vector3::new(PI, 0.0, 0.0)
-        } else if dir == Vector3::Y() {
+        } else if start_dir == Vector3::Y() {
             Vector3::ZERO()
         } else {
             let cross_mat = {
-                let cross = dir.cross(&Vector3::Y());
+                let cross = start_dir.cross(Vector3::Y());
                 Matrix3::new(
                     0.0, -cross.z, cross.y,
                     cross.z, 0.0, -cross.x,
                     -cross.y, cross.x, 0.0
                 )
             };
-            let angle_cos = dir.dot(&Vector3::Y());
+            let angle_cos = start_dir.dot(Vector3::Y());
             let rot_mat =  Matrix3::identity() + cross_mat + cross_mat * cross_mat * (1.0 / (1.0 + angle_cos));
-            Matrix3::euler_angles_from(&rot_mat)
+            Matrix3::euler_angles_from(rot_mat)
         }
 
     }
 
     /// gets the approriate direction vector for given euler angles, where (0, 1, 0)direction is equivelant to (0, 0, 0)euler
-    pub fn euler_angles_to_direction(rot: &Vector3) -> Vector3 {
+    pub fn euler_angles_to_direction(rot: impl Into<Vector3>) -> Vector3 {
         let matrix = Matrix3::from_euler_angles(rot);
-        Vector3::Y().transform(&matrix)
+        Vector3::Y().transform(matrix)
     }
 
     /// returns the directions of the different components of a direction vector: 

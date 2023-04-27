@@ -166,12 +166,12 @@ fn create_vector_polygon(sides: u32, rotation: Option<f32>) -> Vec<Vector3> {
     let initial_direction = if rotation.is_none() {
         Vector3::X()
     } else {
-        Vector3::X().transform(&Matrix3::from_angle_y(-rotation.unwrap()))
+        Vector3::X().transform(Matrix3::from_angle_y(-rotation.unwrap()))
     };
 
     let mut vectors = vec![initial_direction];
     for i in 0..(sides-1) as usize {
-        vectors.push(vectors[i].clone().transform(&inner_rotation_matrix));
+        vectors.push(vectors[i].clone().transform(inner_rotation_matrix));
     }
 
     vectors

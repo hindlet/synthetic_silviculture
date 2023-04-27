@@ -32,7 +32,7 @@ impl BoundingSphere {
         self.radius = 0.0;
     }
 
-    pub fn set_to(&mut self, data: &BoundingSphere) {
+    pub fn set_to(&mut self, data: BoundingSphere) {
         self.centre = data.centre;
         self.radius = data.radius;
     }
@@ -52,7 +52,7 @@ impl BoundingSphere {
         furthest_point
     }
 
-    pub fn contains_points(&self, points: &Vec<Vector3>) -> bool {
+    pub fn contains_points(&self, points: Vec<Vector3>) -> bool {
         for point in points.iter() {
             let shifted_point_magnitude = (self.centre - *point).magnitude();
 
@@ -64,16 +64,9 @@ impl BoundingSphere {
     }
 
     #[allow(unused_assignments)]
-    pub fn from_points(points: &Vec<Vector3>) -> Self {
+    pub fn from_points(points: Vec<Vector3>) -> Self {
         if points.len() == 0 {
-            return BoundingSphere {
-                centre: Vector3 {
-                    x: 0.0,
-                    y: 0.0,
-                    z: 0.0,
-                },
-                radius: 0.0
-            };
+            BoundingSphere::new(Vector3::ZERO(), 0.0);
         }
     
         // get the points with min and max x y and z values
@@ -176,26 +169,20 @@ impl BoundingSphere {
         }
     
         if ritter_radius < naive_radius {
-            BoundingSphere {
-                centre: ritter_centre,
-                radius: ritter_radius,
-            }
+            BoundingSphere::new(ritter_centre, ritter_radius)
         } else {
-            BoundingSphere {
-                centre: naive_centre,
-                radius: naive_radius,
-            }
+            BoundingSphere::new(naive_centre, naive_radius)
         }
     }
 
-    pub fn is_intersecting_sphere(&self, other: &BoundingSphere) -> bool {
+    pub fn is_intersecting_sphere(&self, other: BoundingSphere) -> bool {
         let distance_between = (self.centre - other.centre).magnitude();
         let radii_sum = self.radius + other.radius;
         distance_between < radii_sum
     }
 
     // this function only works if we know that distace <= r1 + r2 but since we'll only call it on bounds we know are intersecting thats fine
-    pub fn get_intersection_volume(&self, other: &BoundingSphere) -> f32 {
+    pub fn get_intersection_volume(&self, other: BoundingSphere) -> f32 {
         let distance = (self.centre - other.centre).magnitude();
         let volume = (PI / (12.0 * distance)) * (self.radius + other.radius - distance).powi(2) * (distance.powi(2) + 2.0 * distance * (self.radius + other.radius) - 3.0 * (self.radius - other.radius).powi(2));
         volume
@@ -240,9 +227,9 @@ impl Collider for BoundingSphere {
             return Some(RayHitInfo::new(root_position, 0.0));
         }
 
-        let a = direction.dot(&direction);
-        let b = 2.0 * direction.dot(&l);
-        let c = l.dot(&l) - self.radius * self.radius;
+        let a = direction.dot(direction);
+        let b = 2.0 * direction.dot(l);
+        let c = l.dot(l) - self.radius * self.radius;
         let dist = solve_quadratic(a, b, c);
 
         if dist.is_none() {return None;}

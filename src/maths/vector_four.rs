@@ -41,7 +41,8 @@ impl Vector4 {
         self.w /= length;
     }
 
-    pub fn dot(&self, rhs: &Vector4) -> f32{
+    pub fn dot(&self, rhs: impl Into<Vector4>) -> f32{
+        let rhs = rhs.into();
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
     }
 
@@ -71,6 +72,12 @@ impl Vector4 {
 impl Into<[f32; 4]> for Vector4 {
     fn into(self) -> [f32; 4] {
         [self.x, self.y, self.z, self.w]
+    }
+}
+
+impl From<[f32; 4]> for Vector4 {
+    fn from(value: [f32; 4]) -> Self {
+        Vector4::new(value[0], value[1], value[2], value[3])
     }
 }
 

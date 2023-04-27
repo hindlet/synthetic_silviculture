@@ -51,7 +51,7 @@ impl Mesh {
             let v_two: Vector3 = self.vertices[self.indices[i as usize + 1] as usize].into();
             let v_thr: Vector3 = self.vertices[self.indices[i as usize + 2] as usize].into();
     
-            let normal = (v_one - v_thr).cross(&(v_two - v_thr)).normalised();
+            let normal = (v_one - v_thr).cross(v_two - v_thr).normalised();
     
             new_verts.push(PositionVertex::from(v_one));
             new_verts.push(PositionVertex::from(v_two));
@@ -85,7 +85,7 @@ impl Mesh {
             let v_two: Vector3 = in_verts[in_inds[i as usize + 1] as usize].into();
             let v_thr: Vector3 = in_verts[in_inds[i as usize + 2] as usize].into();
     
-            let normal = (v_one - v_thr).cross(&(v_two - v_thr));
+            let normal = (v_one - v_thr).cross(v_two - v_thr);
     
             new_verts.push(PositionVertex::from(v_one));
             new_verts.push(PositionVertex::from(v_two));

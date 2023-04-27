@@ -39,7 +39,7 @@ impl MeshCollider {
             tris.push(TriangleCollider::new(vertices[indices[i] as usize], vertices[indices[i + 1] as usize], vertices[indices[i + 2] as usize]));
         }
 
-        let bounds = BoundingBox::from_points(&vertices);
+        let bounds = BoundingBox::from_points(vertices);
         MeshCollider {
             tris,
             bounds
@@ -57,6 +57,8 @@ impl Collider for MeshCollider {
     ) -> Option<RayHitInfo> {
         let (root_position, direction): (Vector3, Vector3) = (root_position.into(), direction.into());
         let direction = direction.normalised();
+
+        if self.bounds.check_ray(root_position, direction, max_distance).is_none() {return None;}
 
         // sort the tris by distance
         let dist_indices = {

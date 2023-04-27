@@ -23,7 +23,7 @@ impl BoundingBox {
     }
 
 
-    pub fn contains_point(&self, point: &Vector3) -> bool {
+    pub fn contains_point(&self, point: Vector3) -> bool {
         if (point.x < self.min_corner.x) || (point.x > self.max_corner.x) {
             return false
         }
@@ -36,15 +36,15 @@ impl BoundingBox {
         true
     }
 
-    pub fn contains_points(&self, points: &Vec<Vector3>) -> bool {
+    pub fn contains_points(&self, points: Vec<Vector3>) -> bool {
         for point in points {
             if !self.contains_point(point) {return false}
         }
         true
     }
 
-    pub fn contains_sphere(&self, sphere: &BoundingSphere) -> bool{
-        if !self.contains_point(&sphere.centre) {return false;}
+    pub fn contains_sphere(&self, sphere: BoundingSphere) -> bool{
+        if !self.contains_point(sphere.centre) {return false;}
 
         if (sphere.centre.x - sphere.radius) < self.min_corner.x {return false;}
         if (sphere.centre.x + sphere.radius) > self.max_corner.x {return false;}
@@ -58,14 +58,14 @@ impl BoundingBox {
         true
     }
 
-    pub fn contains_spheres(&self, spheres: &Vec<BoundingSphere>) -> bool {
-        for sphere in spheres.iter() {
-            if !self.contains_sphere(&sphere) {return  false}
+    pub fn contains_spheres(&self, spheres: Vec<BoundingSphere>) -> bool {
+        for sphere in spheres {
+            if !self.contains_sphere(sphere) {return  false}
         }
         true
     }
 
-    pub fn from_spheres(spheres: &Vec<BoundingSphere>) -> BoundingBox {
+    pub fn from_spheres(spheres: Vec<BoundingSphere>) -> BoundingBox {
         if spheres.len() == 0 {
             return BoundingBox::ZERO();
         }
@@ -106,7 +106,7 @@ impl BoundingBox {
         BoundingBox::new(min_corner, max_corner)
     }
 
-    pub fn from_points(points: &Vec<Vector3>) -> BoundingBox{
+    pub fn from_points(points: Vec<Vector3>) -> BoundingBox{
         if points.len() == 0 {return BoundingBox::ZERO()}
 
         let mut x_min = points[0].x;
@@ -134,7 +134,7 @@ impl BoundingBox {
         BoundingBox::new(min_corner, max_corner)
     }
 
-    pub fn is_intersecting_box(&self, other: &BoundingBox) -> bool {
+    pub fn is_intersecting_box(&self, other: BoundingBox) -> bool {
         self.min_corner.x <= other.max_corner.x &&
         self.max_corner.x >= other.min_corner.x &&
         self.min_corner.y <= other.max_corner.y &&
@@ -158,7 +158,7 @@ impl Collider for BoundingBox {
         let (root_position, direction): (Vector3, Vector3) = (root_position.into(), direction.into());
         let direction = direction.normalised();
 
-        if self.contains_point(&root_position) {return Some(RayHitInfo::new(root_position, 0.0));}
+        if self.contains_point(root_position) {return Some(RayHitInfo::new(root_position, 0.0));}
 
         let inv_dir = Vector3::ONE() / direction;
 
@@ -208,7 +208,7 @@ mod bounding_box_tests {
     fn zero_points_test() {
         let points: Vec<Vector3> = vec![];
 
-        assert_eq!(BoundingBox::from_points(&points), BoundingBox::ZERO())
+        assert_eq!(BoundingBox::from_points(points), BoundingBox::ZERO())
     }
 
     #[test]
@@ -219,7 +219,7 @@ mod bounding_box_tests {
             Vector3{x: 5.0, y: 1.5, z: 1.5},
         ];
         let bounds = BoundingBox::new(Vector3::ZERO(), Vector3::new(5.0, 2.5, 1.5));
-        assert_eq!(bounds.contains_points(&points), true)
+        assert_eq!(bounds.contains_points(points), true)
     }
 
     #[test]
@@ -229,8 +229,8 @@ mod bounding_box_tests {
             Vector3{x: 0.0, y: 2.5, z:0.0},
             Vector3{x: 5.0, y: 1.5, z: 1.5},
         ];
-        let bounds = BoundingBox::from_points(&points);
-        assert_eq!(bounds.contains_points(&points), true)
+        let bounds = BoundingBox::from_points(points.clone());
+        assert_eq!(bounds.contains_points(points), true)
     }
 
     #[test]
@@ -250,7 +250,7 @@ mod bounding_box_tests {
             },
         ];
         let bounds = BoundingBox::new(Vector3::new(-7.0, -5.0, -7.0), Vector3::new(7.0, 32.0, 17.0));
-        assert_eq!(bounds.contains_spheres(&spheres), true)
+        assert_eq!(bounds.contains_spheres(spheres), true)
     }
 
     #[test]
@@ -269,23 +269,23 @@ mod bounding_box_tests {
                 radius: 2.0,
             },
         ];
-        let bounds = BoundingBox::from_spheres(&spheres);
+        let bounds = BoundingBox::from_spheres(spheres.clone());
 
-        assert_eq!(bounds.contains_spheres(&spheres), true)
+        assert_eq!(bounds.contains_spheres(spheres), true)
     }
 
     #[test]
     fn intersection_test() {
         let box_one = BoundingBox::new(Vector3::ZERO(), Vector3::ONE() * 5.0);
         let box_two = BoundingBox::new(Vector3::ONE() * 2.5, Vector3::ONE() * 5.0);
-        assert_eq!(box_one.is_intersecting_box(&box_two), true)
+        assert_eq!(box_one.is_intersecting_box(box_two), true)
     }
 
     #[test]
     fn non_intersection_test() {
         let box_one = BoundingBox::new(Vector3::ZERO(), Vector3::ONE() * 2.0);
         let box_two = BoundingBox::new(Vector3::ONE() * 2.5, Vector3::ONE() * 5.0);
-        assert_eq!(box_one.is_intersecting_box(&box_two), false)
+        assert_eq!(box_one.is_intersecting_box(box_two), false)
     }
 
 }

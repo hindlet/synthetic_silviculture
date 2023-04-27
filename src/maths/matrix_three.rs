@@ -23,21 +23,21 @@ impl Matrix3 {
     }
 
     pub fn from_rows(
-        r0: Vector3,
-        r1: Vector3,
-        r2: Vector3,
+        r0: impl Into<Vector3>,
+        r1: impl Into<Vector3>,
+        r2: impl Into<Vector3>,
     ) -> Self {
         Matrix3 {
-            x: r0,
-            y: r1,
-            z: r2
+            x: r0.into(),
+            y: r1.into(),
+            z: r2.into()
         }
     }
 
     pub fn from_columns(
-        c0: Vector3,
-        c1: Vector3,
-        c2: Vector3,
+        c0: impl Into<Vector3>,
+        c1: impl Into<Vector3>,
+        c2: impl Into<Vector3>,
     ) -> Self {
         let mat = Matrix3::from_rows(c0, c1, c2);
         mat.transpose()
@@ -92,7 +92,8 @@ impl Matrix3 {
     }
 
     /// creates a rotation matrix for anticlockwise rotation of angle around the specified axis
-    pub fn from_angle_and_axis(angle: f32, mut axis: Vector3) -> Self {
+    pub fn from_angle_and_axis(angle: f32, axis: impl Into<Vector3>) -> Self {
+        let mut axis: Vector3 = axis.into();
         axis.normalise();
         if angle == 0.0 {return Matrix3::identity();}
         Matrix3::new(
@@ -110,7 +111,8 @@ impl Matrix3 {
         )
     }
 
-    pub fn from_euler_angles(angles: &Vector3) -> Matrix3 {
+    pub fn from_euler_angles(angles: impl Into<Vector3>) -> Matrix3 {
+        let angles = angles.into();
         let x = angles.x;
         let y = angles.y;
         let z = angles.z;
@@ -130,7 +132,7 @@ impl Matrix3 {
     }
 
     // calculates the euler angles required to create a specific matrix
-    pub fn euler_angles_from(rot: &Matrix3) -> Vector3 {
+    pub fn euler_angles_from(rot: Matrix3) -> Vector3 {
         let mut angles = Vector3::ZERO();
 
         // special cases
@@ -191,9 +193,9 @@ impl Matrix3 {
         let det = self.determinant();
         if det == 0.0 {return self.clone();}
 
-        let c0  = self.y.cross(&self.z);
-        let c1  = self.z.cross(&self.x);
-        let c2  = self.x.cross(&self.y);
+        let c0  = self.y.cross(self.z);
+        let c1  = self.z.cross(self.x);
+        let c2  = self.x.cross(self.y);
         Matrix3::from_columns(c0, c1, c2) / det
     }
 }

@@ -33,11 +33,7 @@ impl Default for Camera {
 impl Camera {
 
     pub fn get_view_matrix(&self) -> Matrix4 {
-        let f = {
-            let mut f = self.direction.clone();
-            f.normalise();
-            f
-        };
+        let f = self.direction.normalised();
     
         let mut s = cross(self.up, f);
 
@@ -49,14 +45,12 @@ impl Camera {
             s.x, u.x, -f.x, 0.0,
             s.y, u.y, -f.y, 0.0,
             s.z, u.z, -f.z, 0.0,
-            -self.position.dot(&s), -self.position.dot(&u), self.position.dot(&f), 1.0
+            -self.position.dot(s), -self.position.dot(u), self.position.dot(f), 1.0
         )
     }
 
     pub fn look_at(&mut self, target: Vector3) {
-        let mut dir = target - self.position;
-        dir.normalise();
-        self.direction = dir;
+        self.direction = (target - self.position).normalised();
     }
 
     pub fn process_key(&mut self, keycode: VirtualKeyCode, state: bool) {
@@ -118,11 +112,11 @@ impl Camera {
         // rotate
         if self.movement[6] {
             let rotation = Matrix3::from_angle_and_axis(self.rotate_speed, self.up);
-            self.direction.mut_transform(&rotation);
+            self.direction.mut_transform(rotation);
         }
         if self.movement[7] {
             let rotation = Matrix3::from_angle_and_axis(-self.rotate_speed, self.up);
-            self.direction.mut_transform(&rotation);
+            self.direction.mut_transform(rotation);
         }
 
         // spin around left
@@ -131,11 +125,11 @@ impl Camera {
         // rotate
         if self.movement[8] {
             let rotation = Matrix3::from_angle_and_axis(self.rotate_speed, left);
-            self.direction.mut_transform(&rotation);
+            self.direction.mut_transform(rotation);
         }
         if self.movement[9] {
             let rotation = Matrix3::from_angle_and_axis(-self.rotate_speed, left);
-            self.direction.mut_transform(&rotation);
+            self.direction.mut_transform(rotation);
         }
     }
 }

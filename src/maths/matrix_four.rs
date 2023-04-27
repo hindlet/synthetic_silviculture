@@ -42,11 +42,6 @@ impl Matrix4 {
         )
     }
 
-    // /// creates a view matrix for the given position and direction
-    // pub fn view_matrix(view_dir: Vector3, view_pos: Vector3) -> Self {
-
-    // }
-
 }
 
 impl Into<[[f32; 4]; 4]> for Matrix4 {
