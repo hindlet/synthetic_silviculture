@@ -25,12 +25,22 @@ impl Vector3Int {
 }
 
 
+//////////////////////////////////////////////////////////////////
+///////////////////////////////// from and into
+//////////////////////////////////////////////////////////////////
+
+impl Into<[i32; 3]> for Vector3Int {
+fn into(self) -> [i32; 3] {
+    [self.x, self.y, self.z]
+}
+}
+
+
 impl From<Vector3> for Vector3Int {
     fn from(value: Vector3) -> Self {
         Vector3Int::new(value.x.floor() as i32, value.y.floor() as i32, value.z.floor() as i32)
     }
 }
-
 
 impl From<[i32; 3]> for Vector3Int {
     fn from(value: [i32; 3]) -> Self {
@@ -38,11 +48,10 @@ impl From<[i32; 3]> for Vector3Int {
     }
 }
 
-impl Into<[i32; 3]> for Vector3Int {
-    fn into(self) -> [i32; 3] {
-        [self.x, self.y, self.z]
-    }
-}
+
+//////////////////////////////////////////////////////////////////
+///////////////////////////////// arithmetic operations
+//////////////////////////////////////////////////////////////////
 
 impl Mul<i32> for Vector3Int {
     type Output = Vector3Int;

@@ -68,6 +68,15 @@ impl Vector3 {
         }
     }
 
+    #[allow(non_snake_case)]
+    pub fn ONE() -> Self {
+        Self {
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+        }
+    }
+
 
     pub fn sqr_magnitude(&self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z
@@ -201,12 +210,23 @@ impl Vector3 {
 
     }
 
-    // gets the approriate direction vector for given euler angles, where (0, 1, 0)direction is equivelant to (0, 0, 0)euler
+    /// gets the approriate direction vector for given euler angles, where (0, 1, 0)direction is equivelant to (0, 0, 0)euler
     pub fn euler_angles_to_direction(rot: &Vector3) -> Vector3 {
         let matrix = Matrix3::from_euler_angles(rot);
         Vector3::Y().transform(&matrix)
     }
+
+    /// returns the directions of the different components of a direction vector: 
+    /// 
+    /// e.g: (-7.0, 5.0, -1.0) -> (-1, 1, -1)
+    pub fn direction_directions(&self) -> Vector3 {
+        Vector3::new(self.x / self.x.abs(), self.y / self.y.abs(), self.z / self.z.abs())
+    }
 }
+
+//////////////////////////////////////////////////////////////////
+///////////////////////////////// from and into
+//////////////////////////////////////////////////////////////////
 
 impl Into<[f32; 3]> for Vector3 {
     fn into(self) -> [f32; 3] {
@@ -214,13 +234,27 @@ impl Into<[f32; 3]> for Vector3 {
     }
 }
 
+
 impl From<[f32; 3]> for Vector3 {
     fn from(value: [f32; 3]) -> Self {
         Vector3::new(value[0], value[1], value[2])
     }
+} 
+
+impl From<[i32; 3]> for Vector3 {
+    fn from(value: [i32; 3]) -> Self {
+        Vector3::new(value[0] as f32, value[1] as f32, value[2] as f32)
+    }
 }
 
-// arithmetic ops
+impl From<Vector2> for Vector3 {
+    fn from(value: Vector2) -> Self {
+        Vector3::new(value.x, value.y, 0.0)
+    }
+}
+//////////////////////////////////////////////////////////////////
+///////////////////////////////// arithmetic operations
+//////////////////////////////////////////////////////////////////
 
 impl Add for Vector3 {
     type Output = Self;
@@ -292,6 +326,17 @@ impl Div<f32> for Vector3 {
             x: self.x / rhs,
             y: self.y / rhs,
             z: self.z / rhs,
+        }
+    }
+}
+
+impl Div<Vector3> for Vector3 {
+    type Output = Self;
+    fn div(self, rhs: Vector3) -> Self::Output {
+        Self {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y,
+            z: self.z / rhs.z,
         }
     }
 }

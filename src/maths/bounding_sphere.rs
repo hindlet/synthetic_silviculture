@@ -1,11 +1,10 @@
 #![allow(dead_code, unused_variables, unused_imports)]
-use bevy_ecs::prelude::*;
-use crate::maths::vector_three::Vector3;
+use super::{vector_three::Vector3, colliders::{Collider, RayHitInfo}};
 use std::f32::consts::PI;
 use std::cmp::{max, min};
 
 
-#[derive(Default, Component, Debug, PartialEq, Clone, Copy)]
+#[derive(Default, Debug, PartialEq, Clone, Copy)]
 pub struct BoundingSphere {
     pub centre: Vector3,
     pub radius: f32,
@@ -13,9 +12,9 @@ pub struct BoundingSphere {
 
 
 impl BoundingSphere {
-    pub fn new(centre: Vector3, radius: f32) -> Self {
+    pub fn new(centre: impl Into<Vector3>, radius: f32) -> Self {
         BoundingSphere {
-            centre,
+            centre: centre.into(),
             radius
         }
     }
@@ -206,4 +205,114 @@ impl BoundingSphere {
         (4.0 * PI * self.radius * self.radius * self.radius) / 3.0
     }
 
+}
+
+/// solves a quadratic and returns the smallest positive solution
+fn solve_quadratic(a: f32, b: f32, c: f32) -> Option<f32>{
+    let det = b * b - 4.0 * a * c;
+    if det < 0.0 {return None;}
+    else if det == 0.0 {
+        let s0 = -b / (2.0 * a);
+        if s0 < 0.0 {return None;}
+        else {return Some(s0);}
+    }
+    else {
+        let (s1, s2) = ((-b + det.sqrt()) / (2.0 * a),(-b - det.sqrt()) / (2.0 * a));
+        if s1 > s2 && s2 >= 0.0 {return Some(s2);}
+        else if s1 >= 0.0 {return Some(s1);}
+        else {return None;}
+    }
+}
+
+impl Collider for BoundingSphere {
+    fn check_ray(
+        &self,
+        root_position: impl Into<Vector3>,
+        direction: impl Into<Vector3>,
+        max_distance: f32,
+    ) -> Option<RayHitInfo> {
+        let (root_position, direction): (Vector3, Vector3) = (root_position.into(), direction.into());
+        let direction = direction.normalised();
+
+
+        let l = root_position - self.centre;
+        if l.magnitude() <= self.radius {
+            return Some(RayHitInfo::new(root_position, 0.0));
+        }
+
+        let a = direction.dot(&direction);
+        let b = 2.0 * direction.dot(&l);
+        let c = l.dot(&l) - self.radius * self.radius;
+        let dist = solve_quadratic(a, b, c);
+
+        if dist.is_none() {return None;}
+        let dist = dist.unwrap();
+        if dist > max_distance {return None;}
+
+        return Some(RayHitInfo::new(root_position + direction * dist, dist));
+    }
+}
+
+
+#[cfg(test)]
+mod quadratic_tests {
+    use super::solve_quadratic;
+    #[test]
+    fn no_real_solutions_test() {
+        assert_eq!(solve_quadratic(1.0, 1.0, 8.0), None)
+    }
+
+    #[test]
+    fn no_real_positive_solutions_test() {
+        assert_eq!(solve_quadratic(1.0, 5.0, 6.0), None)
+    }
+
+    #[test]
+    fn one_real_positive_solution() {
+        assert_eq!(solve_quadratic(1.0,-8.0, 16.0), Some(4.0))
+    }
+
+    #[test]
+    fn two_real_positive_solution() {
+        assert_eq!(solve_quadratic(1.0,-10.0, 16.0), Some(2.0))
+    }
+
+    #[test]
+    fn zero_is_the_solution() {
+        assert_eq!(solve_quadratic(1.0,-10.0, 0.0), Some(0.0))
+    }
+}
+
+#[cfg(test)]
+mod sphere_collider_tests {
+    use super::{BoundingSphere, Collider};
+    #[test]
+    fn contained_point_test() {
+        let sphere = BoundingSphere::new([0, 0, 0], 5.0);
+        let hit = sphere.check_ray([0.0, 2.5, 0.0], [1, 0, 0], 2.0).unwrap();
+        assert_eq!(hit.hit_position, [0.0, 2.5, 0.0].into());
+        assert_eq!(hit.hit_distance, 0.0);
+    }
+
+    #[test]
+    fn intersection_test() {
+        let sphere = BoundingSphere::new([0, 0, 0], 2.5);
+        let hit = sphere.check_ray([5.0, 0.0, 0.0], [-1, 0, 0], 20.0).unwrap();
+        assert_eq!(hit.hit_position, [2.5, 0.0, 0.0].into());
+        assert_eq!(hit.hit_distance, 2.5);
+    }
+
+    #[test]
+    fn too_far_test() {
+        let sphere = BoundingSphere::new([0, 0, 0], 2.5);
+        let hit = sphere.check_ray([5.0, 0.0, 0.0], [-1, 0, 0], 2.0);
+        assert!(hit.is_none())
+    }
+
+    #[test]
+    fn no_intersection_test() {
+        let sphere = BoundingSphere::new([0, 0, 0], 2.5);
+        let hit = sphere.check_ray([5.0, 0.0, 0.0], [0, 1, 0], 25.0);
+        assert!(hit.is_none())
+    }
 }

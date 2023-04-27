@@ -44,13 +44,33 @@ impl Vector2 {
     }
 }
 
+//////////////////////////////////////////////////////////////////
+///////////////////////////////// from and into
+//////////////////////////////////////////////////////////////////
+
 impl Into<[f32; 2]> for Vector2 {
     fn into(self) -> [f32; 2] {
         [self.x, self.y]
     }
 }
 
-// arithmetic ops
+
+impl From<[f32; 2]> for Vector2 {
+    fn from(value: [f32; 2]) -> Self {
+        Vector2::new(value[0], value[1])
+    }
+}
+
+impl From<[i32; 2]> for Vector2 {
+    fn from(value: [i32; 2]) -> Self {
+        Vector2::new(value[0] as f32, value[1] as f32)
+    }
+}
+
+//////////////////////////////////////////////////////////////////
+///////////////////////////////// arithmetic operations
+//////////////////////////////////////////////////////////////////
+
 
 impl Add for Vector2 {
     type Output = Self;

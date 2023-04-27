@@ -11,7 +11,8 @@ pub mod matrix_four;
 // bounds
 pub mod bounding_sphere;
 pub mod bounding_box;
-
+// colliders
+pub mod colliders;
 
 
 

@@ -51,6 +51,19 @@ impl Matrix3 {
         )
     }
 
+    pub fn c1(&self) -> Vector3 {
+        Vector3::new(self.x.x, self.y.x, self.z.x)
+    }
+
+    pub fn c2(&self) -> Vector3 {
+        Vector3::new(self.x.y, self.y.y, self.z.y)
+    }
+
+    pub fn c3(&self) -> Vector3 {
+        Vector3::new(self.x.z, self.y.z, self.z.z)
+    }
+
+
     /// creates a rotation maxtrix for anticlockwise angle around y axis
     pub fn from_angle_y(angle: f32) -> Self{
         Matrix3::new(
