@@ -49,6 +49,8 @@ impl MeshCollider {
 
 impl Collider for MeshCollider {
     /// for checking intersections of a mesh and ray, I chose to sort the mesh triangles by distance from the ray root and loop through them
+    /// 
+    /// A mesh does not check if a point is contained as there is not guarantee there is an inside to a mesh
     fn check_ray(
         &self,
         root_position: impl Into<Vector3>,
@@ -98,5 +100,43 @@ mod mesh_quicksort_tests {
     fn pre_sorted_test() {
         let list: Vec<(usize, f32)>= vec![(3, 1.5),(5, 4.7),(4, 5.0),(2, 9.8),(1, 22.7),(0, 25.6)];
         assert_eq!(quicksort(list.clone()), list);
+    }
+}
+
+#[cfg(test)]
+mod mesh_collider_tests {
+    use super::{MeshCollider, Collider};
+
+    #[test]
+    fn miss_mesh_test() {
+        let mesh = MeshCollider::new(
+            vec![[-2, 0, -2].into(), [-2, 0, 2].into(), [2, 0, -2].into(), [2, 0, 2].into(), [0, 5, 0].into()],
+            vec![0, 3, 2, 3, 1, 0, 0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 1]
+        );
+
+        assert!(mesh.check_ray([1, 4, 0], [1, 0, 0], 25.0).is_none())
+    }
+
+    #[test]
+    fn miss_box_test() {
+        let mesh = MeshCollider::new(
+            vec![[-2, 0, -2].into(), [-2, 0, 2].into(), [2, 0, -2].into(), [2, 0, 2].into(), [0, 5, 0].into()],
+            vec![0, 3, 2, 3, 1, 0, 0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 1]
+        );
+
+        assert!(mesh.check_ray([1, 6, 0], [1, 0, 0], 25.0).is_none())
+    }
+
+    #[test]
+    fn hit_test() {
+        let mesh = MeshCollider::new(
+            vec![[-2, 0, -2].into(), [-2, 0, 2].into(), [2, 0, -2].into(), [2, 0, 2].into(), [-2, 5, 0].into()],
+            vec![0, 3, 2, 3, 1, 0, 0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 1]
+        );
+
+        let hit = mesh.check_ray([-5, 3, 0], [1, 0, 0], 25.0).unwrap();
+
+        assert_eq!(hit.hit_position, [-2, 3, 0].into());
+        assert_eq!(hit.hit_distance, 3.0);
     }
 }
