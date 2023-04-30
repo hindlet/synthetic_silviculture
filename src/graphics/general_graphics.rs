@@ -49,6 +49,12 @@ pub struct PositionVertex {
     pub position: [f32; 3],
 }
 
+impl Into<Vector3> for PositionVertex {
+    fn into(self) -> Vector3 {
+        self.position.into()
+    }
+}
+
 impl From<Vector3> for PositionVertex {
     fn from(value: Vector3) -> Self {
         PositionVertex {position: value.into()}
