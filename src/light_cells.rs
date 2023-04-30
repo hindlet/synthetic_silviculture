@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use std::collections::HashMap;
-use crate::maths::vector_three_int::Vector3Int;
+use super::maths::vector_three_int::Vector3Int;
 use bevy_ecs::prelude::*;
 
 

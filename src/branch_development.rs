@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
-use crate::{
+use super::{
     plant::*,
     branch::*,
     branch_node::*,

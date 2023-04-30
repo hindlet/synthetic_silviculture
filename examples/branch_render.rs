@@ -2,10 +2,6 @@
 //! 
 //! - This example includes gui to control how detailed the branch is as well as how it is shaded
 //! - There is also gui to control the branch's normal, note that if all are set to zero the branch will dissapear, this is fine as it will never actually happen
-
-
-
-
 use std::sync::Arc;
 use synthetic_silviculture::{
     branch::{BranchBundle, BranchData, BranchTag},

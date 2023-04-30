@@ -1,9 +1,17 @@
 use std::{f32::consts::PI, ops::AddAssign, collections::VecDeque};
-
-use crate::{maths::{vector_three::{self, Vector3}, matrix_three::Matrix3}, plant::{PlantData, PlantTag}, branch::{BranchTag, BranchConnectionData, BranchData, get_branches_base_to_tip}, branch_node::{BranchNodeConnectionData, BranchNodeTag, get_node_data_and_connections_base_to_tip, BranchNodeData}};
+use crate::{};
 use bevy_ecs::{prelude::*, system::SystemState};
-
-use super::{general_graphics::{PositionVertex, Normal}, branch_graphics::BranchGraphicsResources, mesh::Mesh};
+use super::{
+    general_graphics::{PositionVertex, Normal},
+    branch_graphics::BranchGraphicsResources,
+    mesh::Mesh,
+    super::{
+        maths::{vector_three::{self, Vector3}, matrix_three::Matrix3},
+        plant::*,
+        branch::*,
+        branch_node::*
+    }
+};
 
 
 // useful conversions and such for me here

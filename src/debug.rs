@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use crate::{
+use super::{
     branch::{BranchData, BranchGrowthData, BranchBounds, BranchTag},
     branch_node::{BranchNodeData, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip}
 };

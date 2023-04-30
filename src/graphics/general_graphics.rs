@@ -1,5 +1,4 @@
 #![allow(unused_variables, unused_imports)]
-
 use std::sync::Arc;
 use bevy_ecs::prelude::*;
 use vulkano::{
@@ -19,13 +18,20 @@ use vulkano::{
     memory::allocator::{StandardMemoryAllocator, GenericMemoryAllocator, FreeListAllocator, MemoryUsage, AllocationCreateInfo},
 };
 use vulkano_win::VkSurfaceBuild;
-use winit::{window::{WindowBuilder, Window}, event::VirtualKeyCode, dpi::PhysicalSize};
-use winit::event_loop::EventLoop;
+use winit::{
+    window::{WindowBuilder, Window},
+    event::VirtualKeyCode,
+    dpi::PhysicalSize,
+    event_loop::EventLoop
+};
 use bytemuck::{Pod, Zeroable};
-use crate::{graphics::camera_maths::Camera, maths::vector_three::Vector3};
-use crate::maths::matrix_four::Matrix4;
-use crate::maths::matrix_three::Matrix3;
-use crate::graphics::gui::{create_gui_subpass};
+use super::{
+    camera_maths::Camera,
+    gui::create_gui_subpass,
+    super::{
+        maths::{vector_three::Vector3, matrix_four::Matrix4, matrix_three::Matrix3},
+    }
+};
 
 
 

@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
 use image::GenericImageView;
-use crate::{
+use super::{
     maths::{vector_three::Vector3, bounding_sphere::BoundingSphere, bounding_box::BoundingBox},
     plant::*,
     branch::*,

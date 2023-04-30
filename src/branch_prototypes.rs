@@ -11,7 +11,7 @@ use voronator::{
 use image::{GenericImageView, DynamicImage, ImageBuffer};
 use rand::Rng;
 
-use crate::{
+use super::{
     branch::BranchBundle,
     maths::{
         vector_three::Vector3,

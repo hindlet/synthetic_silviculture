@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
-use crate::{
+use super::{
     maths::{vector_three::Vector3, bounding_sphere::BoundingSphere, matrix_three::Matrix3},
     branch_node::{BranchNodeData, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip},
     branch_prototypes::{BranchPrototypeRef}, graphics::mesh::Mesh

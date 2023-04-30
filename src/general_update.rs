@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 use itertools::*;
-use crate::{
+use super::{
     plant::{PlantData, PlantBounds, PlantTag},
     branch::{BranchGrowthData, BranchTag, BranchConnectionData, BranchData, BranchBundle, BranchBounds, get_branches_base_to_tip},
     branch_node::{BranchNodeGrowthData, BranchNodeConnectionData, BranchNodeTag, get_terminal_nodes, get_nodes_tip_to_base, get_nodes_base_to_tip, get_nodes_and_connections_base_to_tip, BranchNodeData, get_nodes_on_layer, BranchNodeBundle},

@@ -80,7 +80,7 @@ fn set_gui_style(
 
     ctx.set_style(style);
 
-    let font_droidsansmono = include_bytes!("DroidSansMono.ttf");
+    let font_droidsansmono = include_bytes!("../../assets/DroidSansMono.ttf");
     let mut font = FontDefinitions::default();
 
     font.font_data.insert(

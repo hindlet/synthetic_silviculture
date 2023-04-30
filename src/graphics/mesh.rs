@@ -2,9 +2,12 @@
 
 
 use bevy_ecs::prelude::*;
-use crate::maths::vector_three::Vector3;
 use itertools::Itertools;
-use super::general_graphics::{PositionVertex, Normal};
+use super::{
+    general_graphics::{PositionVertex, Normal},
+    super::maths::vector_three::Vector3
+};
+
 
 
 /// Data for a mesh in 3D space
