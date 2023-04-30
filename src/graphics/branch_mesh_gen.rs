@@ -6,7 +6,12 @@ use bevy_ecs::{prelude::*, system::SystemState};
 use super::{general_graphics::{PositionVertex, Normal}, branch_graphics::BranchGraphicsResources, mesh::Mesh};
 
 
-
+// useful conversions and such for me here
+impl Into<Vector3> for PositionVertex {
+    fn into(self) -> Vector3 {
+        Vector3::from(self.position)
+    }
+}
 
 impl AddAssign<Vector3> for PositionVertex {
     fn add_assign(&mut self, rhs: Vector3) {

@@ -98,23 +98,6 @@ impl Mesh {
         let indices = (0..(new_verts.len()) as u32).collect_vec();
         (new_verts, new_normals, indices)
     }
-
-    /// returns the vertices and indices of a mesh
-    pub fn get_components(&self) -> (Vec<Vector3>, Vec<u32>){
-
-        let vertices = {
-            let mut verts: Vec<Vector3> = Vec::new();
-
-            for vertex in self.vertices.clone() {
-                verts.push(vertex.into());
-            }
-
-            verts
-        };
-
-
-        (vertices, self.indices.clone())
-    }
 }
 
 impl Into<(Vec<PositionVertex>, Vec<Normal>, Vec<u32>)> for Mesh{

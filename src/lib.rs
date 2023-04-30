@@ -13,7 +13,6 @@ pub mod debug;
 pub mod general_update;
 pub mod plant_development;
 pub mod light_cells;
-pub mod terrain;
 mod tests;
 
 

@@ -1,35 +1,64 @@
+use crate::branch::*;
+use crate::branch_node::*;
+use crate::plant::PlantData;
+use crate::plant::PlantTag;
+use crate::maths::{vector_three::Vector3, matrix_three::Matrix3};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
-use crate::{
-    branch::*,
-    maths::{vector_three::Vector3, matrix_three::Matrix3},
-};
-use super::{
-    mesh::Mesh,
-    camera_maths::Camera,
-    general_graphics::{Normal, PositionVertex, get_generic_uniforms, basic_frag_shader},
-    gui::GUIData,
-};
-use vulkano::{
-    DeviceSize,
-    NonExhaustive,
-    buffer::{Buffer, BufferUsage, BufferCreateInfo, Subbuffer, allocator::{SubbufferAllocator, SubbufferAllocatorCreateInfo}},
-    command_buffer::{AutoCommandBufferBuilder, CommandBufferInheritanceInfo, CommandBufferUsage, CopyBufferInfo, SecondaryAutoCommandBuffer, allocator::StandardCommandBufferAllocator, PrimaryAutoCommandBuffer},
-    descriptor_set::{DescriptorSetWithOffsets, PersistentDescriptorSet, WriteDescriptorSet, allocator::{StandardDescriptorSetAllocator}, layout::{DescriptorSetLayoutBinding, DescriptorSetLayoutCreateInfo, DescriptorType, DescriptorSetLayout}},
-    device::{Device, Queue},
-    memory::allocator::{FreeListAllocator, AllocationCreateInfo, MemoryUsage, GenericMemoryAllocator},
-    pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout, layout::PipelineLayoutCreateInfo, graphics::{depth_stencil::DepthStencilState, input_assembly::InputAssemblyState, vertex_input::Vertex, viewport::*}},
-    render_pass::{RenderPass, Subpass},
-    shader::{DescriptorBindingRequirements, DescriptorRequirements, ShaderModule, ShaderStages},
-    swapchain::Swapchain,
-    sync::{self, GpuFuture}
-};
+use egui::epaint::ahash::HashMap;
+use itertools::Itertools;
+use vulkano::DeviceSize;
+use vulkano::NonExhaustive;
+use vulkano::buffer::{Buffer, BufferUsage, BufferCreateInfo, Subbuffer, allocator::{SubbufferAllocator, SubbufferAllocatorCreateInfo}};
+use vulkano::command_buffer::AutoCommandBufferBuilder;
+use vulkano::command_buffer::CommandBufferInheritanceInfo;
+use vulkano::command_buffer::CommandBufferUsage;
+use vulkano::command_buffer::CopyBufferInfo;
+use vulkano::command_buffer::SecondaryAutoCommandBuffer;
+use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
+use vulkano::descriptor_set::DescriptorSetWithOffsets;
+use vulkano::descriptor_set::PersistentDescriptorSet;
+use vulkano::descriptor_set::WriteDescriptorSet;
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
+use vulkano::descriptor_set::layout::DescriptorSetLayout;
+use vulkano::descriptor_set::layout::DescriptorSetLayoutBinding;
+use vulkano::descriptor_set::layout::DescriptorSetLayoutCreateInfo;
+use vulkano::descriptor_set::layout::DescriptorType;
+use vulkano::device::Device;
+use vulkano::device::Queue;
+use vulkano::memory::allocator::{FreeListAllocator, AllocationCreateInfo, MemoryUsage, GenericMemoryAllocator};
+use vulkano::pipeline::ComputePipeline;
+use vulkano::pipeline::GraphicsPipeline;
+use vulkano::pipeline::Pipeline;
+use vulkano::pipeline::PipelineBindPoint;
+use vulkano::pipeline::PipelineLayout;
+use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
+use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
+use vulkano::pipeline::graphics::vertex_input::Vertex;
+use vulkano::pipeline::graphics::viewport::Viewport;
+use vulkano::pipeline::graphics::viewport::ViewportState;
+use vulkano::pipeline::layout::PipelineLayoutCreateInfo;
+use vulkano::render_pass::RenderPass;
+use vulkano::render_pass::Subpass;
+use vulkano::shader::DescriptorBindingRequirements;
+use vulkano::shader::DescriptorRequirements;
+use vulkano::shader::ShaderModule;
+use vulkano::shader::ShaderStages;
+use vulkano::swapchain::Swapchain;
+use vulkano::sync;
+use vulkano::sync::GpuFuture;
 use std::collections::BTreeMap;
 use std::f32::consts::PI;
 use std::sync::Arc;
-use egui::epaint::ahash::HashMap;
-use itertools::Itertools;
+use bevy_ecs::prelude::*;
+use vulkano::command_buffer::PrimaryAutoCommandBuffer;
 
+use super::mesh::Mesh;
+use super::camera_maths::Camera;
+use super::{
+    general_graphics::{Normal, PositionVertex, get_generic_uniforms, basic_frag_shader},
+    gui::GUIData,
+};
 
 mod branch_vert_shader {
     vulkano_shaders::shader!{
