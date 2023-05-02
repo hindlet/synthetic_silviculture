@@ -37,13 +37,6 @@ impl AddAssign<Vector3> for Normal {
     }
 }
 
-impl Normal {
-    fn normalise(&mut self) {
-        let mut normal = Vector3::from(self.normal);
-        normal.normalise();
-        self.normal = normal.into();
-    }
-}
 
 
 #[derive(Component)]
@@ -164,12 +157,9 @@ fn create_branch_mesh(
     
     for node in node_pos.iter_mut() {
         node.mut_transform(branch_rotation_matrix);
-    }
-
-    
+    }   
 
     let mut vertices: Vec<PositionVertex> = Vec::new();
-    let mut normals: Vec<Normal> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
 
     let num_indices = polygon_directions.len() as u32 * 2;
@@ -207,32 +197,7 @@ fn create_branch_mesh(
             incr += 2;
         }
 
-        // init normals
-        for _i in 0..vertices.len() {
-            normals.push(Normal{normal: [0.0, 0.0, 0.0]})
-        }
         
-        // create normals
-        for i in (0..indices.len()).step_by(3) {
-            let dir_one: Vector3 = {
-                let dir: Vector3 = vertices[indices[i] as usize].into();
-                dir - vertices[indices[i + 2] as usize].into()
-            };
-            let dir_two: Vector3 = {
-                let dir: Vector3 = vertices[indices[i + 1] as usize].into();
-                dir - vertices[indices[i + 2] as usize].into()
-            };
-            let normal = dir_one.cross(dir_two);
-
-            normals[indices[i + 0] as usize] += normal;
-            normals[indices[i + 1] as usize] += normal;
-            normals[indices[i + 2] as usize] += normal;
-        }
-    }
-
-    // normalise normals
-    for normal in normals.iter_mut() {
-        normal.normalise();
     }
 
     // move mesh to root
@@ -240,10 +205,5 @@ fn create_branch_mesh(
         *vertex += root_pos;
     }
 
-
-    Mesh {
-        vertices,
-        normals,
-        indices
-    }
+    Mesh::new(vertices, indices).recalculate_normals().clone()
 }

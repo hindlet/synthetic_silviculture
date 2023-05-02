@@ -10,6 +10,15 @@ use super::{
 
 
 
+impl Normal {
+    fn normalise(&mut self) {
+        let mut normal = Vector3::from(self.normal);
+        normal.normalise();
+        self.normal = normal.into();
+    }
+}
+
+
 /// Data for a mesh in 3D space
 #[derive(Debug, Component, Clone)]
 pub struct Mesh {
@@ -30,12 +39,54 @@ impl Mesh {
 
     pub fn new(
         vertices: Vec<PositionVertex>,
-        normals: Vec<Normal>,
         indices: Vec<u32>,
     ) -> Self {
         Mesh {
-            vertices, normals, indices
+            vertices, normals: Vec::new(), indices
         }
+    }
+
+    // sets the normals of the given mesh and returns a reference
+    pub fn set_normals(
+        &mut self,
+        normals: Vec<Normal>,
+    ) -> &mut Mesh{
+        self.normals = normals;
+        self
+    }
+
+    // recalculates the normals of the given mesh, smooth shaded
+    pub fn recalculate_normals(&mut self) -> &mut Mesh{
+        // init normals
+        let mut normals: Vec<Normal> = Vec::new();
+        for _i in 0..self.vertices.len() {
+            normals.push(Normal{normal: [0.0, 0.0, 0.0]})
+        }
+        
+        // create normals
+        for i in (0..self.indices.len()).step_by(3) {
+            let dir_one: Vector3 = {
+                let dir: Vector3 = self.vertices[self.indices[i] as usize].into();
+                dir - self.vertices[self.indices[i + 2] as usize].into()
+            };
+            let dir_two: Vector3 = {
+                let dir: Vector3 = self.vertices[self.indices[i + 1] as usize].into();
+                dir - self.vertices[self.indices[i + 2] as usize].into()
+            };
+            let normal = dir_one.cross(dir_two);
+
+            normals[self.indices[i + 0] as usize] += normal;
+            normals[self.indices[i + 1] as usize] += normal;
+            normals[self.indices[i + 2] as usize] += normal;
+        }
+
+        // normalise normals
+        for normal in normals.iter_mut() {
+            normal.normalise();
+        }
+
+        self.set_normals(normals);
+        self
     }
 
     pub fn set(&mut self, new: Mesh) {
@@ -65,7 +116,7 @@ impl Mesh {
         }
     
         let indices = (0..(new_verts.len()) as u32).collect_vec();
-        Mesh::new(new_verts, new_normals, indices)
+        Mesh::new(new_verts, indices).set_normals(new_normals).clone()
     }
 
     /// sets the current mesh to be flat shaded
@@ -106,5 +157,18 @@ impl Mesh {
 impl Into<(Vec<PositionVertex>, Vec<Normal>, Vec<u32>)> for Mesh{
     fn into(self) -> (Vec<PositionVertex>, Vec<Normal>, Vec<u32>) {
         (self.vertices, self.normals, self.indices)
+    }
+}
+
+impl From<(Vec<Vector3>, Vec<u32>)> for Mesh {
+    fn from(value: (Vec<Vector3>, Vec<u32>)) -> Self {
+        let vertices = {
+            let mut verts: Vec<PositionVertex> = Vec::new();
+            for pos in value.0{
+                verts.push(pos.into())
+            }
+            verts
+        };
+        Mesh::new(vertices, value.1)
     }
 }

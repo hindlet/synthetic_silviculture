@@ -15,7 +15,7 @@ use super::{
 
 pub fn calculate_branch_light_exposure(
     mut branches_query: Query<(&mut BranchGrowthData, &BranchBounds), With<BranchTag>>,
-    branch_connection_query: Query<&BranchConnectionData, With<BranchTag>>,
+    branch_connection_query: Query<&mut BranchConnectionData, With<BranchTag>>,
     plant_query: Query<(&PlantPlasticityParameters, &PlantData), With<PlantTag>>,
 
     mut light_cells: ResMut<LightCells>,
@@ -30,7 +30,7 @@ pub fn calculate_branch_light_exposure(
     for (plant_params, plant_data) in plant_query.iter() {
         if plant_data.root_node.is_none() {continue;}
 
-        for id in get_branches_base_to_tip(&branch_connection_query, plant_data.root_node.unwrap()) {
+        for id in get_terminal_branches(&branch_connection_query, plant_data.root_node.unwrap()) {
             if let Ok((mut growth_data, bounds)) = branches_query.get_mut(id) {
                 growth_data.light_exposure = lerp(plant_params.shadow_tolerance, 1.0, light_cells.get_cell_light(bounds.bounds.centre / light_cells.size()))
             }
