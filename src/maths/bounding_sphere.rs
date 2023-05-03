@@ -66,7 +66,7 @@ impl BoundingSphere {
     #[allow(unused_assignments)]
     pub fn from_points(points: Vec<Vector3>) -> Self {
         if points.len() == 0 {
-            BoundingSphere::new(Vector3::ZERO(), 0.0);
+            return BoundingSphere::new(Vector3::ZERO(), 0.0)
         }
     
         // get the points with min and max x y and z values

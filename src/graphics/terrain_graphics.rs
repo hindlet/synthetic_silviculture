@@ -12,9 +12,9 @@ use vulkano::{
     sync::{self, GpuFuture}
 };
 use bevy_ecs::{prelude::*, system::SystemState};
-use std::{f32::consts::PI, sync::Arc, collections::BTreeMap};
+use std::{sync::Arc, collections::BTreeMap};
 use egui::epaint::ahash::HashMap;
-use itertools::Itertools;
+
 use super::{
     mesh::Mesh,
     camera_maths::Camera,
@@ -23,59 +23,50 @@ use super::{
     super::{
         branch::*,
         maths::{vector_three::Vector3, matrix_three::Matrix3},
+        terrain::TerrainTag,
     }
 };
 
 
-mod branch_vert_shader {
+mod heightmap_vert_shader {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "assets/shaders/branch_vert.glsl",
+        path: "assets/shaders/heightmap_terrain_vert.glsl",
         include: ["assets/shaders/include/light_maths.glsl"]
     }
 }
 
 
 #[derive(Resource)]
-pub struct BranchGraphicsResources {
-    pub flat_shaded: bool,
-    pub polygon_vectors: Vec<Vector3>,
-    pub mem_allocator: Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
-}
-
-#[derive(Resource)]
-pub struct BranchMeshBuffers {
+pub struct TerrainMeshBuffers {
     pub vertices: Subbuffer<[PositionVertex]>,
     pub normals: Subbuffer<[Normal]>,
     pub indices: Subbuffer<[u32]>,
 }
 
-pub fn init_mesh_buffers_res(
-    branch_mesh_query: Query<&Mesh, With<BranchTag>>,
-
-    mesh_gen_res: Res<BranchGraphicsResources>,
-
-    mut commands: Commands
+pub fn create_terrain_mesh_buffers(
+    buffer_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
+    world: &mut World
 ) {
+
+    let mut state: SystemState<(
+        Query<&Mesh, With<TerrainTag>>,
+    )> = SystemState::new(world);
+
+    let meshes = state.get(world).0;
+
     let (vertices, normals, indices) = {
-        let (vertices, normals, indices) = get_total_branch_mesh_data(&branch_mesh_query);
+        let (vertices, normals, indices) = meshes.single().get_components();
         if vertices.len() == 0 {
             (vec![Vector3::ZERO().into(), Vector3::ZERO().into(), Vector3::ZERO().into()],
             vec![Vector3::Y().into(), Vector3::Y().into(), Vector3::Y().into()], 
             vec![0, 1, 2])
-        }
-        else if mesh_gen_res.flat_shaded {
-            Mesh::flat_shade_components(vertices, indices)
-        } else {
-            (vertices, normals, indices)
-        }
+        } else {(vertices, normals, indices)}
     };
-
     
 
-
     let vertex_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
+        buffer_allocator,
         BufferCreateInfo {
             usage: BufferUsage::VERTEX_BUFFER,
             ..Default::default()
@@ -88,7 +79,7 @@ pub fn init_mesh_buffers_res(
     ).unwrap();
 
     let normal_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
+        buffer_allocator,
         BufferCreateInfo {
             usage: BufferUsage::VERTEX_BUFFER,
             ..Default::default()
@@ -101,7 +92,7 @@ pub fn init_mesh_buffers_res(
     ).unwrap();
 
     let index_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
+        buffer_allocator,
         BufferCreateInfo {
             usage: BufferUsage::INDEX_BUFFER,
             ..Default::default()
@@ -113,7 +104,8 @@ pub fn init_mesh_buffers_res(
         indices
     ).unwrap();
 
-    commands.insert_resource(BranchMeshBuffers {
+
+    world.insert_resource(TerrainMeshBuffers{
         vertices: vertex_buffer,
         normals: normal_buffer,
         indices: index_buffer,
@@ -121,110 +113,9 @@ pub fn init_mesh_buffers_res(
 }
 
 
-/// Creates a polygon of vectors,
-/// each of the vectors is a direction 
-/// so can be used to generate a polygon from a central point. 
-/// By default, the first direction will go along the x axis. 
-/// A rotation will rotate by that many radians anticlockwise about the y axis
-fn create_vector_polygon(sides: u32, rotation: Option<f32>) -> Vec<Vector3> {
-    
-    let inner_rotation_matrix = Matrix3::from_angle_y(2.0 * PI / sides as f32);
-
-    let initial_direction = if rotation.is_none() {
-        Vector3::X()
-    } else {
-        Vector3::X().transform(Matrix3::from_angle_y(-rotation.unwrap()))
-    };
-
-    let mut vectors = vec![initial_direction];
-    for i in 0..(sides-1) as usize {
-        vectors.push(vectors[i].clone().transform(inner_rotation_matrix));
-    }
-
-    vectors
-}
 
 
-
-//////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////// Gui ///////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////
-
-/// creates the gui object for branch resources
-pub fn add_world_branch_graphics_resources(
-    world: &mut World,
-    allocator: Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
-) {
-    world.insert_resource(BranchGraphicsResources {
-        flat_shaded: false,
-        polygon_vectors: create_vector_polygon(3, None),
-        mem_allocator: allocator
-    })
-}
-
-/// updates the branch resources from the gui
-pub fn update_branch_resources(
-    gui_query: Query<&GUIData>,
-    mut branch_resources: ResMut<BranchGraphicsResources>,
-) {
-    for gui in gui_query.iter() {
-        if gui.name == "branch graphics settings" {
-            if gui.i32_sliders[0].1 != branch_resources.polygon_vectors.len() as i32 && gui.i32_sliders[0].1 > 2 {
-                branch_resources.polygon_vectors = create_vector_polygon(gui.i32_sliders[0].1 as u32, None);
-            }
-
-            if gui.bools[0].1 != branch_resources.flat_shaded {
-                // inverts a bool
-                branch_resources.flat_shaded ^= true;
-            }
-        }
-    }
-}
-
-/// creates the branch resource gui
-pub fn create_branch_resources_gui(
-    branch_resources: Res<BranchGraphicsResources>,
-    mut commands: Commands,
-) {
-    commands.spawn(GUIData {
-        name: "branch graphics settings".to_string(),
-        bools: vec![("flat shade branches".to_string(), branch_resources.flat_shaded)],
-        // where is 10 from you may ask? Well I'll tell you a secret, I pulled it out my ass
-        i32_sliders: vec![("num branch vertices".to_string(), branch_resources.polygon_vectors.len() as i32, 3..=10)],
-        ..Default::default()
-    });
-}
-
-
-
-//////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////// Graphics //////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////
-
-/// combines and returns all the branch meshes in the world
-fn get_total_branch_mesh_data(
-    branch_meshes: &Query<&Mesh, With<BranchTag>>,
-) -> (Vec<PositionVertex>, Vec<Normal>, Vec<u32>){
-    let mut vertices: Vec<PositionVertex> = vec![];
-    let mut normals: Vec<Normal> = vec![];
-    let mut indices: Vec<u32> = vec![];
-
-    for mesh in branch_meshes.iter() {
-        let current_length = vertices.len() as u32;
-
-        vertices.append(&mut mesh.vertices.clone());
-        normals.append(&mut mesh.normals.clone());
-        let mut new_indices = mesh.indices.clone();
-        new_indices.iter_mut().for_each(|x| *x += current_length);
-        indices.append(&mut new_indices);
-    }
-
-    (vertices, normals, indices)
-}
-
-
-
-fn get_branch_graphics_pipeline_layout(
+fn get_terrain_graphics_pipeline_layout(
     device: &Arc<Device>,
 ) -> Arc<PipelineLayout> {
 
@@ -301,12 +192,12 @@ fn get_branch_graphics_pipeline_layout(
 }
 
 
-pub fn get_branch_pipeline(
+pub fn get_terrain_pipeline(
     dimensions: [u32; 2],
     device: &Arc<Device>,
     render_pass: &Arc<RenderPass>,
-) -> Arc<GraphicsPipeline> {
-    let vs = branch_vert_shader::load(device.clone()).unwrap();
+) -> Arc<GraphicsPipeline>{
+    let vs = heightmap_vert_shader::load(device.clone()).unwrap();
     let fs = basic_frag_shader::load(device.clone()).unwrap();
 
     let pipeline = GraphicsPipeline::start()
@@ -325,7 +216,7 @@ pub fn get_branch_pipeline(
         .fragment_shader(fs.entry_point("main").unwrap(), ())
         .depth_stencil_state(DepthStencilState::simple_depth_test())
         .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-        .with_pipeline_layout(device.clone(), get_branch_graphics_pipeline_layout(device))
+        .with_pipeline_layout(device.clone(), get_terrain_graphics_pipeline_layout(device))
         // .build(device.clone())
         .unwrap();
         
@@ -333,19 +224,24 @@ pub fn get_branch_pipeline(
     pipeline
 }
 
-pub fn get_branch_light_buffers(
+
+//////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// HeightMap Terrain /////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
+pub fn get_heightmap_light_buffers(
     point_lights: Vec<(Vector3, f32)>,
     directional_lights: Vec<(Vector3, f32)>,
     mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
-) -> (Subbuffer<[branch_vert_shader::PointLight]>, Subbuffer<[branch_vert_shader::DirectionalLight]>) {
+) -> (Subbuffer<[heightmap_vert_shader::PointLight]>, Subbuffer<[heightmap_vert_shader::DirectionalLight]>) {
 
     let point_light_data = {
-        let mut data: Vec<branch_vert_shader::PointLight> = Vec::new();
+        let mut data: Vec<heightmap_vert_shader::PointLight> = Vec::new();
         for light in point_lights.iter() {
-            data.push(branch_vert_shader::PointLight {position: light.0.into(), intensity: light.1});
+            data.push(heightmap_vert_shader::PointLight {position: light.0.into(), intensity: light.1});
         }
         if data.len() == 0 {
-            data = vec![branch_vert_shader::PointLight {position: Vector3::ZERO().into(), intensity: 0.0}];
+            data = vec![heightmap_vert_shader::PointLight {position: Vector3::ZERO().into(), intensity: 0.0}];
         }
         data
     };
@@ -364,12 +260,12 @@ pub fn get_branch_light_buffers(
     ).unwrap();
 
     let dir_light_data = {
-        let mut data: Vec<branch_vert_shader::DirectionalLight> = Vec::new();
+        let mut data: Vec<heightmap_vert_shader::DirectionalLight> = Vec::new();
         for light in directional_lights.iter() {
-            data.push(branch_vert_shader::DirectionalLight {direction: (-light.0).normalised().into(), intensity: light.1});
+            data.push(heightmap_vert_shader::DirectionalLight {direction: (-light.0).normalised().into(), intensity: light.1});
         }
         if data.len() == 0 {
-            data = vec![branch_vert_shader::DirectionalLight {direction: Vector3::ZERO().into(), intensity: 0.0}];
+            data = vec![heightmap_vert_shader::DirectionalLight {direction: Vector3::ZERO().into(), intensity: 0.0}];
         }
         data
     };
@@ -390,87 +286,20 @@ pub fn get_branch_light_buffers(
     (point_buffer, directional_buffer)
 }
 
-
-pub fn update_branch_data_buffers(
-    branch_mesh_query: Query<&Mesh, With<BranchTag>>,
-
-    mesh_gen_res: Res<BranchGraphicsResources>,
-    mut buffers_res: ResMut<BranchMeshBuffers>,
-) {
-
-    let (vertices, normals, indices) = {
-        let (vertices, normals, indices) = get_total_branch_mesh_data(&branch_mesh_query);
-        if vertices.len() == 0 {
-            (vec![Vector3::ZERO().into(), Vector3::ZERO().into(), Vector3::ZERO().into()],
-            vec![Vector3::Y().into(), Vector3::Y().into(), Vector3::Y().into()], 
-            vec![0, 1, 2])
-        }
-        else if mesh_gen_res.flat_shaded {
-            Mesh::flat_shade_components(vertices, indices)
-        } else {
-            (vertices, normals, indices)
-        }
-    };
-
-
-    let vertex_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
-        BufferCreateInfo {
-            usage: BufferUsage::VERTEX_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        vertices
-    ).unwrap();
-
-    let normal_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
-        BufferCreateInfo {
-            usage: BufferUsage::VERTEX_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        normals
-    ).unwrap();
-
-    let index_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
-        BufferCreateInfo {
-            usage: BufferUsage::INDEX_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        indices
-    ).unwrap();
-
-    buffers_res.vertices = vertex_buffer;
-    buffers_res.normals = normal_buffer;
-    buffers_res.indices = index_buffer;
-}
-
-/// adds the commands to draw branches to the given builder
-pub fn add_branch_draw_commands(
+// adds the commands to draw heightmap terrain to the given builder
+pub fn add_heightmap_terrain_draw_commands(
     builder: &mut AutoCommandBufferBuilder<SecondaryAutoCommandBuffer>,
     graph_pipeline: &Arc<GraphicsPipeline>,
     descriptor_allocator: &StandardDescriptorSetAllocator,
-    vert_uniform_buffer: &Subbuffer<branch_vert_shader::Data>,
-    frag_light_buffers: &(Subbuffer<[branch_vert_shader::PointLight]>, Subbuffer<[branch_vert_shader::DirectionalLight]>),
+    vert_uniform_buffer: &Subbuffer<heightmap_vert_shader::Data>,
+    frag_light_buffers: &(Subbuffer<[heightmap_vert_shader::PointLight]>, Subbuffer<[heightmap_vert_shader::DirectionalLight]>),
 
     world: &mut World,
 ) {
 
     // create the system state to query data and then query it
     let mut state: SystemState<(
-        Res<BranchMeshBuffers>,
+        Res<TerrainMeshBuffers>,
     )> = SystemState::new(world);
 
     let buffers = state.get(world).0;
@@ -500,17 +329,32 @@ pub fn add_branch_draw_commands(
 
 
 
-pub fn create_branch_uniform_buffer(
+pub fn create_heightmap_uniform_buffer(
     swapchain: &Arc<Swapchain>,
     camera: &Camera,
-    allocator: &SubbufferAllocator,
-) -> Subbuffer<branch_vert_shader::Data> {
+    grass_colour: [f32; 3],
+    rock_colour: [f32; 3],
+    grass_slope_threshold: f32,
+    grass_blend_amount: f32,
+    terrain_uniform: &SubbufferAllocator,
+) -> Subbuffer<heightmap_vert_shader::Data> {
     let (view, proj) = get_generic_uniforms(swapchain, camera);
-    let data = branch_vert_shader::Data {
+    let data = heightmap_vert_shader::Data {
         view: view.into(),
-        proj: proj.into()
+        proj: proj.into(),
+        grass_colour: grass_colour.into(),
+        rock_colour: rock_colour.into(),
+        grass_slope_threshold: grass_slope_threshold.into(),
+        grass_blend_amount: grass_blend_amount.into(),
     };
-    let subbuffer = allocator.allocate_sized().unwrap();
+    let subbuffer = terrain_uniform.allocate_sized().unwrap();
     *subbuffer.write().unwrap() = data;
     subbuffer
 }
+
+
+
+
+//////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// Flat Terrain //////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////

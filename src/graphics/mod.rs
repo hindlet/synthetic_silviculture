@@ -5,3 +5,4 @@ pub mod branch_graphics;
 pub mod gui;
 pub mod branch_mesh_gen;
 pub mod mesh;
+pub mod terrain_graphics;

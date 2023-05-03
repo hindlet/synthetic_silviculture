@@ -1,18 +1,10 @@
-//! An example of how to write the code to render a branch
-//! 
-//! - This example includes gui to control how detailed the branch is as well as how it is shaded
-//! - There is also gui to control the branch's normal, note that if all are set to zero the branch will dissapear, this is fine as it will never actually happen
 use std::sync::Arc;
 use synthetic_silviculture::{
-    branch::{BranchBundle, BranchData, BranchTag},
-    plant::{PlantBundle, PlantData},
-    branch_node::{BranchNodeBundle, BranchNodeData, BranchNodeConnectionData},
+    terrain::spawn_heightmap_terrain,
     maths::vector_three::Vector3,
     graphics::{
-        branch_mesh_gen::{MeshUpdateQueue, update_next_mesh, check_for_force_update},
         camera_maths::Camera,
-        branch_graphics::*, 
-        gui::*, 
+        terrain_graphics::*,
         general_graphics::*
     },
 };
@@ -36,82 +28,24 @@ use bevy_ecs::prelude::*;
 fn main() {
     let mut world = World::new();
 
-    // add stuff to the world
-    let node_5_id = world.spawn(BranchNodeBundle {
-        data: BranchNodeData {
-            position: Vector3::new(1.5, 4.5, -1.0),
-            thickness: 0.2,
-            ..Default::default()
-        },
-        ..Default::default()
-    }).id();
-
-    let node_4_id = world.spawn(BranchNodeBundle {
-        data: BranchNodeData {
-            position: Vector3::new(2.0, 4.0, 1.0),
-            thickness: 0.2,
-            ..Default::default()
-        },
-        ..Default::default()
-    }).id();
-    
-    let node_3_id = world.spawn(BranchNodeBundle {
-        data: BranchNodeData {
-            position: Vector3::new(-1.0, 2.2, 0.5),
-            thickness: 0.25,
-            ..Default::default()
-        },
-        ..Default::default()
-    }).id();
-
-    let node_2_id = world.spawn(BranchNodeBundle{
-        data: BranchNodeData{
-            position: Vector3::new(0.0, 2.5, 0.0),
-            thickness: 0.3,
-            ..Default::default()
-        },
-        connections: BranchNodeConnectionData{parent: None, children: vec![node_4_id, node_5_id]},
-        ..Default::default()
-    }).id();
-
-    let node_1_id = world.spawn(BranchNodeBundle{
-        data: BranchNodeData{
-            position: Vector3::ZERO(),
-            thickness: 0.4,
-            ..Default::default()
-        },
-        connections: BranchNodeConnectionData{parent: None, children: vec![node_2_id, node_3_id]},
-        ..Default::default()
-    }).id();
-
-    let branch_id = world.spawn(BranchBundle{
-        data: BranchData{root_node: Some(node_1_id), normal: Vector3::Y(), ..Default::default()},
-        ..Default::default()
-    }).id();
-
-
-
-
-    let plant_id = world.spawn(PlantBundle{data: PlantData{root_node: Some(branch_id), ..Default::default()}, ..Default::default()}).id();
-
-
-    world.spawn(MeshUpdateQueue::new_from_single(plant_id));
+    const GRASS_COLOUR: [f32; 3] = [0.0, 0.604, 0.090];
+    const ROCK_COLOUR: [f32; 3] = [0.502, 0.518, 0.529];
+    // these two need to be in range 0->1
+    const GRASS_SLOPE_THRESHOLD: f32 = 0.1;
+    const GRASS_BLEND_AMOUNT: f32 = 1.0;
 
 
     // do all the shader stuff
-    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("branch_render".to_string());
+    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("terrain_render".to_string());
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
-    let render_pass = gui_and_branch_renderpass(&device, &swapchain);
-    let branch_subpass = Subpass::from(render_pass.clone(), 0).unwrap();
-    let gui_subpass = Subpass::from(render_pass.clone(), 1).unwrap();
+    let render_pass = single_pass_renderpass(&device, &swapchain);
+    let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
 
 
     let mut camera = Camera{position: Vector3::X() * -10.0, ..Default::default()};
 
-
-
     let (mut framebuffers, window_dimensions) = get_framebuffers(&memory_allocator, &swapchain_images, &render_pass);
-    let mut branch_pipeline = get_branch_pipeline(window_dimensions, &device, &render_pass);
+    let mut pipeline = get_terrain_pipeline(window_dimensions, &device, &render_pass);
 
 
     // this determines if the swapchain needs to be rebuilt
@@ -124,36 +58,19 @@ fn main() {
     let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone());
     let command_buffer_allocator = StandardCommandBufferAllocator::new(device.clone(), Default::default());
 
-    // gui
-    let mut gui = create_gui_from_subpass(&event_loop, &surface, &queue, &gui_subpass);
-    add_world_branch_graphics_resources(&mut world, memory_allocator.clone());
-    world.spawn(GUIData {
-        name: "Branch Settings".to_string(),
-        f32_sliders: vec![("normal-x".to_string(), 0.0, -1.0..=1.0), ("normal-y".to_string(), 1.0, -1.0..=1.0), ("normal-z".to_string(), 0.0, -1.0..=1.0)],
-        ..Default::default()
-    });
 
     // scheduling
-
-    let mut startup_schedule = Schedule::default();
-    startup_schedule.add_systems((init_mesh_buffers_res, update_next_mesh, create_branch_resources_gui).chain());
-
-    let mut update_schedule = Schedule::default();
-    update_schedule.add_systems((check_for_force_update, update_branch_normal, update_branch_resources, update_branch_data_buffers));
-
-    
-    startup_schedule.run(&mut world);
+    spawn_heightmap_terrain(100.0, 50, 10.0, [0, 0], "assets/Noise_Texture.png", &mut world);
+    create_terrain_mesh_buffers(&memory_allocator, &mut world);
 
     // uniforms
     let uniform_allocator = create_uniform_buffer_allocator(&memory_allocator);
-    let lighting_uniforms = get_branch_light_buffers(Vec::new(), vec![(Vector3::new(1.0, -0.3, 0.0), 2.0)], &memory_allocator);
+    let lighting_uniforms = get_heightmap_light_buffers(Vec::new(), vec![(Vector3::new(0.7, -0.5, 0.2), 1.0)], &memory_allocator);
 
     event_loop.run(move |event, _, control_flow| {
         match event {
             
             Event::WindowEvent { window_id: _, event } => {
-                // pass things to gui
-                let _pass_events_to_game = !pass_winit_event_to_gui(&mut gui, &event);
                 // check for resize or close
                 match event {
                     WindowEvent::Resized(_) => {
@@ -196,16 +113,12 @@ fn main() {
 
                     if let Ok((new_swapchain, new_framebuffers, new_dimensions)) = recreate_swapchain_and_framebuffers(swapchain.clone(), dimensions, &memory_allocator, &render_pass) {
                         swapchain = new_swapchain;
-                        branch_pipeline = get_branch_pipeline(new_dimensions, &device, &render_pass);
+                        pipeline = get_terrain_pipeline(new_dimensions, &device, &render_pass);
                         framebuffers = new_framebuffers;
                         recreate_swapchain = false
                     }
                 }
 
-                // gui
-                run_gui_commands(&mut world, &mut gui);
-                // update
-                update_schedule.run(&mut world);
 
                 // get the image number and future for the next freame
                 let (image_num, suboptimal, acquire_future) =
@@ -243,22 +156,16 @@ fn main() {
                     queue.queue_family_index(),
                     CommandBufferUsage::MultipleSubmit,
                     CommandBufferInheritanceInfo {
-                        render_pass: Some(branch_subpass.clone().into()),
+                        render_pass: Some(subpass.clone().into()),
                         ..Default::default()
                     },
                 ).unwrap();
                     
-                let branch_uniforms = create_branch_uniform_buffer(&swapchain, &camera, &uniform_allocator);
-                add_branch_draw_commands(&mut secondary_builder, &branch_pipeline, &descriptor_set_allocator, &branch_uniforms, &lighting_uniforms, &mut world);
+                let branch_uniforms = create_heightmap_uniform_buffer(&swapchain, &camera, GRASS_COLOUR, ROCK_COLOUR, GRASS_SLOPE_THRESHOLD, GRASS_BLEND_AMOUNT, &uniform_allocator);
+                add_heightmap_terrain_draw_commands(&mut secondary_builder, &pipeline, &descriptor_set_allocator, &branch_uniforms, &lighting_uniforms, &mut world);
                 
                 
-                builder.execute_commands(secondary_builder.build().unwrap()).unwrap();
-                builder.next_subpass(SubpassContents::SecondaryCommandBuffers).unwrap();
-
-                // gui commands
-            
-                let gui_command_buffer = get_gui_resource_commands(&mut gui, dimensions.into());
-                builder.execute_commands(gui_command_buffer).unwrap().end_render_pass().unwrap();
+                builder.execute_commands(secondary_builder.build().unwrap()).unwrap().end_render_pass().unwrap();
                 let draw_commands = builder.build().unwrap();
 
                 let future = previous_frame_end
@@ -296,21 +203,7 @@ fn main() {
 }
 
 
-fn update_branch_normal(
-    mut branch_query: Query<&mut BranchData, With<BranchTag>>,
-    gui_query: Query<&GUIData>,
-) {
-    let mut branch = branch_query.single_mut();
-    for gui in gui_query.iter() {
-        if gui.name == "Branch Settings" {
-            let mut normal = Vector3::new(gui.f32_sliders[0].1, gui.f32_sliders[1].1, gui.f32_sliders[2].1);
-            normal.normalise();
-            branch.normal = normal;
-        }
-    }
-}
-
-fn gui_and_branch_renderpass(
+fn single_pass_renderpass(
     device: &Arc<Device>,
     swapchain: &Arc<Swapchain>,
 ) -> Arc<RenderPass> {
@@ -332,7 +225,6 @@ fn gui_and_branch_renderpass(
         },
         passes: [
                 { color: [color], depth_stencil: {depth}, input: [] }, // Draw what you want on this pass
-                { color: [color], depth_stencil: {depth}, input: [] } // Gui render pass
             ]
     ).unwrap()
 }

@@ -265,6 +265,11 @@ mod vector_three_tests {
         let point = Vector3::new(2.102, 1.65, 1.195);
         assert_eq!(point.transform(mat), Vector3::new(2.6531748, -0.3184836, 1.195))
     }
+
+    #[test]
+    fn cross_test() {
+        assert_eq!(Vector3::new(0.0, 0.0, 1.0).cross([1, 0 ,0]), Vector3::new(0.0, 1.0, 0.0))
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////

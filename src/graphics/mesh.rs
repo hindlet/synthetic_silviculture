@@ -9,16 +9,6 @@ use super::{
 };
 
 
-
-impl Normal {
-    fn normalise(&mut self) {
-        let mut normal = Vector3::from(self.normal);
-        normal.normalise();
-        self.normal = normal.into();
-    }
-}
-
-
 /// Data for a mesh in 3D space
 #[derive(Debug, Component, Clone)]
 pub struct Mesh {
@@ -58,9 +48,9 @@ impl Mesh {
     // recalculates the normals of the given mesh, smooth shaded
     pub fn recalculate_normals(&mut self) -> &mut Mesh{
         // init normals
-        let mut normals: Vec<Normal> = Vec::new();
+        let mut normals: Vec<Vector3> = Vec::new();
         for _i in 0..self.vertices.len() {
-            normals.push(Normal{normal: [0.0, 0.0, 0.0]})
+            normals.push([0.0, 0.0, 0.0].into())
         }
         
         // create normals
@@ -81,9 +71,15 @@ impl Mesh {
         }
 
         // normalise normals
-        for normal in normals.iter_mut() {
-            normal.normalise();
-        }
+        let normals = {
+            let mut final_norms: Vec<Normal> = Vec::new();
+            for normal in normals.iter_mut() {
+                // println!("{:?}, {:?}", normal, normal.normalised());
+                final_norms.push(normal.normalised().into());
+                
+            }
+            final_norms
+        };
 
         self.set_normals(normals);
         self
@@ -151,6 +147,11 @@ impl Mesh {
     
         let indices = (0..(new_verts.len()) as u32).collect_vec();
         (new_verts, new_normals, indices)
+    }
+
+
+    pub fn get_components(&self) -> (Vec<PositionVertex>, Vec<Normal>, Vec<u32>){
+        (self.vertices.clone(), self.normals.clone(), self.indices.clone())
     }
 }
 

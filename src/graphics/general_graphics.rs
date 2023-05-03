@@ -13,7 +13,7 @@ use vulkano::{
     pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint,
     graphics::{depth_stencil::DepthStencilState, viewport::{Viewport, ViewportState}, input_assembly::InputAssemblyState, vertex_input::Vertex}, PipelineLayout, layout::PipelineLayoutCreateInfo
     },
-    buffer::{BufferContents, BufferUsage, Buffer, BufferCreateInfo, Subbuffer},
+    buffer::{BufferContents, BufferUsage, Buffer, BufferCreateInfo, Subbuffer, allocator::{SubbufferAllocator, SubbufferAllocatorCreateInfo}},
     command_buffer::{PrimaryAutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents},
     memory::allocator::{StandardMemoryAllocator, GenericMemoryAllocator, FreeListAllocator, MemoryUsage, AllocationCreateInfo},
 };
@@ -144,7 +144,7 @@ pub fn base_graphics_setup(title: String) -> (
 }
 
 // loops through all devices and finds one with required extensions if it exists
-fn get_physical_device (
+fn get_physical_device(
     instance: &Arc<Instance>,
     surface: &Arc<Surface>,
     device_extensions: &DeviceExtensions,
@@ -175,6 +175,19 @@ fn get_physical_device (
         .expect("no device available")
 }
 
+
+
+pub fn create_uniform_buffer_allocator(
+    memory_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>
+) -> SubbufferAllocator {
+    SubbufferAllocator::new(
+        memory_allocator.clone(),
+        SubbufferAllocatorCreateInfo {
+            buffer_usage: BufferUsage::UNIFORM_BUFFER,
+            ..Default::default()
+        }
+    )
+}
 
 pub fn get_swapchain(
     physical_device: &Arc<PhysicalDevice>,

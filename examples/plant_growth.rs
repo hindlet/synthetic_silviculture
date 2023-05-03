@@ -171,7 +171,7 @@ fn main() {
     let mut last_frame_time = Instant::now();
 
     // uniforms
-    let branch_uniform_buffer = create_branch_uniform_buffer(&memory_allocator);
+    let uniform_allocator = create_uniform_buffer_allocator(&memory_allocator);
     let lighting_uniforms = get_branch_light_buffers(Vec::new(), vec![(Vector3::new(1.0, -0.3, 0.0), 2.0)], &memory_allocator);
 
     event_loop.run(move |event, _, control_flow| {
@@ -283,7 +283,7 @@ fn main() {
                     },
                 ).unwrap();
                     
-                let branch_uniforms = update_branch_uniform_buffer(&swapchain, &camera, &branch_uniform_buffer);
+                let branch_uniforms = create_branch_uniform_buffer(&swapchain, &camera, &uniform_allocator);
                 add_branch_draw_commands(&mut secondary_builder, &branch_pipeline, &descriptor_set_allocator, &branch_uniforms, &lighting_uniforms, &mut world);
                 
                 builder.execute_commands(secondary_builder.build().unwrap()).unwrap();
