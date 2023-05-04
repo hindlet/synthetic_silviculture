@@ -139,7 +139,7 @@ fn main() {
     startup_schedule.add_systems((init_mesh_buffers_res, update_next_mesh, create_branch_resources_gui).chain());
 
     let mut update_schedule = Schedule::default();
-    update_schedule.add_systems((check_for_force_update, update_branch_normal, update_branch_resources, update_branch_data_buffers));
+    update_schedule.add_systems((check_for_force_update, update_branch_normal, update_branch_resources, update_branch_data_buffers, update_next_mesh));
 
     
     startup_schedule.run(&mut world);
@@ -297,15 +297,18 @@ fn main() {
 
 
 fn update_branch_normal(
-    mut branch_query: Query<&mut BranchData, With<BranchTag>>,
+    mut branch_query: Query<(&mut BranchData, Entity), With<BranchTag>>,
     gui_query: Query<&GUIData>,
+    mut queue_query: Query<&mut MeshUpdateQueue>
 ) {
-    let mut branch = branch_query.single_mut();
+    let (mut branch, id) = branch_query.single_mut();
+    let mut queue = queue_query.single_mut();
     for gui in gui_query.iter() {
         if gui.name == "Branch Settings" {
             let mut normal = Vector3::new(gui.f32_sliders[0].1, gui.f32_sliders[1].1, gui.f32_sliders[2].1);
             normal.normalise();
             branch.normal = normal;
+            queue.0.push_back(id);
         }
     }
 }

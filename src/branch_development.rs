@@ -506,10 +506,13 @@ pub fn calculate_segment_lengths_and_tropism(
     branch_node_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
 
     gravity_res: Res<GravityResources>,
+    mut queue: Query<&mut MeshUpdateQueue>
 ) {
 
     let directions = branch_prototypes.get_directions();
+    let ages = branch_prototypes.get_ages();
     let grav = gravity_res.gravity_dir * gravity_res.tropism_strength;
+    let mut queue = queue.single_mut();
 
 
     for (plant_data, plant_growth_factors) in plant_query.iter() {
@@ -546,6 +549,10 @@ pub fn calculate_segment_lengths_and_tropism(
             if let Ok((mut branch_data, branch_growth_data, prototype_ref)) = branch_data_query.get_mut(id) {
 
                 if branch_data.root_node.is_none() {continue;}
+                if branch_data.full_grown {continue;}
+                if branch_growth_data.physiological_age > ages[prototype_ref.0] {
+                    branch_data.full_grown = true;
+                }
                 let branch_age = branch_growth_data.physiological_age;
 
 
@@ -582,6 +589,8 @@ pub fn calculate_segment_lengths_and_tropism(
                         }
                     }else {panic!("Could not get node pair, tried to get nodes: {:?}, {:?}", node_pairs[i][0], node_pairs[i][1])}
                 }
+
+                queue.0.push_back(id);
             }
         }
     }

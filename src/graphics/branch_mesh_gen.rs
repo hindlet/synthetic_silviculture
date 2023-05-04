@@ -55,10 +55,8 @@ impl MeshUpdateQueue {
 
 pub fn update_next_mesh(
     mut queue_qry: Query<&mut MeshUpdateQueue>,
-    plants_query: Query<&PlantData, With<PlantTag>>,
     branch_data: Query<&BranchData, With<BranchTag>>,
     mut branch_meshes: Query<&mut Mesh, With<BranchTag>>,
-    branch_connections: Query<&BranchConnectionData, With<BranchTag>>,
     node_connections: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     node_data: Query<&BranchNodeData, With<BranchNodeTag>>,
     branch_graphics_res: Res<BranchGraphicsResources>,
@@ -69,10 +67,7 @@ pub fn update_next_mesh(
     loop {
         if queue.0.len() == 0 {break;}
         let id = queue.0.pop_front().unwrap();
-        if let Ok(plant) = plants_query.get(id) {
-            if plant.root_node.is_none() {continue;}
-            update_plant_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, get_branches_base_to_tip(&branch_connections, plant.root_node.unwrap()), polygons);
-            queue.0.push_back(id);
+        if update_branch_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, id, polygons) {
             break;
         }
     }
@@ -80,63 +75,42 @@ pub fn update_next_mesh(
 
 
 pub fn check_for_force_update(
-    queue_qry: Query<&MeshUpdateQueue>,
-    plants_query: Query<&PlantData, With<PlantTag>>,
+    branch_id_query: Query<Entity, With<BranchTag>>,
     branch_data: Query<&BranchData, With<BranchTag>>,
     mut branch_meshes: Query<&mut Mesh, With<BranchTag>>,
-    branch_connections: Query<&BranchConnectionData, With<BranchTag>>,
     node_connections: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     node_data: Query<&BranchNodeData, With<BranchNodeTag>>,
     branch_graphics_res: Res<BranchGraphicsResources>,
 ) {
     if branch_graphics_res.is_changed() {
-        force_update_all_meshes(&queue_qry, &plants_query, &branch_data, &mut branch_meshes, &branch_connections, &node_connections, &node_data, &branch_graphics_res)
-    }
-}
-
-/// forcibly updates all the meshes, will be very slow with large numbers of meshes (I think)
-fn force_update_all_meshes(
-    queue_qry: &Query<&MeshUpdateQueue>,
-    plants_query: &Query<&PlantData, With<PlantTag>>,
-    branch_data: &Query<&BranchData, With<BranchTag>>,
-    mut branch_meshes: &mut Query<&mut Mesh, With<BranchTag>>,
-    branch_connections: &Query<&BranchConnectionData, With<BranchTag>>,
-    node_connections: &Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
-    node_data: &Query<&BranchNodeData, With<BranchNodeTag>>,
-    branch_graphics_res: &Res<BranchGraphicsResources>,
-) {
-    let queue = queue_qry.single();
-    let polygons = &branch_graphics_res.polygon_vectors;
-
-    for id in queue.0.iter() {
-        if let Ok(plant) = plants_query.get(*id) {
-            if plant.root_node.is_none() {continue;}
-            update_plant_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, get_branches_base_to_tip(&branch_connections, plant.root_node.unwrap()), polygons);
+        let polygons = &branch_graphics_res.polygon_vectors;
+        for id in branch_id_query.iter() {
+            update_branch_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, id, polygons);
         }
     }
 }
 
 
-fn update_plant_mesh(
+fn update_branch_mesh(
     branch_meshes: &mut Query<&mut Mesh, With<BranchTag>>,
     branch_data: &Query<&BranchData, With<BranchTag>>,
     node_connections: &Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     node_data: &Query<&BranchNodeData, With<BranchNodeTag>>,
-    branches: Vec<Entity>,
+    id: Entity,
     polygon_directions: &Vec<Vector3>,
-) {
-    for id in branches.iter() {
-        let new_mesh = {    
-            if let Ok(branch) = branch_data.get(id.clone()) {
-                if branch.root_node.is_none() {continue;}
-                let (pos, thick, connections) = get_node_data_and_connections_base_to_tip(node_connections, node_data, branch.root_node.unwrap());
-                create_branch_mesh(branch.normal, branch.root_position, pos, thick, connections, polygon_directions)
-            } else {panic!("we are but pawns in a game of chess played by shrimp")}
-        };
-        if let Ok(mut mesh) = branch_meshes.get_mut(id.clone()) {
-            mesh.set(new_mesh);
-        }
+) -> bool {
+    let new_mesh = {    
+        if let Ok(branch) = branch_data.get(id.clone()) {
+            if branch.root_node.is_none() {return false;}
+            let (pos, thick, connections) = get_node_data_and_connections_base_to_tip(node_connections, node_data, branch.root_node.unwrap());
+            create_branch_mesh(branch.normal, branch.root_position, pos, thick, connections, polygon_directions)
+        } else {return false;}
+    };
+    if let Ok(mut mesh) = branch_meshes.get_mut(id.clone()) {
+        mesh.set(new_mesh);
+        return true;
     }
+    false
 }
 
 /// generates a mesh for a branch from node pairs and polygon directions

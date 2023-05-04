@@ -200,6 +200,14 @@ impl BranchPrototypes {
         }
         out
     }
+
+    pub fn get_ages(&self) -> Vec<f32> {
+        let mut out: Vec<f32> = Vec::new();
+        for prototype in self.prototypes.iter() {
+            out.push(prototype.mature_age);
+        }
+        out
+    }
 }
 
 

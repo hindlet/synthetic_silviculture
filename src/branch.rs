@@ -26,6 +26,7 @@ pub struct BranchData {
     pub root_node: Option<Entity>,
     pub parent_node: Option<Entity>, // a reference to the node on another branch that this branch started from
     pub root_position: Vector3,
+    pub full_grown: bool,
 }
 
 #[derive(Debug, Component)]
@@ -104,6 +105,7 @@ impl Default for BranchData {
     fn default() -> Self {
         BranchData {
             intersections_volume: 0.0,
+            full_grown: false,
             normal: Vector3::Y(),
             intersection_list: Vec::new(),
             root_node: None,

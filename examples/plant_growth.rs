@@ -145,7 +145,7 @@ fn main() {
         ..Default::default()
     }).id();
 
-    let plant_id = world.spawn(PlantBundle{
+    world.spawn(PlantBundle{
         growth_factors: PlantGrowthControlFactors{
             max_age: 200.0,
             max_vigor: 42.0,
@@ -162,10 +162,10 @@ fn main() {
             ..Default::default()
         },
         ..Default::default()
-    }).id();
+    });
 
     // mesh queue
-    world.spawn(MeshUpdateQueue::new_from_single(plant_id));
+    world.spawn(MeshUpdateQueue::new_from_single(root_branch_id));
 
 
     
