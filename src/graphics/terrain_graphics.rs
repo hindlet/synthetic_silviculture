@@ -230,8 +230,8 @@ pub fn get_terrain_pipeline(
 //////////////////////////////////////////////////////////////////////////////////
 
 pub fn get_heightmap_light_buffers(
-    point_lights: Vec<(Vector3, f32)>,
-    directional_lights: Vec<(Vector3, f32)>,
+    point_lights: Vec<([f32; 3], f32)>,
+    directional_lights: Vec<([f32; 3], f32)>,
     mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
 ) -> (Subbuffer<[heightmap_vert_shader::PointLight]>, Subbuffer<[heightmap_vert_shader::DirectionalLight]>) {
 
@@ -262,7 +262,8 @@ pub fn get_heightmap_light_buffers(
     let dir_light_data = {
         let mut data: Vec<heightmap_vert_shader::DirectionalLight> = Vec::new();
         for light in directional_lights.iter() {
-            data.push(heightmap_vert_shader::DirectionalLight {direction: (-light.0).normalised().into(), intensity: light.1});
+            let dir: Vector3 = light.0.into();
+            data.push(heightmap_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1});
         }
         if data.len() == 0 {
             data = vec![heightmap_vert_shader::DirectionalLight {direction: Vector3::ZERO().into(), intensity: 0.0}];

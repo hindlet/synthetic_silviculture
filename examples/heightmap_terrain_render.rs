@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use synthetic_silviculture::{
     terrain::spawn_heightmap_terrain,
-    maths::vector_three::Vector3,
     graphics::{
         camera_maths::Camera,
         terrain_graphics::*,
@@ -36,13 +35,13 @@ fn main() {
 
 
     // do all the shader stuff
-    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("terrain_render".to_string());
+    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("terrain_render_example".to_string());
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
     let render_pass = single_pass_renderpass(&device, &swapchain);
     let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
 
 
-    let mut camera = Camera{position: Vector3::X() * -10.0, ..Default::default()};
+    let mut camera = Camera::new(Some([-4.0, 3.0, 0.0]), None, None, None);
 
     let (mut framebuffers, window_dimensions) = get_framebuffers(&memory_allocator, &swapchain_images, &render_pass);
     let mut pipeline = get_terrain_pipeline(window_dimensions, &device, &render_pass);
@@ -60,12 +59,12 @@ fn main() {
 
 
     // scheduling
-    spawn_heightmap_terrain(100.0, 50, 10.0, [0, 0], "assets/Noise_Texture.png", &mut world);
+    spawn_heightmap_terrain(100.0, 50, 10.0, [0, 0, 0], "assets/Noise_Texture.png", &mut world);
     create_terrain_mesh_buffers(&memory_allocator, &mut world);
 
     // uniforms
     let uniform_allocator = create_uniform_buffer_allocator(&memory_allocator);
-    let lighting_uniforms = get_heightmap_light_buffers(Vec::new(), vec![(Vector3::new(0.7, -0.5, 0.2), 1.0)], &memory_allocator);
+    let lighting_uniforms = get_heightmap_light_buffers(Vec::new(), vec![([0.7, -0.5, 0.2], 1.0)], &memory_allocator);
 
     event_loop.run(move |event, _, control_flow| {
         match event {

@@ -14,6 +14,7 @@ pub mod general_update;
 pub mod plant_development;
 pub mod light_cells;
 pub mod terrain;
+pub mod plant_species;
 mod tests;
 
 

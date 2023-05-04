@@ -9,6 +9,7 @@ use super::{
     maths::{vector_three::Vector3, matrix_three::Matrix3, lerp},
     graphics::branch_mesh_gen::MeshUpdateQueue,
     light_cells::LightCells,
+    plant_species::{PlantSpecies, PlantSpeciesRef},
 };
 
 
@@ -16,9 +17,10 @@ use super::{
 pub fn calculate_branch_light_exposure(
     mut branches_query: Query<(&mut BranchGrowthData, &BranchBounds), With<BranchTag>>,
     branch_connection_query: Query<&mut BranchConnectionData, With<BranchTag>>,
-    plant_query: Query<(&PlantPlasticityParameters, &PlantData), With<PlantTag>>,
+    plant_query: Query<(&PlantSpeciesRef, &PlantData), With<PlantTag>>,
 
     mut light_cells: ResMut<LightCells>,
+    plant_species: Res<PlantSpecies>,
 ) {
     // update the light cells
     light_cells.set_all_zero();
@@ -27,12 +29,13 @@ pub fn calculate_branch_light_exposure(
     }
 
     // update light exposure
-    for (plant_params, plant_data) in plant_query.iter() {
+    for (species_ref, plant_data) in plant_query.iter() {
         if plant_data.root_node.is_none() {continue;}
+        let tolerance = plant_species.species[species_ref.0].shadow_tolerance;
 
         for id in get_terminal_branches(&branch_connection_query, plant_data.root_node.unwrap()) {
             if let Ok((mut growth_data, bounds)) = branches_query.get_mut(id) {
-                growth_data.light_exposure = lerp(plant_params.shadow_tolerance, 1.0, light_cells.get_cell_light(bounds.bounds.centre / light_cells.size()))
+                growth_data.light_exposure = lerp(tolerance, 1.0, light_cells.get_cell_light(bounds.bounds.centre / light_cells.size()))
             }
         }
     }

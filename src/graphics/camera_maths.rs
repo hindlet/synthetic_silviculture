@@ -13,24 +13,34 @@ pub struct Camera {
     pub movement: [bool; 10], // forward, back, left, right, up, down, spin right, spin left, spin forward, spin backward
 }
 
-impl Default for Camera {
-    fn default() -> Self {
+impl Camera {
+
+    pub fn new(start_pos: Option<[f32; 3]>, start_dir: Option<[f32; 3]>, move_speed: Option<f32>, rotate_speed: Option<f32>) -> Self{
+        let position = {
+            if start_pos.is_some() {
+                start_pos.unwrap().into()
+            } else {
+                Vector3::ZERO()
+            }
+        };
+
+        let direction = {
+            if start_dir.is_some() {
+                start_dir.unwrap().into()
+            } else {
+                Vector3::X()
+            }
+        };
+
         Camera {
-            position: Vector3::ZERO(),
-            direction: Vector3 {
-                x: 1.0,
-                y: 0.0,
-                z: 0.0
-            },
+            position,
+            direction,
+            move_speed: move_speed.unwrap_or(0.05),
+            rotate_speed: rotate_speed.unwrap_or(0.02),
+            movement: [false; 10],
             up: -Vector3::Y(),
-            move_speed: 0.1,
-            rotate_speed: 0.02,
-            movement: [false; 10]
         }
     }
-}
-
-impl Camera {
 
     pub fn get_view_matrix(&self) -> Matrix4 {
         let f = self.direction.normalised();

@@ -45,14 +45,14 @@ pub fn spawn_heightmap_terrain(
     size: f32,
     vertices_per_side: u32,
     height_scale: f32,
-    centre: impl Into<Vector2>,
+    centre: impl Into<Vector3>,
     heightmap_path: &str,
     world: &mut World,
 ) {
     let size = size.max(0.000000001);
     let vertices_per_side = vertices_per_side.max(2);
-    let centre: Vector2 = centre.into();
-    let (start_x, start_y) = (centre.x - size / 2.0, centre.y - size / 2.0);
+    let centre: Vector3 = centre.into();
+    let (start_x, start_y) = (centre.x - size / 2.0, centre.z - size / 2.0);
 
     let tri_size = size / vertices_per_side as f32;
     let heightmap = image::open(heightmap_path).unwrap();
@@ -64,7 +64,7 @@ pub fn spawn_heightmap_terrain(
     for x in 0..vertices_per_side {
         for y in 0..vertices_per_side {
             let height = (heightmap.get_pixel(x * x_step, y * y_step).0[0] as f32 / 255.0) * height_scale;
-            vertices.push([start_x + x as f32 * tri_size, height, start_y + y as f32 * tri_size].into());
+            vertices.push([start_x + x as f32 * tri_size, height + centre.y, start_y + y as f32 * tri_size].into());
             if x < vertices_per_side - 1 && y < vertices_per_side - 1 {
                 indices.push(vertices.len() as u32 - 1);
                 indices.push(vertices.len() as u32 + vertices_per_side);
@@ -91,18 +91,17 @@ pub fn spawn_heightmap_terrain(
 
 pub fn spawn_flat_terrain(
     size: f32,
-    centre: impl Into<Vector2>,
-    height: f32,
+    centre: impl Into<Vector3>,
     world: &mut World,
 ) {
     let size = size.max(0.000000001);
-    let centre: Vector2 = centre.into();
+    let centre: Vector3 = centre.into();
 
     let vertices: Vec<Vector3> = vec![
-        [centre.x - size / 2.0, height, centre.y - size / 2.0].into(),
-        [centre.x - size / 2.0, height, centre.y + size / 2.0].into(),
-        [centre.x + size / 2.0, height, centre.y - size / 2.0].into(),
-        [centre.x + size / 2.0, height, centre.y + size / 2.0].into()
+        [centre.x - size / 2.0, centre.y, centre.z - size / 2.0].into(),
+        [centre.x - size / 2.0, centre.y, centre.z + size / 2.0].into(),
+        [centre.x + size / 2.0, centre.y, centre.z - size / 2.0].into(),
+        [centre.x + size / 2.0, centre.y, centre.z + size / 2.0].into()
     ];
     let indices: Vec<u32> = vec![
         0, 3, 2, 3, 0, 1
@@ -113,7 +112,7 @@ pub fn spawn_flat_terrain(
     world.spawn(
         FlatTerrainBundle{
             tag: TerrainTag,
-            collider: TerrainCollider { collider: PlaneCollider::new([centre.x, height, centre.y], [size, size]) },
+            collider: TerrainCollider { collider: PlaneCollider::new([centre.x, centre.y, centre.z], [size, size]) },
             mesh
         }
     );

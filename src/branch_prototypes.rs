@@ -24,9 +24,6 @@ use super::{
 ////////////////////////////////// Branch Prototypes //////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Default, Component)]
-pub struct BranchPrototypesTag;
-
 #[derive(Resource)]
 pub struct BranchPrototypesSampler {
     pub prototypes: HashMap<image::Rgba<u8>, usize>,
@@ -59,7 +56,7 @@ pub struct BranchPrototypeData {
 
 
 impl BranchPrototypeData {
-    pub fn new(mature_age: f32, node_counts: Vec<Vec<u32>>, directions: Vec<Vector3>) -> Self {
+    pub fn new(mature_age: f32, node_counts: Vec<Vec<u32>>, directions: Vec<[f32; 3]>) -> Self {
         let (layers, cuml_nodes) = {
             let mut layer_count = 1;
             let mut nodes = vec![1];
@@ -72,6 +69,13 @@ impl BranchPrototypeData {
                 nodes.push(layer_node_count + nodes.last().unwrap());
             }
             (layer_count, nodes)
+        };
+        let directions = {
+            let mut new_dirs: Vec<Vector3> = Vec::new();
+            for dir in directions {
+                new_dirs.push(dir.into())
+            }
+            new_dirs
         };
 
 
@@ -170,6 +174,16 @@ pub struct BranchPrototypes {
 }
 
 impl BranchPrototypes {
+    pub fn new(data: Vec<(f32, Vec<Vec<u32>>, Vec<[f32; 3]>)> ) -> Self{
+        let mut prototypes = Vec::new();
+        for (mature_age, node_counts, directions) in data {
+            prototypes.push(BranchPrototypeData::new(mature_age, node_counts, directions));
+        }
+        BranchPrototypes {
+            prototypes
+        }
+    }
+
     /// returns a set of directions
     pub fn get_directions(&self) -> Vec<&Vec<Vector3>> {
         let mut out: Vec<&Vec<Vector3>> = Vec::new();

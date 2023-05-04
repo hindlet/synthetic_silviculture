@@ -13,11 +13,11 @@ use synthetic_silviculture::{
         general_graphics::*
     },
     fixed_schedule::FixedSchedule,
-    branch_prototypes::{BranchPrototypesSampler, BranchPrototypes, BranchPrototypeData, BranchPrototypeRef},
+    branch_prototypes::{BranchPrototypesSampler, BranchPrototypes, BranchPrototypeRef},
     environment::{create_gravity_resource, create_physical_age_time_step},
     general_update::*,
     plant_development::*,
-    light_cells::LightCells,
+    light_cells::LightCells, plant_species::PlantSpecies,
 };
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents, CommandBufferInheritanceInfo, allocator::StandardCommandBufferAllocator},
@@ -38,14 +38,14 @@ use bevy_ecs::prelude::*;
 fn main() {
 
     ///////////////////// graphics stuff /////////////////////
-    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("branch render example".to_string());
+    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("plant_growth_example".to_string());
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
     let render_pass = gui_and_branch_renderpass(&device, &swapchain);
     let branch_subpass = Subpass::from(render_pass.clone(), 0).unwrap();
     let gui_subpass = Subpass::from(render_pass.clone(), 1).unwrap();
 
 
-    let mut camera = Camera{position: Vector3::new(-4.0, 3.0, 0.0), ..Default::default()};
+    let mut camera = Camera::new(Some([-4.0, 3.0, 0.0]), None, None, None);
 
 
     let (mut framebuffers, window_dimensions) = get_framebuffers(&memory_allocator, &swapchain_images, &render_pass);
@@ -99,29 +99,31 @@ fn main() {
     
 
     // branch prototypes
-    world.insert_resource(BranchPrototypes{
-        prototypes: vec![
-            BranchPrototypeData::new(
+    world.insert_resource(BranchPrototypes::new(
+        vec![
+            (
                 25.0,
                 vec![vec![2], vec![1, 2], vec![2, 1, 2]],
                 vec![
-                    Vector3::new(0.743, 0.371, 0.557),
-                    Vector3::new(0.192, 0.962, 0.192),
+                    [0.743, 0.371, 0.557],
+                    [0.192, 0.962, 0.192],
 
-                    Vector3::new(0.557, 0.743, 0.371),
-                    Vector3::new(0.236, 0.943, 0.236),
-                    Vector3::new(0.588, 0.784, 0.196),
+                    [0.557, 0.743, 0.371],
+                    [0.236, 0.943, 0.236],
+                    [0.588, 0.784, 0.196],
 
-                    Vector3::new(0.802, 0.535, 0.267),
-                    Vector3::new(-0.535, 0.267, 0.802),
-                    Vector3::new(-0.302, 0.905, 0.302),
-                    Vector3::new(-0.333, 0.667, -0.667),
-                    Vector3::new(0.301, 0.904, 0.301),
+                    [0.802, 0.535, 0.267],
+                    [-0.535, 0.267, 0.802],
+                    [-0.302, 0.905, 0.302],
+                    [-0.333, 0.667, -0.667],
+                    [0.301, 0.904, 0.301],
                 ],
-            ),
+            )
         ]
-    });
+    ));
 
+    // plant species
+    world.insert_resource(PlantSpecies::new(vec![(1.0, 1.0, 0.0)]));
     
 
 
@@ -172,7 +174,7 @@ fn main() {
 
     // uniforms
     let uniform_allocator = create_uniform_buffer_allocator(&memory_allocator);
-    let lighting_uniforms = get_branch_light_buffers(Vec::new(), vec![(Vector3::new(1.0, -0.3, 0.0), 2.0)], &memory_allocator);
+    let lighting_uniforms = get_branch_light_buffers(Vec::new(), vec![([1.0, -0.3, 0.0], 2.0)], &memory_allocator);
 
     event_loop.run(move |event, _, control_flow| {
         match event {

@@ -99,14 +99,14 @@ fn main() {
 
 
     // do all the shader stuff
-    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("branch_render".to_string());
+    let (queue, device, physical_device, surface, event_loop, memory_allocator) = base_graphics_setup("branch_render_example".to_string());
     let (mut swapchain, swapchain_images) = get_swapchain(&physical_device, &surface, &device);
     let render_pass = gui_and_branch_renderpass(&device, &swapchain);
     let branch_subpass = Subpass::from(render_pass.clone(), 0).unwrap();
     let gui_subpass = Subpass::from(render_pass.clone(), 1).unwrap();
 
 
-    let mut camera = Camera{position: Vector3::X() * -10.0, ..Default::default()};
+    let mut camera = Camera::new(Some([-4.0, 3.0, 0.0]), None, None, None);
 
 
 
@@ -146,7 +146,7 @@ fn main() {
 
     // uniforms
     let uniform_allocator = create_uniform_buffer_allocator(&memory_allocator);
-    let lighting_uniforms = get_branch_light_buffers(Vec::new(), vec![(Vector3::new(1.0, -0.3, 0.0), 2.0)], &memory_allocator);
+    let lighting_uniforms = get_branch_light_buffers(Vec::new(), vec![([1.0, -0.3, 0.0], 2.0)], &memory_allocator);
 
     event_loop.run(move |event, _, control_flow| {
         match event {
