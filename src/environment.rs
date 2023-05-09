@@ -16,13 +16,13 @@ pub struct GravityResources{
 /// adds resouces for gravity into the world, normalises the direction of gravity
 pub fn create_gravity_resource(
     world: &mut World,
-    mut gravity_dir: Vector3,
+    gravity_dir: impl Into<Vector3>,
     tropism_strength: f32
 ) {
-    gravity_dir.normalise();
+    let gravity_dir: Vector3 = gravity_dir.into();
 
     world.insert_resource(GravityResources{
-        gravity_dir,
+        gravity_dir: gravity_dir.normalised(),
         tropism_strength
     });
 }
