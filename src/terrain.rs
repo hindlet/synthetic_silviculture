@@ -46,7 +46,7 @@ pub fn spawn_heightmap_terrain(
     vertices_per_side: u32,
     height_scale: f32,
     centre: impl Into<Vector3>,
-    heightmap_path: &str,
+    heightmap_path: String,
     world: &mut World,
 ) {
     let size = size.max(0.000000001);

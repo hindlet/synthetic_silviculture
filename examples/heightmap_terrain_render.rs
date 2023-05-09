@@ -59,7 +59,7 @@ fn main() {
 
 
     // scheduling
-    spawn_heightmap_terrain(100.0, 50, 10.0, [0, 0, 0], "assets/Noise_Texture.png", &mut world);
+    spawn_heightmap_terrain(100.0, 50, 10.0, [0, 0, 0], "assets/Noise_Texture.png".into(), &mut world);
     create_terrain_mesh_buffers(&memory_allocator, &mut world);
 
     // uniforms
