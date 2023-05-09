@@ -1,8 +1,9 @@
 #![allow(dead_code, unused_variables, unused_imports)]
+use std::default;
+
 use bevy_ecs::prelude::*;
 use super::{
         maths::{vector_three::Vector3, bounding_box::BoundingBox},
-        plant_species::PlantSpeciesRef,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -37,6 +38,13 @@ pub struct PlantGrowthControlFactors {
     pub tropism_time_control: f32,
 }
 
+#[derive(Component)]
+pub struct PlantPlasticityParameters {
+    pub seeding_frequency: f32,
+    pub seeding_radius: f32,
+    pub shadow_tolerance: f32,
+}
+
 
 
 #[derive(Component)]
@@ -51,7 +59,7 @@ pub struct PlantBundle {
     pub bounds: PlantBounds,
     pub data: PlantData,
     pub growth_factors: PlantGrowthControlFactors,
-    pub species_ref: PlantSpeciesRef,
+    pub plasticity_params: PlantPlasticityParameters,
 }
 
 #[derive(Resource)]
@@ -80,7 +88,7 @@ impl Default for PlantBundle {
             bounds: PlantBounds::default(),
             data: PlantData::default(),
             growth_factors: PlantGrowthControlFactors::default(),
-            species_ref: PlantSpeciesRef(0),
+            plasticity_params: PlantPlasticityParameters::default(),
         }
     }
 }
@@ -128,3 +136,14 @@ impl Default for PlantGrowthControlFactors {
         }
     }
 }   
+
+
+impl Default for PlantPlasticityParameters {
+    fn default() -> Self {
+        PlantPlasticityParameters {
+            seeding_frequency: 0.5,
+            seeding_radius: 1.0,
+            shadow_tolerance: 1.0,
+        }
+    }
+}

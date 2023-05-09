@@ -8,9 +8,6 @@ pub struct PlantSpeciesData {
 }
 
 
-#[derive(Component)]
-pub struct PlantSpeciesRef (pub usize);
-
 #[derive(Resource)]
 pub struct PlantSpecies {
     pub species: Vec<PlantSpeciesData>

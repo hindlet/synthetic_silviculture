@@ -17,7 +17,7 @@ use synthetic_silviculture::{
     environment::{create_gravity_resource, create_physical_age_time_step},
     general_update::*,
     plant_development::*,
-    light_cells::LightCells, plant_species::PlantSpecies,
+    light_cells::LightCells,
 };
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents, CommandBufferInheritanceInfo, allocator::StandardCommandBufferAllocator},
@@ -121,9 +121,6 @@ fn main() {
             )
         ]
     ));
-
-    // plant species
-    world.insert_resource(PlantSpecies::new(vec![(1.0, 1.0, 0.0)]));
     
 
 
