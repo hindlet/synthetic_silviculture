@@ -1,7 +1,9 @@
 use bevy_ecs::prelude::*;
 use super::{
-    environment::PhysicalAgeStep,
-    branch::*,
+    super::{
+        environment::PhysicalAgeStep,
+        branches::branch::*,
+    },
     plant::*,
 };
 

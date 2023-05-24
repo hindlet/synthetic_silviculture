@@ -4,3 +4,4 @@ branch_old.rs
 temp_voronoi.png
 .DS_Store
 dev_tests
+src/bin

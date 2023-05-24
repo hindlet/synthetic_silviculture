@@ -1,3 +1,4 @@
+use std::time::Duration;
 use bevy_ecs::prelude::Component;
 use winit::event::VirtualKeyCode;
 use super::super::maths::{vector_three::{Vector3, cross}, matrix_three::Matrix3, matrix_four::Matrix4};
@@ -25,7 +26,7 @@ impl Camera {
         };
 
         let direction = {
-            if start_dir.is_some() {
+            if start_dir.is_some() && start_dir.unwrap() != [0.0; 3] {
                 start_dir.unwrap().into()
             } else {
                 Vector3::X()
@@ -35,8 +36,8 @@ impl Camera {
         Camera {
             position,
             direction,
-            move_speed: move_speed.unwrap_or(0.05),
-            rotate_speed: rotate_speed.unwrap_or(0.02),
+            move_speed: move_speed.unwrap_or(3.0),
+            rotate_speed: rotate_speed.unwrap_or(1.0),
             movement: [false; 10],
             up: -Vector3::Y(),
         }
@@ -99,21 +100,22 @@ impl Camera {
         }
     }
 
-    pub fn do_move(&mut self) {
+    pub fn do_move(&mut self, time: Duration) {
+        let time = time.as_secs_f32();
 
         // take cross of direction and up to get left
         let mut left = cross(self.direction, self.up);
 
         let forward = cross(left, self.up);
         // forward/back
-        if self.movement[0] {self.position -= forward * self.move_speed}
-        if self.movement[1] {self.position += forward * self.move_speed}
+        if self.movement[0] {self.position -= forward * self.move_speed * time}
+        if self.movement[1] {self.position += forward * self.move_speed * time}
         // left/right
-        if self.movement[2] {self.position += left * self.move_speed}
-        if self.movement[3] {self.position -= left * self.move_speed}
+        if self.movement[2] {self.position += left * self.move_speed * time}
+        if self.movement[3] {self.position -= left * self.move_speed * time}
         // up/down
-        if self.movement[4] {self.position -= self.up * self.move_speed}
-        if self.movement[5] {self.position += self.up * self.move_speed}
+        if self.movement[4] {self.position -= self.up * self.move_speed * time}
+        if self.movement[5] {self.position += self.up * self.move_speed * time}
 
         // spin around up
         // normalise up
@@ -121,11 +123,11 @@ impl Camera {
         // outer product
         // rotate
         if self.movement[6] {
-            let rotation = Matrix3::from_angle_and_axis(self.rotate_speed, self.up);
+            let rotation = Matrix3::from_angle_and_axis(self.rotate_speed * time, self.up);
             self.direction.mut_transform(rotation);
         }
         if self.movement[7] {
-            let rotation = Matrix3::from_angle_and_axis(-self.rotate_speed, self.up);
+            let rotation = Matrix3::from_angle_and_axis(-self.rotate_speed * time, self.up);
             self.direction.mut_transform(rotation);
         }
 
@@ -134,11 +136,11 @@ impl Camera {
         left.normalise();
         // rotate
         if self.movement[8] {
-            let rotation = Matrix3::from_angle_and_axis(self.rotate_speed, left);
+            let rotation = Matrix3::from_angle_and_axis(self.rotate_speed * time, left);
             self.direction.mut_transform(rotation);
         }
         if self.movement[9] {
-            let rotation = Matrix3::from_angle_and_axis(-self.rotate_speed, left);
+            let rotation = Matrix3::from_angle_and_axis(-self.rotate_speed * time, left);
             self.direction.mut_transform(rotation);
         }
     }

@@ -13,7 +13,7 @@ use rand::Rng;
 
 use super::{
     branch::BranchBundle,
-    maths::{
+    super::maths::{
         vector_three::Vector3,
         bounding_sphere::BoundingSphere, matrix_three::Matrix3
     }
@@ -229,10 +229,9 @@ impl BranchPrototypesSampler {
         self.prototypes.get(&self.voronoi.get_pixel(x, y)).unwrap().clone()
     }
 
-    // I use a temporary image file to move the data from plotter to image, it's an awful solution but there didnt seem to be another way
     #[allow(unused_must_use)]
     pub fn create(
-        prototype_data: Vec<([u8; 3], f32, f32)>,
+        prototype_positions: Vec<(f32, f32)>,
         size: (u32, u32), 
         max_apical: f32, 
         max_determinancy: f32
@@ -247,11 +246,21 @@ impl BranchPrototypesSampler {
 
         let mut points: Vec<Point> = vec![];
         let mut colors: Vec<[u8; 3]> = vec![];
-        for (color, apical, determinancy) in prototype_data {
-            sampler.prototypes.insert(image::Rgba([color[0], color[1], color[2], 255]), sampler.prototypes.len());
-
+        let mut current_colour: [u8; 3] = [0, 0, 0];
+        for (apical, determinancy) in prototype_positions {
             points.push(Point{x: apical as f64, y: determinancy as f64});
-            colors.push(color);
+
+            // generate and use a colour
+            let colour = {
+                let mut b = current_colour[2].overflowing_add(1);
+                let mut g = if b.1 {b.0 = 0; current_colour[1].overflowing_add(1)} else {(current_colour[1], false)};
+                let r = if g.1 {g.0 = 0; current_colour[0].overflowing_add(1)} else {(current_colour[0], false)};
+                if r.1 {panic!("Too many branch prototypes in use - Maximum of 16777216")}
+                [r.0, g.0, b.0]
+            };
+            current_colour = colour;
+            sampler.prototypes.insert(image::Rgba([colour[0], colour[1], colour[2], 255]), sampler.prototypes.len());
+            colors.push(colour);
         }
 
 

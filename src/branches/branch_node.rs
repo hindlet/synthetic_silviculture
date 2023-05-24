@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
-use super::maths::vector_three::Vector3;
+use super::super::maths::vector_three::Vector3;
 
 
 #[derive(Component)]

@@ -3,7 +3,7 @@ use std::default;
 
 use bevy_ecs::prelude::*;
 use super::{
-        maths::{vector_three::Vector3, bounding_box::BoundingBox},
+    super::maths::{vector_three::Vector3, bounding_box::BoundingBox},
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -14,8 +14,6 @@ use super::{
 #[derive(Default, Component)]
 pub struct PlantTag;
 
-
-
 #[derive(Component)]
 pub struct PlantData {
     pub position: Vector3,
@@ -23,29 +21,6 @@ pub struct PlantData {
     pub age: f32,
     pub root_node: Option<Entity>,
 }
-
-#[derive(Component)]
-pub struct PlantGrowthControlFactors {
-    pub max_age: f32,
-    pub max_vigor: f32,
-    pub min_vigor: f32,
-    pub apical_control: f32, // range 0..1
-    pub orientation_angle: f32,
-    pub tropism_angle_weight: f32, // range 0..1
-    pub growth_rate: f32,
-    pub max_branch_segment_length: f32,
-    pub branch_segment_length_scaling_coef: f32,
-    pub tropism_time_control: f32,
-}
-
-#[derive(Component)]
-pub struct PlantPlasticityParameters {
-    pub seeding_frequency: f32,
-    pub seeding_radius: f32,
-    pub shadow_tolerance: f32,
-}
-
-
 
 #[derive(Component)]
 pub struct PlantBounds {
@@ -65,6 +40,28 @@ pub struct PlantBundle {
 #[derive(Resource)]
 pub struct PlantDeathRate {
     pub v_max_decrease: f32,
+}
+
+
+#[derive(Component)]
+pub struct PlantPlasticityParameters {
+    pub seeding_frequency: f32,
+    pub seeding_radius: f32,
+    pub shadow_tolerance: f32,
+}
+
+
+#[derive(Component)]
+pub struct PlantGrowthControlFactors {
+    pub max_age: f32,
+    pub max_vigor: f32,
+    pub min_vigor: f32,
+    pub apical_control: f32, // range 0..1
+    pub tropism_angle_weight: f32, // range 0..1
+    pub growth_rate: f32,
+    pub max_branch_segment_length: f32,
+    pub branch_segment_length_scaling_coef: f32,
+    pub tropism_time_control: f32,
 }
 
 
@@ -127,7 +124,6 @@ impl Default for PlantGrowthControlFactors {
             min_vigor: 0.0,
             max_age: 0.0,
             apical_control: 0.5,
-            orientation_angle: 0.0,
             tropism_angle_weight: 0.5,
             growth_rate: 1.0,
             max_branch_segment_length: 1.0,

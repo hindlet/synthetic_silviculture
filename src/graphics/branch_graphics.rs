@@ -21,7 +21,7 @@ use super::{
     general_graphics::{Normal, PositionVertex, get_generic_uniforms, basic_frag_shader},
     gui::GUIData,
     super::{
-        branch::*,
+        branches::branch::*,
         maths::{vector_three::Vector3, matrix_three::Matrix3},
     }
 };
@@ -50,7 +50,7 @@ pub struct BranchMeshBuffers {
     pub indices: Subbuffer<[u32]>,
 }
 
-pub fn init_mesh_buffers_res(
+pub fn init_branch_mesh_buffers_res(
     branch_mesh_query: Query<&Mesh, With<BranchTag>>,
 
     mesh_gen_res: Res<BranchGraphicsResources>,
@@ -305,6 +305,7 @@ pub fn get_branch_pipeline(
     dimensions: [u32; 2],
     device: &Arc<Device>,
     render_pass: &Arc<RenderPass>,
+    subpass_index: u32,
 ) -> Arc<GraphicsPipeline> {
     let vs = branch_vert_shader::load(device.clone()).unwrap();
     let fs = basic_frag_shader::load(device.clone()).unwrap();
@@ -324,7 +325,7 @@ pub fn get_branch_pipeline(
         ]))
         .fragment_shader(fs.entry_point("main").unwrap(), ())
         .depth_stencil_state(DepthStencilState::simple_depth_test())
-        .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+        .render_pass(Subpass::from(render_pass.clone(), subpass_index).unwrap())
         .with_pipeline_layout(device.clone(), get_branch_graphics_pipeline_layout(device))
         // .build(device.clone())
         .unwrap();

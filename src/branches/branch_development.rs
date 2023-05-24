@@ -1,14 +1,16 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
 use super::{
-    plant::*,
+    super::{
+        plants::plant::*,
+        environment::{GravityResources, PhysicalAgeStep},
+        maths::{vector_three::Vector3, matrix_three::Matrix3, lerp},
+        graphics::branch_mesh_gen::MeshUpdateQueue,
+        light_cells::LightCells,
+    },
     branch::*,
     branch_node::*,
     branch_prototypes::*,
-    environment::{GravityResources, PhysicalAgeStep},
-    maths::{vector_three::Vector3, matrix_three::Matrix3, lerp},
-    graphics::branch_mesh_gen::MeshUpdateQueue,
-    light_cells::LightCells,
 };
 
 

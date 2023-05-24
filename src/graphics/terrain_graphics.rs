@@ -21,7 +21,6 @@ use super::{
     general_graphics::{Normal, PositionVertex, get_generic_uniforms, basic_frag_shader},
     gui::GUIData,
     super::{
-        branch::*,
         maths::{vector_three::Vector3, matrix_three::Matrix3},
         terrain::TerrainTag,
     }
@@ -37,7 +36,7 @@ mod heightmap_vert_shader {
 }
 
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct TerrainMeshBuffers {
     pub vertices: Subbuffer<[PositionVertex]>,
     pub normals: Subbuffer<[Normal]>,
@@ -196,6 +195,7 @@ pub fn get_terrain_pipeline(
     dimensions: [u32; 2],
     device: &Arc<Device>,
     render_pass: &Arc<RenderPass>,
+    subpass_index: u32,
 ) -> Arc<GraphicsPipeline>{
     let vs = heightmap_vert_shader::load(device.clone()).unwrap();
     let fs = basic_frag_shader::load(device.clone()).unwrap();
@@ -215,7 +215,7 @@ pub fn get_terrain_pipeline(
         ]))
         .fragment_shader(fs.entry_point("main").unwrap(), ())
         .depth_stencil_state(DepthStencilState::simple_depth_test())
-        .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+        .render_pass(Subpass::from(render_pass.clone(), subpass_index).unwrap())
         .with_pipeline_layout(device.clone(), get_terrain_graphics_pipeline_layout(device))
         // .build(device.clone())
         .unwrap();
@@ -294,6 +294,7 @@ pub fn add_heightmap_terrain_draw_commands(
     descriptor_allocator: &StandardDescriptorSetAllocator,
     vert_uniform_buffer: &Subbuffer<heightmap_vert_shader::Data>,
     frag_light_buffers: &(Subbuffer<[heightmap_vert_shader::PointLight]>, Subbuffer<[heightmap_vert_shader::DirectionalLight]>),
+    layout_index: u32,
 
     world: &mut World,
 ) {
@@ -306,7 +307,8 @@ pub fn add_heightmap_terrain_draw_commands(
     let buffers = state.get(world).0;
 
 
-    let layout = graph_pipeline.layout().set_layouts().get(0).unwrap();
+
+    let layout = graph_pipeline.layout().set_layouts().get(layout_index as usize).unwrap();
     let uniforms_set = PersistentDescriptorSet::new(
         descriptor_allocator,
         layout.clone(),

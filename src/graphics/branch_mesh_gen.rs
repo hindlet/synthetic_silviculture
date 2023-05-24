@@ -7,9 +7,8 @@ use super::{
     mesh::Mesh,
     super::{
         maths::{vector_three::{self, Vector3}, matrix_three::Matrix3},
-        plant::*,
-        branch::*,
-        branch_node::*
+        plants::plant::*,
+        branches::{branch::*, branch_node::*},
     }
 };
 
@@ -43,6 +42,10 @@ impl AddAssign<Vector3> for Normal {
 pub struct MeshUpdateQueue (pub VecDeque<Entity>);
 
 impl MeshUpdateQueue {
+    pub fn new() -> Self {
+        MeshUpdateQueue(VecDeque::new())
+    }
+
     pub fn new_from_single(id: Entity) -> Self {
         MeshUpdateQueue(VecDeque::from([id]))
     }
