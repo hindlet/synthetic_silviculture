@@ -22,7 +22,7 @@ use super::{
     gui::GUIData,
     super::{
         maths::{vector_three::Vector3, matrix_three::Matrix3},
-        terrain::TerrainTag,
+        environment::terrain::TerrainTag,
     }
 };
 
@@ -31,6 +31,14 @@ mod heightmap_vert_shader {
     vulkano_shaders::shader!{
         ty: "vertex",
         path: "assets/shaders/heightmap_terrain_vert.glsl",
+        include: ["assets/shaders/include/light_maths.glsl"]
+    }
+}
+
+mod flat_vert_shader {
+    vulkano_shaders::shader!{
+        ty: "vertex",
+        path: "assets/shaders/flat_terrain_vert.glsl",
         include: ["assets/shaders/include/light_maths.glsl"]
     }
 }
@@ -191,7 +199,15 @@ fn get_terrain_graphics_pipeline_layout(
 }
 
 
-pub fn get_terrain_pipeline(
+
+
+
+//////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// HeightMap Terrain /////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
+
+pub fn get_heightmap_terrain_pipeline(
     dimensions: [u32; 2],
     device: &Arc<Device>,
     render_pass: &Arc<RenderPass>,
@@ -217,17 +233,12 @@ pub fn get_terrain_pipeline(
         .depth_stencil_state(DepthStencilState::simple_depth_test())
         .render_pass(Subpass::from(render_pass.clone(), subpass_index).unwrap())
         .with_pipeline_layout(device.clone(), get_terrain_graphics_pipeline_layout(device))
-        // .build(device.clone())
         .unwrap();
         
 
     pipeline
 }
 
-
-//////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////// HeightMap Terrain /////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////
 
 pub fn get_heightmap_light_buffers(
     point_lights: Vec<([f32; 3], f32)>,
@@ -361,3 +372,157 @@ pub fn create_heightmap_uniform_buffer(
 //////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////// Flat Terrain //////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
+
+
+pub fn get_flat_terrain_pipeline(
+    dimensions: [u32; 2],
+    device: &Arc<Device>,
+    render_pass: &Arc<RenderPass>,
+    subpass_index: u32,
+) -> Arc<GraphicsPipeline>{
+    let vs = flat_vert_shader::load(device.clone()).unwrap();
+    let fs = basic_frag_shader::load(device.clone()).unwrap();
+
+    let pipeline = GraphicsPipeline::start()
+        .vertex_input_state(
+            [PositionVertex::per_vertex(), Normal::per_vertex()]
+        )
+        .vertex_shader(vs.entry_point("main").unwrap(), ())
+        .input_assembly_state(InputAssemblyState::new())
+        .viewport_state(ViewportState::viewport_fixed_scissor_irrelevant([
+            Viewport {
+                origin: [0.0, 0.0],
+                dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+                depth_range: 0.0..1.0,
+            },
+        ]))
+        .fragment_shader(fs.entry_point("main").unwrap(), ())
+        .depth_stencil_state(DepthStencilState::simple_depth_test())
+        .render_pass(Subpass::from(render_pass.clone(), subpass_index).unwrap())
+        .with_pipeline_layout(device.clone(), get_terrain_graphics_pipeline_layout(device))
+        .unwrap();
+        
+
+    pipeline
+}
+
+
+pub fn get_flat_light_buffers(
+    point_lights: Vec<([f32; 3], f32)>,
+    directional_lights: Vec<([f32; 3], f32)>,
+    mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
+) -> (Subbuffer<[flat_vert_shader::PointLight]>, Subbuffer<[flat_vert_shader::DirectionalLight]>) {
+
+    let point_light_data = {
+        let mut data: Vec<flat_vert_shader::PointLight> = Vec::new();
+        for light in point_lights.iter() {
+            data.push(flat_vert_shader::PointLight {position: light.0.into(), intensity: light.1});
+        }
+        if data.len() == 0 {
+            data = vec![flat_vert_shader::PointLight {position: Vector3::ZERO().into(), intensity: 0.0}];
+        }
+        data
+    };
+
+    let point_buffer = Buffer::from_iter(
+        mem_allocator,
+        BufferCreateInfo {
+            usage: BufferUsage::STORAGE_BUFFER,
+            ..Default::default()
+        },
+        AllocationCreateInfo {
+            usage: MemoryUsage::Upload,
+            ..Default::default()
+        },
+        point_light_data
+    ).unwrap();
+
+    let dir_light_data = {
+        let mut data: Vec<flat_vert_shader::DirectionalLight> = Vec::new();
+        for light in directional_lights.iter() {
+            let dir: Vector3 = light.0.into();
+            data.push(flat_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1});
+        }
+        if data.len() == 0 {
+            data = vec![flat_vert_shader::DirectionalLight {direction: Vector3::ZERO().into(), intensity: 0.0}];
+        }
+        data
+    };
+
+    let directional_buffer = Buffer::from_iter(
+        mem_allocator,
+        BufferCreateInfo {
+            usage: BufferUsage::STORAGE_BUFFER,
+            ..Default::default()
+        },
+        AllocationCreateInfo {
+            usage: MemoryUsage::Upload,
+            ..Default::default()
+        },
+        dir_light_data
+    ).unwrap();
+
+    (point_buffer, directional_buffer)
+}
+
+// adds the commands to draw heightmap terrain to the given builder
+pub fn add_flat_terrain_draw_commands(
+    builder: &mut AutoCommandBufferBuilder<SecondaryAutoCommandBuffer>,
+    graph_pipeline: &Arc<GraphicsPipeline>,
+    descriptor_allocator: &StandardDescriptorSetAllocator,
+    vert_uniform_buffer: &Subbuffer<flat_vert_shader::Data>,
+    frag_light_buffers: &(Subbuffer<[flat_vert_shader::PointLight]>, Subbuffer<[flat_vert_shader::DirectionalLight]>),
+    layout_index: u32,
+
+    world: &mut World,
+) {
+
+    // create the system state to query data and then query it
+    let mut state: SystemState<(
+        Res<TerrainMeshBuffers>,
+    )> = SystemState::new(world);
+
+    let buffers = state.get(world).0;
+
+
+
+    let layout = graph_pipeline.layout().set_layouts().get(layout_index as usize).unwrap();
+    let uniforms_set = PersistentDescriptorSet::new(
+        descriptor_allocator,
+        layout.clone(),
+        [WriteDescriptorSet::buffer(0, vert_uniform_buffer.clone()), WriteDescriptorSet::buffer(1, frag_light_buffers.0.clone()), WriteDescriptorSet::buffer(2, frag_light_buffers.1.clone())],
+    )
+    .unwrap();
+
+    builder
+        .bind_pipeline_graphics(graph_pipeline.clone())
+        .bind_descriptor_sets(
+            PipelineBindPoint::Graphics,
+            graph_pipeline.layout().clone(),
+            0,
+            uniforms_set
+        )
+        .bind_vertex_buffers(0, (buffers.vertices.clone(), buffers.normals.clone()))
+        .bind_index_buffer(buffers.indices.clone())
+        .draw_indexed(buffers.indices.len() as u32, 1, 0, 0, 0)
+        .unwrap();
+}
+
+
+
+pub fn create_flat_uniform_buffer(
+    swapchain: &Arc<Swapchain>,
+    camera: &Camera,
+    grass_colour: [f32; 3],
+    terrain_uniform: &SubbufferAllocator,
+) -> Subbuffer<flat_vert_shader::Data> {
+    let (view, proj) = get_generic_uniforms(swapchain, camera);
+    let data = flat_vert_shader::Data {
+        view: view.into(),
+        proj: proj.into(),
+        grass_colour: grass_colour.into(),
+    };
+    let subbuffer = terrain_uniform.allocate_sized().unwrap();
+    *subbuffer.write().unwrap() = data;
+    subbuffer
+}

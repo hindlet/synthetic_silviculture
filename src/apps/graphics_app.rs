@@ -1,4 +1,4 @@
-use super::{
+use super::super::{
     fixed_schedule::FixedSchedule,
     branches::{
         branch::*,
@@ -10,10 +10,12 @@ use super::{
         plant::*,
         plant_development::*,
     },
-    general_update::*,
     environment::*,
-    terrain::*,
-    light_cells::*,
+    environment::{
+        terrain::*,
+        light_cells::*,
+        params::*,
+    },
     maths::{
         vector_three::Vector3,
     },
@@ -26,6 +28,7 @@ use super::{
         terrain_graphics::*,
     },
 };
+use super::*;
 use egui_winit_vulkano::Gui;
 use winit::{
     event::{Event, WindowEvent, ElementState},
@@ -49,30 +52,7 @@ use vulkano::{
 };
 
 
-enum TerrainType {
-    Absent,
-    Flat,
-    Bumpy
-}
 
-enum OutputType {
-    Absent,
-    Data,
-    Meshes,
-    All,
-}
-
-#[derive(Clone)]
-pub struct TreeAppOutput {
-    pub data: Option<Vec<([f32; 3], Vec<([f32; 3], f32)>, Vec<(usize, usize)>)>>,
-    pub meshes: Option<()>,
-}
-
-impl Default for TreeAppOutput {
-    fn default() -> Self {
-        TreeAppOutput {data: None, meshes: None}
-    }
-}
 
 
 #[derive(Debug)]
@@ -100,11 +80,7 @@ pub struct GraphicsAppBuilder {
 }
 
 
-pub struct LoopedTreeApp {
-    world: World,
-    update_schedule: Schedule,
-    output: OutputType
-}
+
 
 
 pub struct GraphicsTreeApp {
@@ -178,6 +154,7 @@ impl GraphicsTreeApp {
         let graphics_pass = self.graphics_pass.clone();
         let mut branch_pipeline = self.branch_pipeline.clone();
         let mut terrain_pipeline = self.terrain_pipeline.clone();
+        let lights = self.lights.clone();
         
 
         let mut camera = Camera::new(Some(self.camera_state.0), Some(self.camera_state.1), None, None);
@@ -186,21 +163,7 @@ impl GraphicsTreeApp {
         let descriptor_set_allocator = StandardDescriptorSetAllocator::new(self.device.clone());
         let command_buffer_allocator = StandardCommandBufferAllocator::new(self.device.clone(), Default::default());
 
-        let branch_lighting_uniforms = get_branch_light_buffers(self.lights.0.clone(), self.lights.1.clone(), &self.memory_allocator);
-
-        let terrain_lighting_uniforms = {
-            match self.terrain {
-                TerrainType::Absent => {None},
-
-                TerrainType::Flat => {
-                    None
-                }
-
-                TerrainType::Bumpy => {
-                    Some(get_heightmap_light_buffers(self.lights.0.clone(), self.lights.1.clone(), &self.memory_allocator))
-                }
-            }
-        };
+        let branch_lighting_uniforms = get_branch_light_buffers(lights.0.clone(), lights.1.clone(), &self.memory_allocator);
 
 
         let output = Rc::new(RefCell::new(TreeAppOutput{data: None, meshes: None}));
@@ -278,8 +241,8 @@ impl GraphicsTreeApp {
                             branch_pipeline = get_branch_pipeline(new_dimensions, &device, &render_pass, 0);
                             match self.terrain {
                                 TerrainType::Absent => {},
-                                TerrainType::Flat => {},
-                                TerrainType::Bumpy => {terrain_pipeline = Some(get_terrain_pipeline(new_dimensions, &device, &render_pass, 0))}
+                                TerrainType::Flat => {terrain_pipeline = Some(get_flat_terrain_pipeline(new_dimensions, &device, &render_pass, 0))},
+                                TerrainType::Bumpy => {terrain_pipeline = Some(get_heightmap_terrain_pipeline(new_dimensions, &device, &render_pass, 0))}
                             }
                             framebuffers = new_framebuffers;
                             recreate_swapchain = false
@@ -332,11 +295,14 @@ impl GraphicsTreeApp {
                     match self.terrain {
                         TerrainType::Absent => {},
 
-                        TerrainType::Flat => {},
+                        TerrainType::Flat => {
+                            let terrain_uniforms = create_flat_uniform_buffer(&swapchain, &camera, self.terrain_settings.unwrap().0, &uniform_allocator);
+                            add_flat_terrain_draw_commands(&mut secondary_builder, terrain_pipeline.as_ref().unwrap(), &descriptor_set_allocator, &terrain_uniforms, &get_flat_light_buffers(lights.0.clone(), lights.1.clone(), &memory_allocator), 0, &mut world);
+                        },
 
                         TerrainType::Bumpy => {
                             let terrain_uniforms = create_heightmap_uniform_buffer(&swapchain, &camera, self.terrain_settings.unwrap().0, self.terrain_settings.unwrap().1, self.terrain_settings.unwrap().2, self.terrain_settings.unwrap().3, &uniform_allocator);
-                            add_heightmap_terrain_draw_commands(&mut secondary_builder, terrain_pipeline.as_ref().unwrap(), &descriptor_set_allocator, &terrain_uniforms, terrain_lighting_uniforms.as_ref().unwrap(), 0, &mut world);
+                            add_heightmap_terrain_draw_commands(&mut secondary_builder, terrain_pipeline.as_ref().unwrap(), &descriptor_set_allocator, &terrain_uniforms, &get_heightmap_light_buffers(lights.0.clone(), lights.1.clone(), &memory_allocator), 0, &mut world);
                         }
                     }
 
@@ -494,7 +460,7 @@ impl GraphicsAppBuilder {
     }
 
 
-    /// sets the physical time step used for plant aging, defaults to 1.0
+    /// sets the physical time step used for plant aging in years per step, defaults to 1.0
     pub fn set_time_step(&mut self, step: f32) -> &mut GraphicsAppBuilder {
         self.time_step = Some(step.abs());
 
@@ -504,6 +470,17 @@ impl GraphicsAppBuilder {
     /// sets the rate at which plants die, defaults to 1.0
     pub fn set_plant_death_rate(&mut self, rate: f32) -> &mut GraphicsAppBuilder {
         self.plant_death_rate = Some(rate.abs());
+
+        self
+    }
+
+
+    /// sets the environmental parameters used by the simulation
+    /// 
+    /// - Temperature: Degrees Celsius
+    /// - Moisture: Average annual precipitation, cm
+    pub fn set_environmental_parameters(&mut self, temperature: f32, moisture: f32) -> &mut GraphicsAppBuilder {
+        
 
         self
     }
@@ -635,18 +612,17 @@ impl GraphicsAppBuilder {
 
         let (terrain_type, terrain_pipeline) = {
             if self.has_terrain {     
-                let pipeline = Some(get_terrain_pipeline(window_dimensions, &device, &render_pass, 0));
                 let settings = self.terrain_settings.clone().unwrap();
                 if settings.2.is_none() {
                     spawn_flat_terrain(settings.0, settings.1, &mut world);
                     create_terrain_mesh_buffers(&memory_allocator, &mut world);
-                    (TerrainType::Flat, pipeline)
+                    (TerrainType::Flat, Some(get_flat_terrain_pipeline(window_dimensions, &device, &render_pass, 0)))
                 }
                 else {
                     let subsettings = settings.2.clone().unwrap();
                     spawn_heightmap_terrain(settings.0, subsettings.0, subsettings.1, settings.1, subsettings.2, &mut world);
                     create_terrain_mesh_buffers(&memory_allocator, &mut world);
-                    (TerrainType::Bumpy, pipeline)
+                    (TerrainType::Bumpy, Some(get_heightmap_terrain_pipeline(window_dimensions, &device, &render_pass, 0)))
                 }
             }
             else {(TerrainType::Absent, None)}
@@ -710,15 +686,7 @@ impl GraphicsAppBuilder {
 }
 
 
-//////////////////// consts
-const SAMPLER_SIZE: (u32, u32) = (500, 500);
-const DEFAULT_GRAVITY_STRENGTH: f32 = 1.0;
-const DEFAULT_TIMESTEP: f32 = 1.0;
-const DEFAULT_BRANCH_TYPES: Vec<(f32, Vec<Vec<u32>>, Vec<[f32; 3]>)> = Vec::new();
-const DEFAULT_BRANCH_CONTIDITIONS: (Vec<(f32, f32)>, f32, f32) = (Vec::new(), 1.0, 1.0);
-const DEFAULT_CELL_SETTINGS: (u32, f32) = (5, 0.5);
-const DEFAULT_PLANT_DEATH_RATE: f32 = 1.0;
-const DEFAULT_LIGHTS: (Vec<([f32; 3], f32)>, Vec<([f32; 3], f32)>) = (Vec::new(), Vec::new());
+
 
 
 
@@ -775,62 +743,3 @@ fn double_pass_renderpass(
             ]
     ).unwrap()
 }
-
-
-fn data_output(
-    world: &mut World,
-) -> Vec<([f32; 3], Vec<([f32; 3], f32)>, Vec<(usize, usize)>)>{
-
-    let mut state: SystemState<(
-        Query<&BranchNodeData, With<BranchNodeTag>>,
-        Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
-        Query<&BranchData, With<BranchTag>>,
-        Query<&BranchConnectionData, With<BranchTag>>,
-        Query<&PlantData, With<PlantBounds>>,
-    )> = SystemState::new(world);
-
-    let (node_data, node_connections, branch_data, branch_connections, plant_data) = state.get(world);
-
-    // plant positions : node position and thickness : node connections
-    let mut data: Vec<([f32; 3], Vec<([f32; 3], f32)>, Vec<(usize, usize)>)> = Vec::new();
-    for plant in plant_data.iter() {
-        if plant.root_node.is_none() {continue;}
-        
-        let position: [f32; 3] = plant.position.into();
-
-        let mut plant_data: (Vec<([f32; 3], f32)>, Vec<(usize, usize)>) = (Vec::new(), Vec::new());
-
-        let mut current_nodes: usize = 0;
-
-        for id in get_branches_base_to_tip(&branch_connections, plant.root_node.unwrap()) {
-            if let Ok(branch) = branch_data.get(id) {
-                if branch.root_node.is_none() {continue;}
-
-                let (positions, thicknesses, pairs) = get_node_data_and_connections_base_to_tip(&node_connections, &node_data, branch.root_node.unwrap());
-                let mut sub_data: Vec<([f32; 3], f32)> = Vec::new();
-                for i in 0..positions.len() {
-                    sub_data.push((positions[i].into(), thicknesses[i]));
-                }
-                let start_point = plant_data.0.iter().position(|&x| x == sub_data[0]).unwrap_or(0);
-                if start_point != 0 {current_nodes -= 1; sub_data.remove(0);}
-
-                let mut new_pairs: Vec<(usize, usize)> = Vec::new();
-                for pair in pairs {
-                    let one = if pair.0 == 0 {start_point} else {pair.0 + current_nodes};
-                    let two = if pair.0 == 0 {start_point} else {pair.0 + current_nodes};
-                    new_pairs.push((one, two));
-                }
-                plant_data.0.append(&mut sub_data);
-                plant_data.1.append(&mut new_pairs);
-                current_nodes = plant_data.0.len() - 1;
-            }
-        }
-        data.push((position, plant_data.0, plant_data.1));
-    }
-
-
-    data
-}
-
-
-

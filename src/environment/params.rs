@@ -1,7 +1,7 @@
 //! this file is mainly to manage data about the entire environment, like gravity, temperature, and precipitation levels
 #![allow(dead_code, unused_variables, unused_imports)]
 use bevy_ecs::prelude::*;
-use super::{
+use super::super::{
     maths::vector_three::Vector3
 };
 

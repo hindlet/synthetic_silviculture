@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 use image::{DynamicImage, GenericImageView};
-use super::{
+use super::super::{
     maths::{
         colliders::{Collider, plane_collider::PlaneCollider, mesh_collider::MeshCollider},
         vector_three::Vector3, vector_two::Vector2,

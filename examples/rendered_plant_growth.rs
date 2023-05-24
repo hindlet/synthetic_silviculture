@@ -1,4 +1,4 @@
-use synthetic_silviculture::app::GraphicsTreeApp;
+use synthetic_silviculture::apps::graphics_app::*;
 
 
 fn main() {
