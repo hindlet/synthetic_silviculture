@@ -33,7 +33,7 @@ impl Vector3 {
     }
 
     #[allow(non_snake_case)]
-    pub fn Y() -> Self {
+    pub const fn Y() -> Self {
         Self {
             x: 0.0,
             y: 1.0,
@@ -42,7 +42,7 @@ impl Vector3 {
     }
 
     #[allow(non_snake_case)]
-    pub fn X() -> Self {
+    pub const fn X() -> Self {
         Self {
             x: 1.0,
             y: 0.0,
@@ -51,7 +51,7 @@ impl Vector3 {
     }
 
     #[allow(non_snake_case)]
-    pub fn Z() -> Self {
+    pub const fn Z() -> Self {
         Self {
             x: 0.0,
             y: 0.0,
@@ -60,7 +60,7 @@ impl Vector3 {
     }
     
     #[allow(non_snake_case)]
-    pub fn ZERO() -> Self {
+    pub const fn ZERO() -> Self {
         Self {
             x: 0.0,
             y: 0.0,
@@ -69,7 +69,7 @@ impl Vector3 {
     }
 
     #[allow(non_snake_case)]
-    pub fn ONE() -> Self {
+    pub const fn ONE() -> Self {
         Self {
             x: 1.0,
             y: 1.0,

@@ -17,7 +17,7 @@ impl Vector2 {
     }
 
     #[allow(non_snake_case)]
-    pub fn ZERO() -> Self {
+    pub const fn ZERO() -> Self {
         Vector2 {
             x: 0.0,
             y: 0.0,

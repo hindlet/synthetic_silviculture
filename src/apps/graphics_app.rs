@@ -366,13 +366,6 @@ impl GraphicsTreeApp {
 
 impl GraphicsAppBuilder {
     /// features
-    
-
-    /// allows plants to exist in the world
-    pub fn with_plants(&mut self) -> &mut GraphicsAppBuilder {
-        self.has_plants = true;
-        self
-    }
 
     /// allows the app to draw flat terrain, overrides previous terrain settings
     pub fn with_flat_terrain(&mut self, size: f32, centre: [f32; 3], colour: [f32; 3]) -> &mut GraphicsAppBuilder {
@@ -505,8 +498,8 @@ impl GraphicsAppBuilder {
         let branch_types = self.prototypes.clone().unwrap_or(DEFAULT_BRANCH_TYPES);
         let cell_settings = self.cell_settings.unwrap_or(DEFAULT_CELL_SETTINGS);
         let plant_death_rate = self.plant_death_rate.unwrap_or(DEFAULT_PLANT_DEATH_RATE);
-
-
+        let has_plants = self.prototypes.is_none();
+        
 
         ///////////////// world
         let mut world = World::new();
@@ -525,7 +518,7 @@ impl GraphicsAppBuilder {
         // TODO: change how it is decided
         
         // plant
-        if self.has_plants {
+        if has_plants {
             let root_node_id = world.spawn(BranchNodeBundle{
                 data: BranchNodeData{
                     thickening_factor: 0.05,

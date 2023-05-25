@@ -26,7 +26,6 @@ fn main() {
 
 
     let app = GraphicsTreeApp::new("plant_growth_example".into())
-        .with_plants()
         .set_branch_presets(branch_types, branch_conditions)
         .set_shadow_cell_data(0.5, 3)
         .set_plant_death_rate(0.5)

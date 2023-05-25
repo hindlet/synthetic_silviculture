@@ -19,8 +19,8 @@ impl Vector3Int {
     }
 
     #[allow(non_snake_case)]
-    pub fn Y() -> Self{
-        Vector3Int::new(0, 1, 0)
+    pub const fn Y() -> Self{
+        Vector3Int{x: 0, y: 1, z: 0}
     }
 }
 

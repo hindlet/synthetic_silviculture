@@ -43,12 +43,12 @@ impl Matrix3 {
         mat.transpose()
     }
 
-    pub fn identity() -> Self {
-        Matrix3::new(
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0
-        )
+    pub const fn identity() -> Self {
+        Matrix3 {
+            x: Vector3::X(),
+            y: Vector3::Y(),
+            z: Vector3::Z()
+        }
     }
 
     pub fn c1(&self) -> Vector3 {

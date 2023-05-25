@@ -1,8 +1,10 @@
 pub mod graphics_app;
+pub mod looped_app;
 use bevy_ecs::{
     prelude::*,
     system::SystemState
 };
+
 use super::{
     branches::{
         branch::*,
@@ -14,6 +16,7 @@ use super::{
         plant::*,
         plant_development::*,
     },
+    maths::vector_three::Vector3,
 };
 
 
@@ -26,6 +29,7 @@ const DEFAULT_BRANCH_CONTIDITIONS: (Vec<(f32, f32)>, f32, f32) = (Vec::new(), 1.
 const DEFAULT_CELL_SETTINGS: (u32, f32) = (5, 0.5);
 const DEFAULT_PLANT_DEATH_RATE: f32 = 1.0;
 const DEFAULT_LIGHTS: (Vec<([f32; 3], f32)>, Vec<([f32; 3], f32)>) = (Vec::new(), Vec::new());
+const DEFAULT_TERRAIN: (f32, Vector3, Option<(u32, f32, String)>) = (100.0, Vector3::ZERO(), None);
 
 enum TerrainType {
     Absent,
