@@ -163,6 +163,7 @@ pub fn determine_create_new_branches(
     plant_query: Query<(&PlantData, &PlantGrowthControlFactors), With<PlantTag>>,
 
     branch_data_query: Query<(&BranchData, &BranchGrowthData, &BranchPrototypeRef), With<BranchTag>>,
+    branch_bounds_query: Query<&BranchBounds, With<BranchTag>>,
     mut branch_connections_query: Query<&mut BranchConnectionData, With<BranchTag>>,
 
     branch_prototypes_sampler: Res<BranchPrototypesSampler>,
@@ -171,8 +172,14 @@ pub fn determine_create_new_branches(
     mut node_data_query: Query<(&mut BranchNodeGrowthData, &BranchNodeData), With<BranchNodeTag>>,
     node_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
 
+    gravity_res: Res<GravityResources>,
+
     mut commands: Commands
 ) {
+
+    let prototypes = &branch_prototypes.prototypes;
+    let tropism_dir = gravity_res.gravity_dir * (gravity_res.tropism_strength / gravity_res.tropism_strength.abs());
+
     for (plant_data, plant_growth_factors) in plant_query.iter() {
         if plant_data.root_node.is_none() {continue;}
 
@@ -180,6 +187,12 @@ pub fn determine_create_new_branches(
         let v_min = plant_growth_factors.min_vigor;
         let v_max = plant_growth_factors.max_vigor;
         let apical = plant_growth_factors.apical_control;
+        let plant_dist_control = plant_growth_factors.tropism_angle_weight;
+        let plant_angle = plant_growth_factors.branching_angle;
+        let max_branch_length = plant_growth_factors.max_branch_segment_length;
+
+
+        let mut branch_bounds = Vec::new();
 
         // loop through every terminal branch
         for id in branches_to_check {
@@ -199,9 +212,13 @@ pub fn determine_create_new_branches(
                     }
                 }
 
+                let prototype_index = branch_prototypes_sampler.get_prototype_index(apical, branch_growth_data.growth_vigor * branch_prototypes_sampler.max_determinancy / v_max);
+                if branch_bounds.len() == 0 {branch_bounds = get_branch_bounds_base_to_tip(&branch_bounds_query, &branch_connections_query, branch_data.root_node.unwrap())}
+
                 // get the nodes on the branch that could generate new branches
-                let mut possible_terminal_nodes = get_possible_new_branch_nodes(&mut node_data_query, &node_connections_query, branch_data.root_node.unwrap(), v_min);
+                let mut possible_terminal_nodes = get_possible_new_branch_nodes(&mut node_data_query, &node_connections_query, branch_data.root_node.unwrap(), v_min, v_max, &prototypes[prototype_index], plant_angle, plant_dist_control, branch_data.normal, tropism_dir, max_branch_length, &branch_bounds);
                 if possible_terminal_nodes.0.is_none() {continue;}
+
 
                 if let Ok(mut connections) = branch_connections_query.get_mut(id) {
                     
@@ -218,7 +235,7 @@ pub fn determine_create_new_branches(
                                 parent: Some(id),
                                 ..Default::default()
                             },
-                            prototype: BranchPrototypeRef(branch_prototypes_sampler.get_prototype_index(apical, branch_growth_data.growth_vigor * branch_prototypes_sampler.max_determinancy / v_max)),
+                            prototype: BranchPrototypeRef(prototype_index),
                             ..Default::default()
                         }).id();
                         possible_terminal_nodes.0 = None;
@@ -240,7 +257,7 @@ pub fn determine_create_new_branches(
                                 parent: Some(id),
                                 ..Default::default()
                             },
-                            prototype: BranchPrototypeRef(branch_prototypes_sampler.get_prototype_index(apical, branch_growth_data.growth_vigor * branch_prototypes_sampler.max_determinancy / v_max)),
+                            prototype: BranchPrototypeRef(prototype_index),
                             ..Default::default()
                         }).id();
                         connections.children.1 = Some(child_id);
@@ -263,7 +280,18 @@ fn get_possible_new_branch_nodes(
     node_connections_query: &Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     root_node: Entity,
     branch_min_vigor: f32,
-) -> (Option<(Entity, f32)>, Option<(Entity, f32)>) {
+    branch_max_vigor: f32,
+
+    prototype_data: &BranchPrototypeData,
+    plant_angle: f32,
+    plant_distr_control: f32,
+    parent_normal: Vector3,
+    tropism_dir: Vector3,
+    max_branch_length: f32,
+    other_branch_bounds: &Vec<BoundingSphere>,
+
+
+) -> (Option<(Entity, f32, Vector3)>, Option<(Entity, f32, Vector3)>) {
     
 
     // sum up light exposure at branching points
@@ -333,7 +361,9 @@ fn get_possible_new_branch_nodes(
         if let Ok(node_data) = node_data_query.get(id) {
             if node_data.0.growth_vigor <= branch_min_vigor {continue;}
 
-            possible_nodes.push(((id, node_data.1.thickening_factor), node_data.0.growth_vigor));
+            let (normal, weight) = get_new_normal(plant_angle, plant_distr_control, parent_normal, tropism_dir, prototype_data, max_branch_length, node_data.1.position, other_branch_bounds);
+
+            possible_nodes.push(((id, node_data.1.thickening_factor, normal), weight));
         }
     }
 
@@ -381,32 +411,57 @@ fn get_new_normal(
     plant_angle: f32,
     plant_dist_control: f32,
     parent_normal: Vector3,
-) {
+    tropism_dir: Vector3,
+    prototype_data: &BranchPrototypeData,
+    max_branch_length: f32,
+    root_pos: Vector3,
+    other_branch_bounds: &Vec<BoundingSphere>,
+
+) -> (Vector3, f32) {
     let parent_angles = Vector3::direction_to_euler_angles(parent_normal);
     let angles_set = vec![Vector3::X() * plant_angle, Vector3::X() * -plant_angle, Vector3::Z() * plant_angle, Vector3::Z() * -plant_angle];
+    let bounds_set = prototype_data.get_possible_bounds(max_branch_length, parent_angles, &angles_set, root_pos);
+    let mut best: (Vector3, f32) = (Vector3::ZERO(), -100000.0);
 
-    for angle in angles_set {
-
+    for i in 0..bounds_set.len() {
+        let normal = Vector3::euler_angles_to_direction(parent_angles + angles_set[i]);
+        let likelyhood = distribution(bounds_set[i], other_branch_bounds, tropism_dir.angle_to(normal), plant_angle, plant_dist_control);
+        if likelyhood > best.1 {best = (normal, likelyhood)}
     }
+
+    best
 }
 
 
 fn distribution(
-
-) {
-
+    bounds: BoundingSphere,
+    other_bounds: &Vec<BoundingSphere>,
+    tropism_angle: f32,
+    other_angle: f32,
+    weight_one: f32
+) -> f32{
+    weight_one * tropism(tropism_angle, other_angle) + (1.0-weight_one) * possible_collisions_volume(bounds, other_bounds)
 }
 
 fn tropism(
-
-) {
-
+    tropism_angle: f32,
+    other_angle: f32
+) -> f32{
+    (tropism_angle.cos() - other_angle.cos()).abs()
 }
 
+
+/// only checks for collisions with branches inside of the plant
 fn possible_collisions_volume(
-
-) {
-
+    bounds: BoundingSphere,
+    other_bounds: &Vec<BoundingSphere>,
+) -> f32{
+    let mut total_volume = 0.0;
+    for to_check in other_bounds.iter() {
+        if (bounds.radius + to_check.radius) * (bounds.radius + to_check.radius) < (bounds.centre - to_check.centre).sqr_magnitude() {continue;}
+        total_volume += bounds.get_intersection_volume(to_check)
+    }
+    total_volume
 }
 
 

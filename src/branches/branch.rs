@@ -244,6 +244,35 @@ pub fn get_branches_base_to_tip(
 }
 
 
+pub fn get_branch_bounds_base_to_tip(
+    bounds_query: &Query<&BranchBounds, With<BranchTag>>,
+    connections_query: &Query<&mut BranchConnectionData, With<BranchTag>>,
+    root_branch: Entity,
+) -> Vec<BoundingSphere>{
+    let mut ids: Vec<Entity> = vec![root_branch];
+
+    let mut i = 0;
+    loop {
+        if i >= ids.len() {break;}
+        if let Ok(branch) = connections_query.get(ids[i]) {
+            if branch.children.0.is_some() {ids.push(branch.children.0.unwrap())}
+            if branch.children.1.is_some() {ids.push(branch.children.1.unwrap())}
+        }
+        i += 1;
+    }
+
+    let mut out: Vec<BoundingSphere> = Vec::new();
+
+    for id in ids {
+        if let Ok(bounds) = bounds_query.get(id) {
+            out.push(bounds.bounds.clone());
+        }
+    }
+
+    out
+}
+
+
 // calculates and returns the vigor of a branches children, assumes two children exist
 pub fn get_children_vigor(
     branches_query: &Query<&mut BranchGrowthData, With<BranchTag>>,

@@ -32,6 +32,7 @@ fn main() {
         .set_time_step(0.75)
         .with_branch_graphics_gui()
         .set_lights(Vec::new(), vec![([1.0, -0.3, 0.0], 1.0)])
+        .set_initial_plant_num(1)
         .build();
 
     app.run();

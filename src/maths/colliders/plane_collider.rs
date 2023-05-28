@@ -14,11 +14,12 @@ impl PlaneCollider {
     pub fn new(position: impl Into<Vector3>, size: impl Into<Vector2>) -> Self{
         let size = size.into();
         let position = position.into();
+        let scale: Vector3 = [size.x / 2.0, 0.0, size.y / 2.0].into();
         PlaneCollider {
             position: position,
             x_length: size.x,
             z_length: size.y,
-            centre: position + [size.x / 2.0, 0.0, size.y / 2.0].into()
+            centre: position + scale
         }
     }
 }

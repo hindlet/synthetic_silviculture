@@ -124,7 +124,7 @@ mod bounding_sphere_tests {
             radius: 2.0,
         };
 
-        assert_eq!(sphere_one.get_intersection_volume(sphere_two), PI * 11.0 / 12.0)
+        assert_eq!(sphere_one.get_intersection_volume(&sphere_two), PI * 11.0 / 12.0)
     }
 
 }

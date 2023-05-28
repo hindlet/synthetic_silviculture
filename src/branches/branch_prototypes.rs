@@ -92,7 +92,7 @@ impl BranchPrototypeData {
     /// calculates and returns the possible bounds of the branch at max age for a set of possible rotations
     /// 
     /// used to decide on an optimal rotation for a new branch module
-    pub fn get_possible_bounds(&self, max_length: f32, initial_rot: Vector3, possible_rots: Vec<Vector3>, root_pos: Vector3) -> Vec<BoundingSphere>{
+    pub fn get_possible_bounds(&self, max_length: f32, initial_rot: Vector3, possible_rots: &Vec<Vector3>, root_pos: Vector3) -> Vec<BoundingSphere>{
         
         // calculate the branch node positions at max age
 

@@ -62,6 +62,7 @@ pub struct PlantGrowthControlFactors {
     pub max_branch_segment_length: f32,
     pub branch_segment_length_scaling_coef: f32,
     pub tropism_time_control: f32,
+    pub branching_angle: f32,
 }
 
 
@@ -129,6 +130,7 @@ impl Default for PlantGrowthControlFactors {
             max_branch_segment_length: 1.0,
             branch_segment_length_scaling_coef: 1.0,
             tropism_time_control: 1.0,
+            branching_angle: 0.0,
         }
     }
 }   

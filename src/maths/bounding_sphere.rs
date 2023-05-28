@@ -182,7 +182,7 @@ impl BoundingSphere {
     }
 
     // this function only works if we know that distace <= r1 + r2 but since we'll only call it on bounds we know are intersecting thats fine
-    pub fn get_intersection_volume(&self, other: BoundingSphere) -> f32 {
+    pub fn get_intersection_volume(&self, other: &BoundingSphere) -> f32 {
         let distance = (self.centre - other.centre).magnitude();
         let volume = (PI / (12.0 * distance)) * (self.radius + other.radius - distance).powi(2) * (distance.powi(2) + 2.0 * distance * (self.radius + other.radius) - 3.0 * (self.radius - other.radius).powi(2));
         volume

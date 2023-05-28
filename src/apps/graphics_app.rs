@@ -27,6 +27,7 @@ use super::super::{
         camera_maths::Camera,
         terrain_graphics::*,
     },
+    debug::debug_log_branches,
 };
 use super::*;
 use egui_winit_vulkano::Gui;
@@ -75,7 +76,6 @@ pub struct GraphicsAppBuilder {
     cell_settings: Option<(u32, f32)>,
     plant_death_rate: Option<f32>,
     start_plants: u32,
-    has_plants: bool,
 
 }
 
@@ -133,8 +133,7 @@ impl GraphicsTreeApp {
             time_step: None,
             cell_settings: None,
             plant_death_rate: None,
-            start_plants: 1,
-            has_plants: false,
+            start_plants: 0,
         }
     }
 
@@ -498,7 +497,7 @@ impl GraphicsAppBuilder {
         let branch_types = self.prototypes.clone().unwrap_or(DEFAULT_BRANCH_TYPES);
         let cell_settings = self.cell_settings.unwrap_or(DEFAULT_CELL_SETTINGS);
         let plant_death_rate = self.plant_death_rate.unwrap_or(DEFAULT_PLANT_DEATH_RATE);
-        let has_plants = self.prototypes.is_none();
+        let has_plants = self.start_plants > 0;
         
 
         ///////////////// world
@@ -558,7 +557,7 @@ impl GraphicsAppBuilder {
             // mesh queue
             world.spawn(MeshUpdateQueue::new_from_single(root_branch_id));
             update_schedule.add_systems((
-                // update_branch_bounds,
+                update_branch_bounds,
                 // update_plant_bounds,
                 // update_plant_intersections,
                 calculate_branch_light_exposure,
@@ -576,18 +575,6 @@ impl GraphicsAppBuilder {
         }
         else {world.spawn(MeshUpdateQueue::new());}
 
-
-
-
-        
-
-        ///////////////// sceduling
-
-
-        
-        
-
-        ////////// rendered stuff
 
 
         /////// base graphics

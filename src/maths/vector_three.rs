@@ -267,6 +267,17 @@ impl Add for Vector3 {
     }
 }
 
+impl Add<&Vector3> for Vector3 {
+    type Output = Self;
+    fn add(self, rhs: &Vector3) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
 impl AddAssign for Vector3 {
     fn add_assign(&mut self, rhs: Self) {
         *self = Self {
