@@ -361,7 +361,7 @@ fn get_possible_new_branch_nodes(
         if let Ok(node_data) = node_data_query.get(id) {
             if node_data.0.growth_vigor <= branch_min_vigor {continue;}
 
-            let (normal, weight) = get_new_normal(plant_angle, plant_distr_control, parent_normal, tropism_dir, prototype_data, max_branch_length, node_data.1.position, other_branch_bounds);
+            let (normal, weight) = get_new_normal(plant_angle, plant_distr_control, parent_normal, tropism_dir, prototype_data, max_branch_length, node_data.1.position + node_data.1.tropism_offset, other_branch_bounds);
 
             possible_nodes.push(((id, node_data.1.thickening_factor, normal), weight));
         }
@@ -602,7 +602,7 @@ pub fn calculate_segment_lengths_and_tropism(
                     // update the root node position based on the position of the parent node (they're the same)
                     let root_position = {
                         if let Ok(parent_node) = branch_node_query.get(branch_data.parent_node.unwrap()) {
-                            parent_node.position
+                            parent_node.position + parent_node.tropism_offset
                         } else {panic!("failed to get branch parent node")}
                     };
                     branch_data.root_position = root_position.transform(parent_rotation_matrix) + parent_offset;
@@ -619,11 +619,13 @@ pub fn calculate_segment_lengths_and_tropism(
                         let segment_age = (branch_age - node_pair[1].phys_age).max(0.0);
 
 
-                        let length = max_length.min(scale * segment_age); // i despise that I can't just min(a,b) for floats
+                        let length = max_length.min(scale * segment_age);
 
                         let new_offset = directions[prototype_ref.0][i] * length;
-                        let tropism_offset = ((grav * plant_tropism)/(segment_age + plant_tropism)) * (length / max_length);
+                        let tropism_offset = grav * plant_tropism * length / max_length;
 
+
+                        node_pair[1].tropism_offset = tropism_offset;
                         node_pair[1].position = node_pair[0].position + new_offset;
 
                         if node_pair[1].position == Vector3::ZERO() && node_pairs[i][0] != branch_data.root_node.unwrap() {
@@ -664,7 +666,7 @@ pub fn update_branch_bounds(
 
         for id in get_nodes_base_to_tip(&nodes_connections_query, data.root_node.unwrap()) {
             if let Ok(node_data) = node_data.get(id) {
-                node_positions.push(node_data.position.clone().transform(branch_rotation_matrix));
+                node_positions.push(node_data.position.clone().transform(branch_rotation_matrix) + node_data.tropism_offset);
             }
         }
 

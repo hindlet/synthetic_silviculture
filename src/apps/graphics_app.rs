@@ -657,7 +657,7 @@ impl GraphicsAppBuilder {
             terrain_settings: self.terrain_graphics_settings,
             gui,
             // this made me want to give up on the whole project - 2023-05-21: the second value was [0.0; 3] which caused no 3d graphics to render, I had been debugging for 3 days
-            camera_state: ([-10.0, 0.0, 0.0], [1.0, 0.0, 0.0]),
+            camera_state: ([-2.0, 0.0, 0.0], [1.0, 0.0, 0.0]),
             lights: self.lights.clone().unwrap_or(DEFAULT_LIGHTS)
         }
     }

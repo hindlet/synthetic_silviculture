@@ -219,7 +219,7 @@ pub fn get_node_data_and_connections_base_to_tip(
     let mut thicknesses: Vec<f32> = Vec::new();
     for id in nodes.iter() {
         if let Ok(node_data) = nodes_query.get(*id) {
-            positions.push(node_data.position);
+            positions.push(node_data.position + node_data.tropism_offset);
             thicknesses.push(node_data.thickness);
         } else {
             panic!("oh god oh why")
