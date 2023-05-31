@@ -10,7 +10,7 @@ fn main() {
 
     let app = GraphicsTreeApp::new("heightmap_terrain_example".into())
         .with_heightmap_terrain(100.0, [0.0, 0.0, 0.0], 50, 10.0, "assets/Noise_Texture.png".into(), GRASS_COLOUR, ROCK_COLOUR, GRASS_SLOPE_THRESHOLD, GRASS_BLEND_AMOUNT)
-        .set_lights(Vec::new(), vec![([2.0, -1.0, 0.0], 1.0)])
+        .set_light(([2.0, -1.0, 0.0], 1.0))
         .build();
 
     app.run();

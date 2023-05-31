@@ -1,9 +1,14 @@
 pub mod graphics_app;
 pub mod looped_app;
+use std::ops::RangeInclusive;
+
 use bevy_ecs::{
     prelude::*,
     system::SystemState
 };
+use rand::{Rng, thread_rng};
+
+use crate::maths::colliders::mesh_collider::MeshCollider;
 
 use super::{
     branches::{
@@ -16,20 +21,27 @@ use super::{
         plant::*,
         plant_development::*,
     },
-    maths::vector_three::Vector3,
+    maths::{
+        vector_three::Vector3,
+        colliders::Collider,
+    },
 };
 
 
 //////////////////// consts
 const SAMPLER_SIZE: (u32, u32) = (500, 500);
-const DEFAULT_GRAVITY_STRENGTH: f32 = 1.0;
+
+const DEFAULT_GRAVITY_STRENGTH: f32 = 0.5;
 const DEFAULT_TIMESTEP: f32 = 1.0;
-const DEFAULT_BRANCH_TYPES: Vec<(f32, Vec<Vec<u32>>, Vec<[f32; 3]>)> = Vec::new();
-const DEFAULT_BRANCH_CONTIDITIONS: (Vec<(f32, f32)>, f32, f32) = (Vec::new(), 1.0, 1.0);
 const DEFAULT_CELL_SETTINGS: (u32, f32) = (5, 0.5);
 const DEFAULT_PLANT_DEATH_RATE: f32 = 1.0;
-const DEFAULT_LIGHTS: (Vec<([f32; 3], f32)>, Vec<([f32; 3], f32)>) = (Vec::new(), Vec::new());
-const DEFAULT_TERRAIN: (f32, Vector3, Option<(u32, f32, String)>) = (100.0, Vector3::ZERO(), None);
+const DEFAULT_LIGHT: ([f32; 3], f32) = ([0.0, -1.0, 0.0], 0.5);
+const DEFAULT_ENVIRONMENTAL_PARAMS: (f32, f32, f32) = (10.0, 0.01, 110.0); // based on the UK
+const DEFAULT_TERRAIN: (f32, [f32; 3]) = (50.0, [0.0, 0.0, 0.0]);
+
+const DEFAULT_BRANCH_TYPES: Vec<(f32, Vec<Vec<u32>>, Vec<[f32; 3]>)> = Vec::new();
+const DEFAULT_BRANCH_CONTIDITIONS: (Vec<(f32, f32)>, f32, f32) = (Vec::new(), 1.0, 1.0);
+const DEFAULT_PLANT_SPECIES: Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))> = Vec::new();
 
 enum TerrainType {
     Absent,

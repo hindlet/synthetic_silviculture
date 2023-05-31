@@ -1,14 +1,16 @@
 #![allow(unused_imports)]
 
 
-pub mod maths;
-pub mod plants;
-pub mod branches;
-pub mod graphics;
-pub mod fixed_schedule;
-pub mod environment;
-pub mod debug;
-pub mod apps;
+mod maths;
+mod plants;
+mod branches;
+mod graphics;
+mod fixed_schedule;
+mod environment;
+mod debug;
 
+
+pub mod apps;
+pub use plants::plant::{PlantGrowthControlFactors, PlantPlasticityParameters};
 
 

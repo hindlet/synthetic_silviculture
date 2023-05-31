@@ -139,4 +139,21 @@ mod mesh_collider_tests {
         assert_eq!(hit.hit_position, [-2, 3, 0].into());
         assert_eq!(hit.hit_distance, 3.0);
     }
+
+    #[test]
+    fn as_plane_test() {
+        let collider = MeshCollider::new(
+            vec![
+            [-25.0, 0.0, -25.0].into(),
+            [-25.0, 0.0, 25.0].into(),
+            [25.0, 0.0, -25.0].into(),
+            [25.0, 0.0, 25.0].into()],
+            vec![0, 3, 2, 3, 0, 1]
+        );
+
+        let hit = collider.check_ray([5, 10, 5], [0, -1, 0], None).unwrap();
+
+        assert_eq!(hit.hit_position, [5, 0, 5].into());
+        assert_eq!(hit.hit_distance, 10.0);
+    }
 }

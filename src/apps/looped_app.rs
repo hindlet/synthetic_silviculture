@@ -9,7 +9,7 @@ pub struct LoopedTreeApp {
     update_schedule: Schedule,
     output: OutputType,
 
-    terrain_settings: (f32, Vector3, Option<(u32, f32, String)>), // size, centre, verts per side, height mult, path
+    // terrain_settings: (f32, Vector3, Option<(u32, f32, String)>), // size, centre, verts per side, height mult, path
     gravity_strength: f32,
     time_step: f32,
     cell_settings: (u32, f32),
@@ -22,7 +22,7 @@ impl Default for LoopedTreeApp {
             update_schedule: Schedule::new(),
             output: OutputType::Absent,
 
-            terrain_settings: DEFAULT_TERRAIN,
+            // terrain_settings: DEFAULT_TERRAIN,
             gravity_strength: DEFAULT_GRAVITY_STRENGTH,
             time_step: DEFAULT_TIMESTEP,
             cell_settings: DEFAULT_CELL_SETTINGS,
@@ -41,7 +41,7 @@ impl LoopedTreeApp {
         self.update_schedule = Schedule::new();
         self.output = OutputType::Absent;
 
-        self.terrain_settings = DEFAULT_TERRAIN;
+        // self.terrain_settings = DEFAULT_TERRAIN;
         self.gravity_strength = DEFAULT_GRAVITY_STRENGTH;
         self.time_step = DEFAULT_TIMESTEP;
         self.cell_settings = DEFAULT_CELL_SETTINGS;

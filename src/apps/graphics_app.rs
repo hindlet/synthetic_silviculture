@@ -9,6 +9,7 @@ use super::super::{
     plants::{
         plant::*,
         plant_development::*,
+        plant_selection::*,
     },
     environment::*,
     environment::{
@@ -56,26 +57,29 @@ use vulkano::{
 
 
 
-#[derive(Debug)]
 pub struct GraphicsAppBuilder {
     // features
     has_terrain: bool,
     has_gui: bool,
     output: u32,
 
-
     // settings
     window_title: String,
     terrain_settings: Option<(f32, Vector3, Option<(u32, f32, String)>)>, // size, centre, verts per side, height mult, path
     terrain_graphics_settings: Option<([f32; 3], [f32; 3], f32, f32)>,
-    lights: Option<(Vec<([f32; 3], f32)>, Vec<([f32; 3], f32)>)>,
+    light: Option<([f32; 3], f32)>,
+
     gravity_strength: Option<f32>,
-    prototype_conditions: Option<(Vec<(f32, f32)>, f32, f32)>,
-    prototypes: Option<Vec<(f32, Vec<Vec<u32>>,  Vec<[f32; 3]>)>>,
     time_step: Option<f32>,
     cell_settings: Option<(u32, f32)>,
     plant_death_rate: Option<f32>,
+    environmental_params: Option<(f32, f32, f32)>, // temp at y=0, temp falloff, moisture
+
+    prototype_conditions: Option<(Vec<(f32, f32)>, f32, f32)>,
+    prototypes: Option<Vec<(f32, Vec<Vec<u32>>,  Vec<[f32; 3]>)>>,
     start_plants: u32,
+    plant_species: Option<Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))>>,
+
 
 }
 
@@ -104,7 +108,7 @@ pub struct GraphicsTreeApp {
     terrain: TerrainType,
     terrain_pipeline: Option<Arc<GraphicsPipeline>>,
     terrain_settings: Option<([f32; 3], [f32; 3], f32, f32)>,
-    lights: (Vec<([f32; 3], f32)>, Vec<([f32; 3], f32)>),
+    light: ([f32; 3], f32),
     gui: Option<Gui>,
 
     camera_state: ([f32; 3], [f32; 3]),
@@ -117,6 +121,8 @@ impl GraphicsTreeApp {
     /// creates a new app builder to add functionality to with a given window title
     /// 
     /// WARNING - Only works if the vulkan graphics library is installed on your system
+    /// 
+    /// Please note that if no terrain is specified, plants will not be able to reproduce and initial plants will be spawned on a 50m by 50m square at y=0
     pub fn new(window_title: String) -> GraphicsAppBuilder{
         GraphicsAppBuilder {
             has_terrain: false,
@@ -127,13 +133,16 @@ impl GraphicsTreeApp {
             terrain_settings: None,
             terrain_graphics_settings: None,
             gravity_strength: None,
-            lights: None,
+            light: None,
             prototypes: None,
             prototype_conditions: None,
             time_step: None,
             cell_settings: None,
             plant_death_rate: None,
             start_plants: 0,
+
+            environmental_params: None,
+            plant_species: None,
         }
     }
 
@@ -153,7 +162,6 @@ impl GraphicsTreeApp {
         let graphics_pass = self.graphics_pass.clone();
         let mut branch_pipeline = self.branch_pipeline.clone();
         let mut terrain_pipeline = self.terrain_pipeline.clone();
-        let lights = self.lights.clone();
         
 
         let mut camera = Camera::new(Some(self.camera_state.0), Some(self.camera_state.1), None, None);
@@ -161,8 +169,6 @@ impl GraphicsTreeApp {
         let uniform_allocator = create_uniform_buffer_allocator(&self.memory_allocator);
         let descriptor_set_allocator = StandardDescriptorSetAllocator::new(self.device.clone());
         let command_buffer_allocator = StandardCommandBufferAllocator::new(self.device.clone(), Default::default());
-
-        let branch_lighting_uniforms = get_branch_light_buffers(lights.0.clone(), lights.1.clone(), &self.memory_allocator);
 
 
         let output = Rc::new(RefCell::new(TreeAppOutput{data: None, meshes: None}));
@@ -295,19 +301,19 @@ impl GraphicsTreeApp {
                         TerrainType::Absent => {},
 
                         TerrainType::Flat => {
-                            let terrain_uniforms = create_flat_uniform_buffer(&swapchain, &camera, self.terrain_settings.unwrap().0, &uniform_allocator);
-                            add_flat_terrain_draw_commands(&mut secondary_builder, terrain_pipeline.as_ref().unwrap(), &descriptor_set_allocator, &terrain_uniforms, &get_flat_light_buffers(lights.0.clone(), lights.1.clone(), &memory_allocator), 0, &mut world);
+                            let terrain_uniforms = create_flat_uniform_buffer(&swapchain, &camera, self.light, self.terrain_settings.unwrap().0, &uniform_allocator);
+                            add_flat_terrain_draw_commands(&mut secondary_builder, terrain_pipeline.as_ref().unwrap(), &descriptor_set_allocator, &terrain_uniforms, 0, &mut world);
                         },
 
                         TerrainType::Bumpy => {
-                            let terrain_uniforms = create_heightmap_uniform_buffer(&swapchain, &camera, self.terrain_settings.unwrap().0, self.terrain_settings.unwrap().1, self.terrain_settings.unwrap().2, self.terrain_settings.unwrap().3, &uniform_allocator);
-                            add_heightmap_terrain_draw_commands(&mut secondary_builder, terrain_pipeline.as_ref().unwrap(), &descriptor_set_allocator, &terrain_uniforms, &get_heightmap_light_buffers(lights.0.clone(), lights.1.clone(), &memory_allocator), 0, &mut world);
+                            let terrain_uniforms = create_heightmap_uniform_buffer(&swapchain, &camera, self.light, self.terrain_settings.unwrap().0, self.terrain_settings.unwrap().1, self.terrain_settings.unwrap().2, self.terrain_settings.unwrap().3, &uniform_allocator);
+                            add_heightmap_terrain_draw_commands(&mut secondary_builder, terrain_pipeline.as_ref().unwrap(), &descriptor_set_allocator, &terrain_uniforms, 0, &mut world);
                         }
                     }
 
                     ////// branch_graphics
-                    let branch_uniforms = create_branch_uniform_buffer(&swapchain, &camera, &uniform_allocator);
-                    add_branch_draw_commands(&mut secondary_builder, &branch_pipeline, &descriptor_set_allocator, &branch_uniforms, &branch_lighting_uniforms, &mut world);
+                    let branch_uniforms = create_branch_uniform_buffer(&swapchain, &camera, self.light, &uniform_allocator);
+                    add_branch_draw_commands(&mut secondary_builder, &branch_pipeline, &descriptor_set_allocator, &branch_uniforms, &mut world);
                     
 
                     builder.execute_commands(secondary_builder.build().unwrap()).unwrap();
@@ -388,12 +394,11 @@ impl GraphicsAppBuilder {
         self
     }
 
-    /// sets the light data used for the graphics drawing, currently only point lights and directional lights are supported
+    /// sets the light data used for the graphics drawing, currently only directional lights are supported
     /// 
-    /// - Point Light: (position, intensity)
     /// - Directional Light: (direction, intensity)
-    pub fn set_lights(&mut self, point_lights: Vec<([f32; 3], f32)>, directional_lights: Vec<([f32; 3], f32)>) -> &mut GraphicsAppBuilder {
-        self.lights = Some((point_lights, directional_lights));
+    pub fn set_light(&mut self, directional_light: ([f32; 3], f32)) -> &mut GraphicsAppBuilder {
+        self.light = Some(directional_light);
         self
     }
 
@@ -429,8 +434,8 @@ impl GraphicsAppBuilder {
     /// sets the plant species used for the simulation, overrides default set of plant species used
     /// 
     /// Plant species are used for initial plant spawning and spawning of new plants without seeding
-    pub fn set_plant_species(&mut self) -> &mut GraphicsAppBuilder {
-
+    pub fn set_plant_species(&mut self, species: Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))>) -> &mut GraphicsAppBuilder {
+        self.plant_species = Some(species);
 
         self
     }
@@ -469,10 +474,10 @@ impl GraphicsAppBuilder {
 
     /// sets the environmental parameters used by the simulation
     /// 
-    /// - Temperature: Degrees Celsius
+    /// - Temperature: (Degrees Celsius at a height of y=0, rate of temperature decrease away from y=0)
     /// - Moisture: Average annual precipitation, cm
-    pub fn set_environmental_parameters(&mut self, temperature: f32, moisture: f32) -> &mut GraphicsAppBuilder {
-        
+    pub fn set_environmental_parameters(&mut self, temperature: (f32, f32), moisture: f32) -> &mut GraphicsAppBuilder {
+        self.environmental_params = Some((temperature.0, temperature.1, moisture));
 
         self
     }
@@ -498,7 +503,11 @@ impl GraphicsAppBuilder {
         let cell_settings = self.cell_settings.unwrap_or(DEFAULT_CELL_SETTINGS);
         let plant_death_rate = self.plant_death_rate.unwrap_or(DEFAULT_PLANT_DEATH_RATE);
         let has_plants = self.start_plants > 0;
+        let plant_species = self.plant_species.clone().unwrap_or(DEFAULT_PLANT_SPECIES);
+        let environmental_params = self.environmental_params.unwrap_or(DEFAULT_ENVIRONMENTAL_PARAMS);
         
+        let branch_sampler = BranchPrototypesSampler::create(branch_conditions.0, SAMPLER_SIZE, branch_conditions.1, branch_conditions.2);
+        let plant_species_sampler = PlantSpeciesSampler::new(plant_species);
 
         ///////////////// world
         let mut world = World::new();
@@ -506,56 +515,99 @@ impl GraphicsAppBuilder {
         ///////////////// resources
         create_gravity_resource(&mut world, [0, -1, 0], gravity_strength);
         create_physical_age_time_step(&mut world, time_step);
-        world.insert_resource(BranchPrototypesSampler::create(branch_conditions.0, SAMPLER_SIZE, branch_conditions.1, branch_conditions.2));
+
+        
+        
         world.insert_resource(BranchPrototypes::new(branch_types));
         world.insert_resource(LightCells::new(cell_settings.0 as i32, cell_settings.1));
         world.insert_resource(PlantDeathRate::new(plant_death_rate));
 
+
+        let (terrain_type, plant_spawning_bounds, terrain_collider_ref) = {
+            if self.has_terrain {     
+                let settings = self.terrain_settings.clone().unwrap();
+                if settings.2.is_none() {
+                    let plant_spawn_bounds = spawn_flat_terrain(settings.0, settings.1, &mut world);
+                    (TerrainType::Flat, plant_spawn_bounds.0, plant_spawn_bounds.1)
+                }
+                else {
+                    let subsettings = settings.2.clone().unwrap();
+                    let plant_spawn_bounds = spawn_heightmap_terrain(settings.0, subsettings.0, subsettings.1, settings.1, subsettings.2, &mut world);
+                    (TerrainType::Bumpy, plant_spawn_bounds.0, plant_spawn_bounds.1)
+                }
+            }
+            else {
+                let plant_spawn_bounds = spawn_flat_terrain(DEFAULT_TERRAIN.0, DEFAULT_TERRAIN.1, &mut world);
+                (TerrainType::Absent, plant_spawn_bounds.0, plant_spawn_bounds.1)
+            }
+        };
+
+
+
+
         let mut update_schedule = Schedule::new();
 
-        // spawn initial plant
-        // TODO: change how it is decided
+        // spawn initial plant(s)
+
+        let mut initial_plant_data = Vec::new();
+        let mut rng = thread_rng();
+
+        for _i in 0..self.start_plants {
+
+            let (x, z) = (rng.gen_range(plant_spawning_bounds.1.clone()), rng.gen_range(plant_spawning_bounds.2.clone()));
+
+            let hit_pos = terrain_collider_ref.check_ray([x, plant_spawning_bounds.0 + 5.0, z], [0, -1, 0], None).unwrap();
+
+            initial_plant_data.push((plant_species_sampler.get_plant(environmental_params.0 + hit_pos.hit_position.y * environmental_params.1, environmental_params.2), [x, hit_pos.hit_position.y, z]))
+        }
+
+        let mut root_ids = Vec::new();
+        for data in initial_plant_data {
+
+            if let (Some(spawn_data), pos) = data {
+
+                let root_node_id = world.spawn(BranchNodeBundle{
+                    data: BranchNodeData{
+                        thickening_factor: spawn_data.0.thickening_factor,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }).id();
+
+                let root_branch_id = world.spawn(BranchBundle{
+                    data: BranchData {
+                        root_node: Some(root_node_id),
+                        root_position: pos.into(),
+                        ..Default::default()
+                    },
+                    prototype: BranchPrototypeRef(branch_sampler.get_prototype_index(spawn_data.0.apical_control, branch_conditions.2)),
+                    ..Default::default()
+                }).id();
+
+                world.spawn(PlantBundle{
+                    growth_factors: spawn_data.0,
+                    data: PlantData {
+                        root_node: Some(root_branch_id),
+                        position: pos.into(),
+                        ..Default::default()
+                    },
+                    plasticity_params: spawn_data.1,
+                    ..Default::default()
+                });
+
+                root_ids.push(root_branch_id);
+            }
+        }
+        world.insert_resource(branch_sampler);
         
         // plant
         if has_plants {
-            let root_node_id = world.spawn(BranchNodeBundle{
-                data: BranchNodeData{
-                    thickening_factor: 0.05,
-                    ..Default::default()
-                },
-                ..Default::default()
-            }).id();
 
-            let root_branch_id = world.spawn(BranchBundle{
-                data: BranchData {
-                    root_node: Some(root_node_id),
-                    ..Default::default()
-                },
-                prototype: BranchPrototypeRef(0),
-                ..Default::default()
-            }).id();
-
-            world.spawn(PlantBundle{
-                growth_factors: PlantGrowthControlFactors{
-                    max_age: 200.0,
-                    max_vigor: 42.0,
-                    min_vigor: 2.0,
-                    apical_control: 0.62,
-                    growth_rate: 0.19,
-                    tropism_time_control: 0.38,
-                    max_branch_segment_length: 1.0,
-                    branch_segment_length_scaling_coef: 1.0,
-                    ..Default::default()
-                },
-                data: PlantData {
-                    root_node: Some(root_branch_id),
-                    ..Default::default()
-                },
-                ..Default::default()
-            });
-
+            if root_ids.len() == 0 {panic!("No intial plants generated")}
+            
             // mesh queue
-            world.spawn(MeshUpdateQueue::new_from_single(root_branch_id));
+            world.spawn(MeshUpdateQueue::new_from_many(root_ids));
+
             update_schedule.add_systems((
                 update_branch_bounds,
                 // update_plant_bounds,
@@ -590,22 +642,16 @@ impl GraphicsAppBuilder {
         /////// subpasses and pipelines
         
 
-        let (terrain_type, terrain_pipeline) = {
-            if self.has_terrain {     
-                let settings = self.terrain_settings.clone().unwrap();
-                if settings.2.is_none() {
-                    spawn_flat_terrain(settings.0, settings.1, &mut world);
-                    create_terrain_mesh_buffers(&memory_allocator, &mut world);
-                    (TerrainType::Flat, Some(get_flat_terrain_pipeline(window_dimensions, &device, &render_pass, 0)))
-                }
-                else {
-                    let subsettings = settings.2.clone().unwrap();
-                    spawn_heightmap_terrain(settings.0, subsettings.0, subsettings.1, settings.1, subsettings.2, &mut world);
-                    create_terrain_mesh_buffers(&memory_allocator, &mut world);
-                    (TerrainType::Bumpy, Some(get_heightmap_terrain_pipeline(window_dimensions, &device, &render_pass, 0)))
-                }
+        let terrain_pipeline = match terrain_type {
+            TerrainType::Absent => None,
+            TerrainType::Bumpy => {
+                create_terrain_mesh_buffers(&memory_allocator, &mut world);
+                Some(get_heightmap_terrain_pipeline(window_dimensions, &device, &render_pass, 0))
+            },
+            TerrainType::Flat => {
+                create_terrain_mesh_buffers(&memory_allocator, &mut world);
+                Some(get_flat_terrain_pipeline(window_dimensions, &device, &render_pass, 0))
             }
-            else {(TerrainType::Absent, None)}
         };
 
         let branch_pipeline = get_branch_pipeline(window_dimensions, &device, &render_pass, 0);
@@ -658,7 +704,7 @@ impl GraphicsAppBuilder {
             gui,
             // this made me want to give up on the whole project - 2023-05-21: the second value was [0.0; 3] which caused no 3d graphics to render, I had been debugging for 3 days
             camera_state: ([-2.0, 0.0, 0.0], [1.0, 0.0, 0.0]),
-            lights: self.lights.clone().unwrap_or(DEFAULT_LIGHTS)
+            light: self.light.unwrap_or(DEFAULT_LIGHT)
         }
     }
 

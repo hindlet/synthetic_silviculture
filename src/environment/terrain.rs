@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
 use image::{DynamicImage, GenericImageView};
+use std::ops::RangeInclusive;
 use super::super::{
     maths::{
         colliders::{Collider, plane_collider::PlaneCollider, mesh_collider::MeshCollider},
@@ -17,23 +18,15 @@ pub struct TerrainTag;
 
 /// Wrapper for a Collider
 #[derive(Component)]
-pub struct TerrainCollider<T: Collider> {
-    collider: T
+pub struct TerrainCollider {
+    collider: MeshCollider,
 }
 
 
 #[derive(Bundle)]
-pub struct HeightMapTerrainBundle {
+pub struct TerrainBundle {
     tag: TerrainTag,
-    collider: TerrainCollider<MeshCollider>,
-    mesh: Mesh
-}
-
-
-#[derive(Bundle)]
-pub struct FlatTerrainBundle {
-    tag: TerrainTag,
-    collider: TerrainCollider<PlaneCollider>,
+    collider: TerrainCollider,
     mesh: Mesh
 }
 
@@ -48,7 +41,7 @@ pub fn spawn_heightmap_terrain(
     centre: impl Into<Vector3>,
     heightmap_path: String,
     world: &mut World,
-) {
+) -> ((f32, RangeInclusive<f32>, RangeInclusive<f32>), MeshCollider) {
     let size = size.max(0.000000001);
     let vertices_per_side = vertices_per_side.max(2);
     let centre: Vector3 = centre.into();
@@ -61,9 +54,12 @@ pub fn spawn_heightmap_terrain(
     let mut vertices: Vec<Vector3> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
 
+    let mut max_height = -10.0;
+
     for x in 0..vertices_per_side {
         for y in 0..vertices_per_side {
             let height = (heightmap.get_pixel(x * x_step, y * y_step).0[0] as f32 / 255.0) * height_scale;
+            if height > max_height {max_height = height};
             vertices.push([start_x + x as f32 * tri_size, height + centre.y, start_y + y as f32 * tri_size].into());
             if x < vertices_per_side - 1 && y < vertices_per_side - 1 {
                 indices.push(vertices.len() as u32 - 1);
@@ -77,15 +73,19 @@ pub fn spawn_heightmap_terrain(
         }
     }
 
+    let collider = MeshCollider::new(vertices.clone(), indices.clone());
+
     
     let mesh: Mesh = Mesh::from((vertices.clone(), indices.clone())).recalculate_normals().clone();
     world.spawn(
-        HeightMapTerrainBundle{
+        TerrainBundle{
             tag: TerrainTag,
-            collider: TerrainCollider{collider: MeshCollider::new(vertices, indices)},
+            collider: TerrainCollider{collider: collider.clone()},
             mesh
         }
     );
+
+    ((max_height, (centre.x - size)..=(centre.x + size), (centre.z - size)..=(centre.z + size)), collider)
 }
 
 
@@ -93,27 +93,39 @@ pub fn spawn_flat_terrain(
     size: f32,
     centre: impl Into<Vector3>,
     world: &mut World,
-) {
+) -> ((f32, RangeInclusive<f32>, RangeInclusive<f32>), MeshCollider){
     let size = size.max(0.000000001);
     let centre: Vector3 = centre.into();
+    let half_size = size / 2.0;
 
     let vertices: Vec<Vector3> = vec![
-        [centre.x - size / 2.0, centre.y, centre.z - size / 2.0].into(),
-        [centre.x - size / 2.0, centre.y, centre.z + size / 2.0].into(),
-        [centre.x + size / 2.0, centre.y, centre.z - size / 2.0].into(),
-        [centre.x + size / 2.0, centre.y, centre.z + size / 2.0].into()
+        [centre.x - half_size, centre.y, centre.z - half_size].into(),
+        [centre.x - half_size, centre.y, centre.z + half_size].into(),
+        [centre.x + half_size, centre.y, centre.z - half_size].into(),
+        [centre.x + half_size, centre.y, centre.z + half_size].into()
     ];
     let indices: Vec<u32> = vec![
         0, 3, 2, 3, 0, 1
     ];
 
     let mesh: Mesh = Mesh::from((vertices.clone(), indices.clone())).recalculate_normals().clone();
+    let collider = MeshCollider::new(vertices.clone(), indices.clone());
 
     world.spawn(
-        FlatTerrainBundle{
+        TerrainBundle{
             tag: TerrainTag,
-            collider: TerrainCollider { collider: PlaneCollider::new([centre.x, centre.y, centre.z], [size, size]) },
+            collider: TerrainCollider {collider: collider.clone()},
             mesh
         }
     );
+
+    ((centre.y, (centre.x - half_size)..=(centre.x + half_size), (centre.z - half_size)..=(centre.z + half_size)), collider)
+}
+
+
+
+pub fn seeding(
+    terrain_query: Query<&TerrainCollider>
+) {
+
 }

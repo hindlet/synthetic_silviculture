@@ -63,6 +63,7 @@ pub struct PlantGrowthControlFactors {
     pub branch_segment_length_scaling_coef: f32,
     pub tropism_time_control: f32,
     pub branching_angle: f32,
+    pub thickening_factor: f32,
 }
 
 
@@ -131,6 +132,7 @@ impl Default for PlantGrowthControlFactors {
             branch_segment_length_scaling_coef: 1.0,
             tropism_time_control: 1.0,
             branching_angle: 0.0,
+            thickening_factor: 0.01,
         }
     }
 }   

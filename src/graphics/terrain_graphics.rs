@@ -240,63 +240,63 @@ pub fn get_heightmap_terrain_pipeline(
 }
 
 
-pub fn get_heightmap_light_buffers(
-    point_lights: Vec<([f32; 3], f32)>,
-    directional_lights: Vec<([f32; 3], f32)>,
-    mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
-) -> (Subbuffer<[heightmap_vert_shader::PointLight]>, Subbuffer<[heightmap_vert_shader::DirectionalLight]>) {
+// pub fn get_heightmap_light_buffers(
+//     point_lights: Vec<([f32; 3], f32)>,
+//     directional_lights: Vec<([f32; 3], f32)>,
+//     mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
+// ) -> (Subbuffer<[heightmap_vert_shader::PointLight]>, Subbuffer<[heightmap_vert_shader::DirectionalLight]>) {
 
-    let point_light_data = {
-        let mut data: Vec<heightmap_vert_shader::PointLight> = Vec::new();
-        for light in point_lights.iter() {
-            data.push(heightmap_vert_shader::PointLight {position: light.0.into(), intensity: light.1});
-        }
-        if data.len() == 0 {
-            data = vec![heightmap_vert_shader::PointLight {position: Vector3::ZERO().into(), intensity: 0.0}];
-        }
-        data
-    };
+//     let point_light_data = {
+//         let mut data: Vec<heightmap_vert_shader::PointLight> = Vec::new();
+//         for light in point_lights.iter() {
+//             data.push(heightmap_vert_shader::PointLight {position: light.0.into(), intensity: light.1});
+//         }
+//         if data.len() == 0 {
+//             data = vec![heightmap_vert_shader::PointLight {position: Vector3::ZERO().into(), intensity: 0.0}];
+//         }
+//         data
+//     };
 
-    let point_buffer = Buffer::from_iter(
-        mem_allocator,
-        BufferCreateInfo {
-            usage: BufferUsage::STORAGE_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        point_light_data
-    ).unwrap();
+//     let point_buffer = Buffer::from_iter(
+//         mem_allocator,
+//         BufferCreateInfo {
+//             usage: BufferUsage::STORAGE_BUFFER,
+//             ..Default::default()
+//         },
+//         AllocationCreateInfo {
+//             usage: MemoryUsage::Upload,
+//             ..Default::default()
+//         },
+//         point_light_data
+//     ).unwrap();
 
-    let dir_light_data = {
-        let mut data: Vec<heightmap_vert_shader::DirectionalLight> = Vec::new();
-        for light in directional_lights.iter() {
-            let dir: Vector3 = light.0.into();
-            data.push(heightmap_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1});
-        }
-        if data.len() == 0 {
-            data = vec![heightmap_vert_shader::DirectionalLight {direction: Vector3::ZERO().into(), intensity: 0.0}];
-        }
-        data
-    };
+//     let dir_light_data = {
+//         let mut data: Vec<heightmap_vert_shader::DirectionalLight> = Vec::new();
+//         for light in directional_lights.iter() {
+//             let dir: Vector3 = light.0.into();
+//             data.push(heightmap_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1});
+//         }
+//         if data.len() == 0 {
+//             data = vec![heightmap_vert_shader::DirectionalLight {direction: Vector3::ZERO().into(), intensity: 0.0}];
+//         }
+//         data
+//     };
 
-    let directional_buffer = Buffer::from_iter(
-        mem_allocator,
-        BufferCreateInfo {
-            usage: BufferUsage::STORAGE_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        dir_light_data
-    ).unwrap();
+//     let directional_buffer = Buffer::from_iter(
+//         mem_allocator,
+//         BufferCreateInfo {
+//             usage: BufferUsage::STORAGE_BUFFER,
+//             ..Default::default()
+//         },
+//         AllocationCreateInfo {
+//             usage: MemoryUsage::Upload,
+//             ..Default::default()
+//         },
+//         dir_light_data
+//     ).unwrap();
 
-    (point_buffer, directional_buffer)
-}
+//     (point_buffer, directional_buffer)
+// }
 
 // adds the commands to draw heightmap terrain to the given builder
 pub fn add_heightmap_terrain_draw_commands(
@@ -304,7 +304,7 @@ pub fn add_heightmap_terrain_draw_commands(
     graph_pipeline: &Arc<GraphicsPipeline>,
     descriptor_allocator: &StandardDescriptorSetAllocator,
     vert_uniform_buffer: &Subbuffer<heightmap_vert_shader::Data>,
-    frag_light_buffers: &(Subbuffer<[heightmap_vert_shader::PointLight]>, Subbuffer<[heightmap_vert_shader::DirectionalLight]>),
+    // frag_light_buffers: &(Subbuffer<[heightmap_vert_shader::PointLight]>, Subbuffer<[heightmap_vert_shader::DirectionalLight]>),
     layout_index: u32,
 
     world: &mut World,
@@ -323,7 +323,8 @@ pub fn add_heightmap_terrain_draw_commands(
     let uniforms_set = PersistentDescriptorSet::new(
         descriptor_allocator,
         layout.clone(),
-        [WriteDescriptorSet::buffer(0, vert_uniform_buffer.clone()), WriteDescriptorSet::buffer(1, frag_light_buffers.0.clone()), WriteDescriptorSet::buffer(2, frag_light_buffers.1.clone())],
+        // [WriteDescriptorSet::buffer(0, vert_uniform_buffer.clone()), WriteDescriptorSet::buffer(1, frag_light_buffers.0.clone()), WriteDescriptorSet::buffer(2, frag_light_buffers.1.clone())],
+        [WriteDescriptorSet::buffer(0, vert_uniform_buffer.clone())]
     )
     .unwrap();
 
@@ -346,6 +347,7 @@ pub fn add_heightmap_terrain_draw_commands(
 pub fn create_heightmap_uniform_buffer(
     swapchain: &Arc<Swapchain>,
     camera: &Camera,
+    light: ([f32; 3], f32),
     grass_colour: [f32; 3],
     rock_colour: [f32; 3],
     grass_slope_threshold: f32,
@@ -353,9 +355,11 @@ pub fn create_heightmap_uniform_buffer(
     terrain_uniform: &SubbufferAllocator,
 ) -> Subbuffer<heightmap_vert_shader::Data> {
     let (view, proj) = get_generic_uniforms(swapchain, camera);
+    let dir: Vector3 = light.0.into();
     let data = heightmap_vert_shader::Data {
         view: view.into(),
         proj: proj.into(),
+        light: heightmap_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1},
         grass_colour: grass_colour.into(),
         rock_colour: rock_colour.into(),
         grass_slope_threshold: grass_slope_threshold.into(),
@@ -407,63 +411,63 @@ pub fn get_flat_terrain_pipeline(
 }
 
 
-pub fn get_flat_light_buffers(
-    point_lights: Vec<([f32; 3], f32)>,
-    directional_lights: Vec<([f32; 3], f32)>,
-    mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
-) -> (Subbuffer<[flat_vert_shader::PointLight]>, Subbuffer<[flat_vert_shader::DirectionalLight]>) {
+// pub fn get_flat_light_buffers(
+//     point_lights: Vec<([f32; 3], f32)>,
+//     directional_lights: Vec<([f32; 3], f32)>,
+//     mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
+// ) -> (Subbuffer<[flat_vert_shader::PointLight]>, Subbuffer<[flat_vert_shader::DirectionalLight]>) {
 
-    let point_light_data = {
-        let mut data: Vec<flat_vert_shader::PointLight> = Vec::new();
-        for light in point_lights.iter() {
-            data.push(flat_vert_shader::PointLight {position: light.0.into(), intensity: light.1});
-        }
-        if data.len() == 0 {
-            data = vec![flat_vert_shader::PointLight {position: Vector3::ZERO().into(), intensity: 0.0}];
-        }
-        data
-    };
+//     let point_light_data = {
+//         let mut data: Vec<flat_vert_shader::PointLight> = Vec::new();
+//         for light in point_lights.iter() {
+//             data.push(flat_vert_shader::PointLight {position: light.0.into(), intensity: light.1});
+//         }
+//         if data.len() == 0 {
+//             data = vec![flat_vert_shader::PointLight {position: Vector3::ZERO().into(), intensity: 0.0}];
+//         }
+//         data
+//     };
 
-    let point_buffer = Buffer::from_iter(
-        mem_allocator,
-        BufferCreateInfo {
-            usage: BufferUsage::STORAGE_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        point_light_data
-    ).unwrap();
+//     let point_buffer = Buffer::from_iter(
+//         mem_allocator,
+//         BufferCreateInfo {
+//             usage: BufferUsage::STORAGE_BUFFER,
+//             ..Default::default()
+//         },
+//         AllocationCreateInfo {
+//             usage: MemoryUsage::Upload,
+//             ..Default::default()
+//         },
+//         point_light_data
+//     ).unwrap();
 
-    let dir_light_data = {
-        let mut data: Vec<flat_vert_shader::DirectionalLight> = Vec::new();
-        for light in directional_lights.iter() {
-            let dir: Vector3 = light.0.into();
-            data.push(flat_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1});
-        }
-        if data.len() == 0 {
-            data = vec![flat_vert_shader::DirectionalLight {direction: Vector3::ZERO().into(), intensity: 0.0}];
-        }
-        data
-    };
+//     let dir_light_data = {
+//         let mut data: Vec<flat_vert_shader::DirectionalLight> = Vec::new();
+//         for light in directional_lights.iter() {
+//             let dir: Vector3 = light.0.into();
+//             data.push(flat_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1});
+//         }
+//         if data.len() == 0 {
+//             data = vec![flat_vert_shader::DirectionalLight {direction: Vector3::ZERO().into(), intensity: 0.0}];
+//         }
+//         data
+//     };
 
-    let directional_buffer = Buffer::from_iter(
-        mem_allocator,
-        BufferCreateInfo {
-            usage: BufferUsage::STORAGE_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        dir_light_data
-    ).unwrap();
+//     let directional_buffer = Buffer::from_iter(
+//         mem_allocator,
+//         BufferCreateInfo {
+//             usage: BufferUsage::STORAGE_BUFFER,
+//             ..Default::default()
+//         },
+//         AllocationCreateInfo {
+//             usage: MemoryUsage::Upload,
+//             ..Default::default()
+//         },
+//         dir_light_data
+//     ).unwrap();
 
-    (point_buffer, directional_buffer)
-}
+//     (point_buffer, directional_buffer)
+// }
 
 // adds the commands to draw heightmap terrain to the given builder
 pub fn add_flat_terrain_draw_commands(
@@ -471,7 +475,7 @@ pub fn add_flat_terrain_draw_commands(
     graph_pipeline: &Arc<GraphicsPipeline>,
     descriptor_allocator: &StandardDescriptorSetAllocator,
     vert_uniform_buffer: &Subbuffer<flat_vert_shader::Data>,
-    frag_light_buffers: &(Subbuffer<[flat_vert_shader::PointLight]>, Subbuffer<[flat_vert_shader::DirectionalLight]>),
+    // frag_light_buffers: &(Subbuffer<[flat_vert_shader::PointLight]>, Subbuffer<[flat_vert_shader::DirectionalLight]>),
     layout_index: u32,
 
     world: &mut World,
@@ -490,7 +494,8 @@ pub fn add_flat_terrain_draw_commands(
     let uniforms_set = PersistentDescriptorSet::new(
         descriptor_allocator,
         layout.clone(),
-        [WriteDescriptorSet::buffer(0, vert_uniform_buffer.clone()), WriteDescriptorSet::buffer(1, frag_light_buffers.0.clone()), WriteDescriptorSet::buffer(2, frag_light_buffers.1.clone())],
+        // [WriteDescriptorSet::buffer(0, vert_uniform_buffer.clone()), WriteDescriptorSet::buffer(1, frag_light_buffers.0.clone()), WriteDescriptorSet::buffer(2, frag_light_buffers.1.clone())],
+        [WriteDescriptorSet::buffer(0, vert_uniform_buffer.clone())]
     )
     .unwrap();
 
@@ -513,13 +518,16 @@ pub fn add_flat_terrain_draw_commands(
 pub fn create_flat_uniform_buffer(
     swapchain: &Arc<Swapchain>,
     camera: &Camera,
+    light: ([f32; 3], f32),
     grass_colour: [f32; 3],
     terrain_uniform: &SubbufferAllocator,
 ) -> Subbuffer<flat_vert_shader::Data> {
     let (view, proj) = get_generic_uniforms(swapchain, camera);
+    let dir: Vector3 = light.0.into();
     let data = flat_vert_shader::Data {
         view: view.into(),
         proj: proj.into(),
+        light: flat_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1},
         grass_colour: grass_colour.into(),
     };
     let subbuffer = terrain_uniform.allocate_sized().unwrap();

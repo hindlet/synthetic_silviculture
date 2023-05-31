@@ -237,19 +237,19 @@ fn get_branch_graphics_pipeline_layout(
             ..Default::default()
         });
 
-        let mut map_two = HashMap::default();
-        map_two.insert(Some(0_u32), DescriptorRequirements{
-            memory_read: ShaderStages::VERTEX,
-            ..Default::default()
-        });
+        // let mut map_two = HashMap::default();
+        // map_two.insert(Some(0_u32), DescriptorRequirements{
+        //     memory_read: ShaderStages::VERTEX,
+        //     ..Default::default()
+        // });
 
-        let mut map_three = HashMap::default();
-        map_three.insert(Some(0_u32), DescriptorRequirements{
-            memory_read: ShaderStages::VERTEX,
-            ..Default::default()
-        });
+        // let mut map_three = HashMap::default();
+        // map_three.insert(Some(0_u32), DescriptorRequirements{
+        //     memory_read: ShaderStages::VERTEX,
+        //     ..Default::default()
+        // });
 
-        vec![map_one, map_two, map_three]
+        vec![map_one]
     };
 
     let binding_requirements = vec![
@@ -260,26 +260,26 @@ fn get_branch_graphics_pipeline_layout(
             descriptor_count: Some(1),
             ..Default::default()
         },
-        DescriptorBindingRequirements {
-            descriptor_types: vec![DescriptorType::StorageBuffer],
-            stages: ShaderStages::VERTEX,
-            descriptors: descriptor_requirements.remove(0),
-            descriptor_count: Some(1),
-            ..Default::default()
-        },  
-        DescriptorBindingRequirements {
-            descriptor_types: vec![DescriptorType::StorageBuffer],
-            stages: ShaderStages::VERTEX,
-            descriptors: descriptor_requirements.remove(0),
-            descriptor_count: Some(1),
-            ..Default::default()
-        }
+        // DescriptorBindingRequirements {
+        //     descriptor_types: vec![DescriptorType::StorageBuffer],
+        //     stages: ShaderStages::VERTEX,
+        //     descriptors: descriptor_requirements.remove(0),
+        //     descriptor_count: Some(1),
+        //     ..Default::default()
+        // },  
+        // DescriptorBindingRequirements {
+        //     descriptor_types: vec![DescriptorType::StorageBuffer],
+        //     stages: ShaderStages::VERTEX,
+        //     descriptors: descriptor_requirements.remove(0),
+        //     descriptor_count: Some(1),
+        //     ..Default::default()
+        // }
     ];
     
     let mut buffer_descriptors: BTreeMap<u32, DescriptorSetLayoutBinding> = BTreeMap::default();
     buffer_descriptors.insert(0, DescriptorSetLayoutBinding::from(&binding_requirements[0]));
-    buffer_descriptors.insert(1, DescriptorSetLayoutBinding::from(&binding_requirements[1]));
-    buffer_descriptors.insert(2, DescriptorSetLayoutBinding::from(&binding_requirements[2]));
+    // buffer_descriptors.insert(1, DescriptorSetLayoutBinding::from(&binding_requirements[1]));
+    // buffer_descriptors.insert(2, DescriptorSetLayoutBinding::from(&binding_requirements[2]));
 
 
     let descriptor_set_layout = DescriptorSetLayout::new(
@@ -334,63 +334,63 @@ pub fn get_branch_pipeline(
     pipeline
 }
 
-pub fn get_branch_light_buffers(
-    point_lights: Vec<([f32; 3], f32)>,
-    directional_lights: Vec<([f32; 3], f32)>,
-    mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
-) -> (Subbuffer<[branch_vert_shader::PointLight]>, Subbuffer<[branch_vert_shader::DirectionalLight]>) {
+// pub fn get_branch_light_buffers(
+//     point_lights: Vec<([f32; 3], f32)>,
+//     directional_lights: Vec<([f32; 3], f32)>,
+//     mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
+// ) -> (Subbuffer<[branch_vert_shader::PointLight]>, Subbuffer<[branch_vert_shader::DirectionalLight]>) {
 
-    let point_light_data = {
-        let mut data: Vec<branch_vert_shader::PointLight> = Vec::new();
-        for light in point_lights.iter() {
-            data.push(branch_vert_shader::PointLight {position: light.0, intensity: light.1});
-        }
-        if data.len() == 0 {
-            data = vec![branch_vert_shader::PointLight {position: Vector3::ZERO().into(), intensity: 0.0}];
-        }
-        data
-    };
+//     let point_light_data = {
+//         let mut data: Vec<branch_vert_shader::PointLight> = Vec::new();
+//         for light in point_lights.iter() {
+//             data.push(branch_vert_shader::PointLight {position: light.0, intensity: light.1});
+//         }
+//         if data.len() == 0 {
+//             data = vec![branch_vert_shader::PointLight {position: Vector3::ZERO().into(), intensity: 0.0}];
+//         }
+//         data
+//     };
 
-    let point_buffer = Buffer::from_iter(
-        mem_allocator,
-        BufferCreateInfo {
-            usage: BufferUsage::STORAGE_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        point_light_data
-    ).unwrap();
+//     let point_buffer = Buffer::from_iter(
+//         mem_allocator,
+//         BufferCreateInfo {
+//             usage: BufferUsage::STORAGE_BUFFER,
+//             ..Default::default()
+//         },
+//         AllocationCreateInfo {
+//             usage: MemoryUsage::Upload,
+//             ..Default::default()
+//         },
+//         point_light_data
+//     ).unwrap();
 
-    let dir_light_data = {
-        let mut data: Vec<branch_vert_shader::DirectionalLight> = Vec::new();
-        for light in directional_lights.iter() {
-            let dir: Vector3 = light.0.into();
-            data.push(branch_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1});
-        }
-        if data.len() == 0 {
-            data = vec![branch_vert_shader::DirectionalLight {direction: Vector3::ZERO().into(), intensity: 0.0}];
-        }
-        data
-    };
+//     let dir_light_data = {
+//         let mut data: Vec<branch_vert_shader::DirectionalLight> = Vec::new();
+//         for light in directional_lights.iter() {
+//             let dir: Vector3 = light.0.into();
+//             data.push(branch_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1});
+//         }
+//         if data.len() == 0 {
+//             data = vec![branch_vert_shader::DirectionalLight {direction: Vector3::ZERO().into(), intensity: 0.0}];
+//         }
+//         data
+//     };
 
-    let directional_buffer = Buffer::from_iter(
-        mem_allocator,
-        BufferCreateInfo {
-            usage: BufferUsage::STORAGE_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        dir_light_data
-    ).unwrap();
+//     let directional_buffer = Buffer::from_iter(
+//         mem_allocator,
+//         BufferCreateInfo {
+//             usage: BufferUsage::STORAGE_BUFFER,
+//             ..Default::default()
+//         },
+//         AllocationCreateInfo {
+//             usage: MemoryUsage::Upload,
+//             ..Default::default()
+//         },
+//         dir_light_data
+//     ).unwrap();
 
-    (point_buffer, directional_buffer)
-}
+//     (point_buffer, directional_buffer)
+// }
 
 
 pub fn update_branch_data_buffers(
@@ -465,7 +465,7 @@ pub fn add_branch_draw_commands(
     graph_pipeline: &Arc<GraphicsPipeline>,
     descriptor_allocator: &StandardDescriptorSetAllocator,
     vert_uniform_buffer: &Subbuffer<branch_vert_shader::Data>,
-    frag_light_buffers: &(Subbuffer<[branch_vert_shader::PointLight]>, Subbuffer<[branch_vert_shader::DirectionalLight]>),
+    // frag_light_buffers: &(Subbuffer<[branch_vert_shader::PointLight]>, Subbuffer<[branch_vert_shader::DirectionalLight]>),
 
     world: &mut World,
 ) {
@@ -482,7 +482,8 @@ pub fn add_branch_draw_commands(
     let uniforms_set = PersistentDescriptorSet::new(
         descriptor_allocator,
         layout.clone(),
-        [WriteDescriptorSet::buffer(0, vert_uniform_buffer.clone()), WriteDescriptorSet::buffer(1, frag_light_buffers.0.clone()), WriteDescriptorSet::buffer(2, frag_light_buffers.1.clone())],
+        // [WriteDescriptorSet::buffer(0, vert_uniform_buffer.clone()), WriteDescriptorSet::buffer(1, frag_light_buffers.0.clone()), WriteDescriptorSet::buffer(2, frag_light_buffers.1.clone())],
+        [WriteDescriptorSet::buffer(0, vert_uniform_buffer.clone())]
     )
     .unwrap();
 
@@ -505,12 +506,15 @@ pub fn add_branch_draw_commands(
 pub fn create_branch_uniform_buffer(
     swapchain: &Arc<Swapchain>,
     camera: &Camera,
+    light: ([f32; 3], f32),
     allocator: &SubbufferAllocator,
 ) -> Subbuffer<branch_vert_shader::Data> {
     let (view, proj) = get_generic_uniforms(swapchain, camera);
+    let dir: Vector3 = light.0.into();
     let data = branch_vert_shader::Data {
         view: view.into(),
-        proj: proj.into()
+        proj: proj.into(),
+        light: branch_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1}
     };
     let subbuffer = allocator.allocate_sized().unwrap();
     *subbuffer.write().unwrap() = data;

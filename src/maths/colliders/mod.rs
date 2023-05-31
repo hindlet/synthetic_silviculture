@@ -14,6 +14,7 @@ pub trait Collider {
     ) -> Option<RayHitInfo>;
 }
 
+#[derive(Debug)]
 pub struct RayHitInfo {
     pub hit_position: Vector3,
     pub hit_distance: f32,

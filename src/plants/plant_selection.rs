@@ -73,7 +73,8 @@ impl PlantSpeciesSampler {
     /// 
     /// - Plants lying more than 5 standard deviations away from either parameter are removed from the chances, probability at that point is close to 0
     /// - All remaining plants are chosen from with probabilty weights generated using normal distribution
-    pub fn get_plant(&self, temp: f32, moist: f32) -> (PlantGrowthControlFactors, PlantPlasticityParameters){
+    /// - If no plants can be grown, returns None
+    pub fn get_plant(&self, temp: f32, moist: f32) -> Option<(PlantGrowthControlFactors, PlantPlasticityParameters)>{
 
         let mut choices: Vec<(usize, f32)> = Vec::new();
         let mut total_prob = 0.0;
@@ -91,9 +92,9 @@ impl PlantSpeciesSampler {
 
         for choice in choices.iter() {
             if position <= choice.1 {
-                return self.species[choice.0].clone();
+                return Some(self.species[choice.0].clone());
             }
         }
-        (PlantGrowthControlFactors::default(), PlantPlasticityParameters::default())
+        None
     }
 }
