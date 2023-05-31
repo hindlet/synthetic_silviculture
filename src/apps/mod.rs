@@ -1,15 +1,10 @@
-pub mod graphics_app;
-pub mod looped_app;
 use std::ops::RangeInclusive;
-
 use bevy_ecs::{
     prelude::*,
     system::SystemState
 };
 use rand::{Rng, thread_rng};
-
 use crate::maths::colliders::mesh_collider::MeshCollider;
-
 use super::{
     branches::{
         branch::*,
@@ -26,6 +21,10 @@ use super::{
         colliders::Collider,
     },
 };
+
+#[cfg(feature = "vulkan_graphics")]
+pub mod graphics_app;
+pub mod looped_app;
 
 
 //////////////////// consts

@@ -26,3 +26,15 @@ bytemuck = "1.12.1"
 
 [profile.dev]
 opt-level = 0
+
+
+[features]
+vulkan_graphics = []
+
+[[example]]
+name = "rendered_plant_growth"
+required-features = ["vulkan_graphics"]
+
+[[example]]
+name = "heightmap_terrain_render"
+required-features = ["vulkan_graphics"]
