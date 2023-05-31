@@ -10,7 +10,7 @@ pub trait Collider {
         &self,
         root_position: impl Into<Vector3>,
         direction: impl Into<Vector3>,
-        max_distance: f32,
+        max_distance: Option<f32>,
     ) -> Option<RayHitInfo>;
 }
 
@@ -32,7 +32,7 @@ impl RayHitInfo {
 pub fn check_ray_collision(
     root_position: Vector3,
     direction: Vector3,
-    max_distance: f32,
+    max_distance: Option<f32>,
     collider: impl Collider
 ) -> Option<RayHitInfo>{
     collider.check_ray(root_position, direction, max_distance)

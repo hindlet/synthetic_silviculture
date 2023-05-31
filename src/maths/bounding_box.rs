@@ -10,10 +10,10 @@ pub struct BoundingBox {
 
 
 impl BoundingBox {
-    pub fn new(min_corner: Vector3, max_corner: Vector3) -> Self {
+    pub fn new(min_corner: impl Into<Vector3>, max_corner: impl Into<Vector3>) -> Self {
         BoundingBox {
-            min_corner,
-            max_corner
+            min_corner: min_corner.into(),
+            max_corner: max_corner.into()
         }
     }
 
@@ -153,7 +153,7 @@ impl Collider for BoundingBox {
         &self,
         root_position: impl Into<Vector3>,
         direction: impl Into<Vector3>,
-        max_distance: f32,
+        max_distance: Option<f32>,
     ) -> Option<RayHitInfo> {
         let (root_position, direction): (Vector3, Vector3) = (root_position.into(), direction.into());
         let direction = direction.normalised();
@@ -192,6 +192,8 @@ impl Collider for BoundingBox {
         if t_zmax < tmax {tmax = t_zmax}
 
         let dist = if tmin < 0.0 {tmax} else if tmax < 0.0 {return None} else {tmin};
+
+        if max_distance.is_some() && dist > max_distance.unwrap() {return None;}
 
         Some(RayHitInfo::new(root_position + direction * dist, dist))
     }
@@ -297,7 +299,7 @@ mod bounding_box_collider_tests {
     #[test]
     fn perpendicular_intersection_test() {
         let bounds = BoundingBox::new(Vector3::ZERO(), Vector3::ONE() * 5.0);
-        let hit = bounds.check_ray([10, 2, 0], -Vector3::X(), 25.0).unwrap();
+        let hit = bounds.check_ray([10, 2, 0], -Vector3::X(), Some(25.0)).unwrap();
         assert_eq!(hit.hit_position, [5, 2, 0].into());
         assert_eq!(hit.hit_distance, 5.0);
     }
@@ -305,7 +307,7 @@ mod bounding_box_collider_tests {
     #[test]
     fn contained_intersection_test() {
         let bounds = BoundingBox::new(Vector3::ZERO(), Vector3::ONE() * 5.0);
-        let hit = bounds.check_ray([3, 2, 0], -Vector3::X(), 25.0).unwrap();
+        let hit = bounds.check_ray([3, 2, 0], -Vector3::X(), Some(25.0)).unwrap();
         assert_eq!(hit.hit_position, [3, 2, 0].into());
         assert_eq!(hit.hit_distance, 0.0);
     }
@@ -313,8 +315,16 @@ mod bounding_box_collider_tests {
     #[test]
     fn angled_test() {
         let bounds = BoundingBox::new(Vector3::ZERO(), Vector3::ONE() * 5.0);
-        let hit = bounds.check_ray([8, 2, 0], [-1, 0, 1], 25.0).unwrap();
+        let hit = bounds.check_ray([8, 2, 0], [-1, 0, 1], Some(25.0)).unwrap();
         assert_eq!(hit.hit_position, [5.0, 2.0, 2.9999998].into()); // this should be (5, 2, 3) but due to rounding errors from floats the last number is lightly off, within acceptable range
         assert_eq!(hit.hit_distance, 3.0 * 2_f32.sqrt());
+    }
+
+    #[test]
+    fn zero_height_test() {
+        let bounds = BoundingBox::new([-10, 0, -10], [10, 0, 10]);
+        let hit = bounds.check_ray([0, 10, 0], [0, -1, 0], Some(25.0)).unwrap();
+        assert_eq!(hit.hit_position, [0, 0, 0].into()); // this should be (5, 2, 3) but due to rounding errors from floats the last number is lightly off, within acceptable range
+        assert_eq!(hit.hit_distance, 10.0);
     }
 }

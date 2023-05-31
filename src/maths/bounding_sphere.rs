@@ -216,7 +216,7 @@ impl Collider for BoundingSphere {
         &self,
         root_position: impl Into<Vector3>,
         direction: impl Into<Vector3>,
-        max_distance: f32,
+        max_distance: Option<f32>,
     ) -> Option<RayHitInfo> {
         let (root_position, direction): (Vector3, Vector3) = (root_position.into(), direction.into());
         let direction = direction.normalised();
@@ -234,7 +234,7 @@ impl Collider for BoundingSphere {
 
         if dist.is_none() {return None;}
         let dist = dist.unwrap();
-        if dist > max_distance {return None;}
+        if max_distance.is_some() && dist > max_distance.unwrap() {return None;}
 
         return Some(RayHitInfo::new(root_position + direction * dist, dist));
     }
@@ -276,7 +276,7 @@ mod sphere_collider_tests {
     #[test]
     fn contained_point_test() {
         let sphere = BoundingSphere::new([0, 0, 0], 5.0);
-        let hit = sphere.check_ray([0.0, 2.5, 0.0], [1, 0, 0], 2.0).unwrap();
+        let hit = sphere.check_ray([0.0, 2.5, 0.0], [1, 0, 0], Some(2.0)).unwrap();
         assert_eq!(hit.hit_position, [0.0, 2.5, 0.0].into());
         assert_eq!(hit.hit_distance, 0.0);
     }
@@ -284,7 +284,7 @@ mod sphere_collider_tests {
     #[test]
     fn intersection_test() {
         let sphere = BoundingSphere::new([0, 0, 0], 2.5);
-        let hit = sphere.check_ray([5.0, 0.0, 0.0], [-1, 0, 0], 20.0).unwrap();
+        let hit = sphere.check_ray([5.0, 0.0, 0.0], [-1, 0, 0], Some(20.0)).unwrap();
         assert_eq!(hit.hit_position, [2.5, 0.0, 0.0].into());
         assert_eq!(hit.hit_distance, 2.5);
     }
@@ -292,14 +292,14 @@ mod sphere_collider_tests {
     #[test]
     fn too_far_test() {
         let sphere = BoundingSphere::new([0, 0, 0], 2.5);
-        let hit = sphere.check_ray([5.0, 0.0, 0.0], [-1, 0, 0], 2.0);
+        let hit = sphere.check_ray([5.0, 0.0, 0.0], [-1, 0, 0], Some(2.0));
         assert!(hit.is_none())
     }
 
     #[test]
     fn no_intersection_test() {
         let sphere = BoundingSphere::new([0, 0, 0], 2.5);
-        let hit = sphere.check_ray([5.0, 0.0, 0.0], [0, 1, 0], 25.0);
+        let hit = sphere.check_ray([5.0, 0.0, 0.0], [0, 1, 0], Some(25.0));
         assert!(hit.is_none())
     }
 }

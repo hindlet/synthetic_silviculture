@@ -55,7 +55,7 @@ impl Collider for TriangleCollider {
         &self,
         root_position: impl Into<Vector3>,
         direction: impl Into<Vector3>,
-        max_distance: f32,
+        max_distance: Option<f32>,
     ) -> Option<RayHitInfo> {
         let (root_position, direction): (Vector3, Vector3) = (root_position.into(), direction.into());
         let direction = direction.normalised();
@@ -84,7 +84,7 @@ impl Collider for TriangleCollider {
 
         let t = f * self.edge_two.dot(q);
 
-        if (t > max_distance) || (t < 0.0) {return None;}
+        if (max_distance.is_some() && t > max_distance.unwrap()) || (t < 0.0) {return None;}
 
         Some(RayHitInfo::new(root_position + direction * t, t))
     }
@@ -98,13 +98,13 @@ mod triangle_collider_tests {
     #[test]
     fn parralel_ray_test() {
         let tri = TriangleCollider::new([0, 0, 0], [1, 0, 0], [0, 0, 1]);
-        assert!(tri.check_ray([0, 1, 0], [1, 0, 0], 25.0).is_none());
+        assert!(tri.check_ray([0, 1, 0], [1, 0, 0], Some(25.0)).is_none());
     }
 
     #[test]
     fn position_ray_test() {
         let tri = TriangleCollider::new([0, 0, 0], [1, 0, 0], [0, 0, 1]);
-        let hit = tri.check_ray([0, 0, 0], [0, 1, 0], 25.0).unwrap();
+        let hit = tri.check_ray([0, 0, 0], [0, 1, 0], Some(25.0)).unwrap();
         assert_eq!(hit.hit_position, [0, 0, 0].into());
         assert_eq!(hit.hit_distance, 0.0);
     }
@@ -112,7 +112,7 @@ mod triangle_collider_tests {
     #[test]
     fn contained_ray_test() {
         let tri = TriangleCollider::new([0, 0, 0], [1, 0, 0], [0, 0, 1]);
-        let hit = tri.check_ray([0.25, 0.0, 0.25], [0, 1, 0], 25.0).unwrap();
+        let hit = tri.check_ray([0.25, 0.0, 0.25], [0, 1, 0], Some(25.0)).unwrap();
         assert_eq!(hit.hit_position, [0.25, 0.0, 0.25].into());
         assert_eq!(hit.hit_distance, 0.0);
     }
@@ -120,7 +120,7 @@ mod triangle_collider_tests {
     #[test]
     fn ray_hit_test() {
         let tri = TriangleCollider::new([0, 0, 0], [1, 0, 0], [0, 0, 1]);
-        let hit = tri.check_ray([0, 5, 0], [0, -1, 0], 25.0).unwrap();
+        let hit = tri.check_ray([0, 5, 0], [0, -1, 0], Some(25.0)).unwrap();
         assert_eq!(hit.hit_position, [0, 0, 0].into());
         assert_eq!(hit.hit_distance, 5.0);
     }

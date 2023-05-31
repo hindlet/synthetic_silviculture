@@ -55,7 +55,7 @@ impl Collider for MeshCollider {
         &self,
         root_position: impl Into<Vector3>,
         direction: impl Into<Vector3>,
-        max_distance: f32,
+        max_distance: Option<f32>,
     ) -> Option<RayHitInfo> {
         let (root_position, direction): (Vector3, Vector3) = (root_position.into(), direction.into());
         let direction = direction.normalised();
@@ -114,7 +114,7 @@ mod mesh_collider_tests {
             vec![0, 3, 2, 3, 1, 0, 0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 1]
         );
 
-        assert!(mesh.check_ray([1, 4, 0], [1, 0, 0], 25.0).is_none())
+        assert!(mesh.check_ray([1, 4, 0], [1, 0, 0], Some(25.0)).is_none())
     }
 
     #[test]
@@ -124,7 +124,7 @@ mod mesh_collider_tests {
             vec![0, 3, 2, 3, 1, 0, 0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 1]
         );
 
-        assert!(mesh.check_ray([1, 6, 0], [1, 0, 0], 25.0).is_none())
+        assert!(mesh.check_ray([1, 6, 0], [1, 0, 0], Some(25.0)).is_none())
     }
 
     #[test]
@@ -134,7 +134,7 @@ mod mesh_collider_tests {
             vec![0, 3, 2, 3, 1, 0, 0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 1]
         );
 
-        let hit = mesh.check_ray([-5, 3, 0], [1, 0, 0], 25.0).unwrap();
+        let hit = mesh.check_ray([-5, 3, 0], [1, 0, 0], Some(25.0)).unwrap();
 
         assert_eq!(hit.hit_position, [-2, 3, 0].into());
         assert_eq!(hit.hit_distance, 3.0);
