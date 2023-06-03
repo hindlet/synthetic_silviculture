@@ -1,4 +1,4 @@
-use super::{vector_three::*, vector_two::Vector2, matrix_three::Matrix3, bounding_box::BoundingBox};
+use super::{vector_three::*, vector_two::Vector2, matrix_three::Matrix3, bounding_box::BoundingBox, quicksort};
 
 pub mod mesh_collider;
 pub mod plane_collider;

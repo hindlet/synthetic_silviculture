@@ -15,6 +15,9 @@ use bevy_ecs::{prelude::*, system::SystemState};
 use std::{f32::consts::PI, sync::Arc, collections::BTreeMap};
 use egui::epaint::ahash::HashMap;
 use itertools::Itertools;
+
+use crate::branches::branch_sorting::get_branches_base_to_tip;
+
 use super::{
     mesh::Mesh,
     camera_maths::Camera,
@@ -23,6 +26,7 @@ use super::{
     super::{
         branches::branch::*,
         maths::{vector_three::Vector3, matrix_three::Matrix3},
+        plants::plant::{PlantData, PlantTag},
     }
 };
 
@@ -51,14 +55,14 @@ pub struct BranchMeshBuffers {
 }
 
 pub fn init_branch_mesh_buffers_res(
-    branch_mesh_query: Query<&Mesh, With<BranchTag>>,
+    plant_query: Query<&PlantData, With<PlantTag>>,
 
     mesh_gen_res: Res<BranchGraphicsResources>,
-
     mut commands: Commands
 ) {
+
     let (vertices, normals, indices) = {
-        let (vertices, normals, indices) = get_total_branch_mesh_data(&branch_mesh_query);
+        let (vertices, normals, indices) = get_total_branch_mesh_data(plant_query);
         if vertices.len() == 0 {
             (vec![Vector3::ZERO().into(), Vector3::ZERO().into(), Vector3::ZERO().into()],
             vec![Vector3::Y().into(), Vector3::Y().into(), Vector3::Y().into()], 
@@ -200,27 +204,6 @@ pub fn create_branch_resources_gui(
 //////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////// Graphics //////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
-
-/// combines and returns all the branch meshes in the world
-fn get_total_branch_mesh_data(
-    branch_meshes: &Query<&Mesh, With<BranchTag>>,
-) -> (Vec<PositionVertex>, Vec<Normal>, Vec<u32>){
-    let mut vertices: Vec<PositionVertex> = vec![];
-    let mut normals: Vec<Normal> = vec![];
-    let mut indices: Vec<u32> = vec![];
-
-    for mesh in branch_meshes.iter() {
-        let current_length = vertices.len() as u32;
-
-        vertices.append(&mut mesh.vertices.clone());
-        normals.append(&mut mesh.normals.clone());
-        let mut new_indices = mesh.indices.clone();
-        new_indices.iter_mut().for_each(|x| *x += current_length);
-        indices.append(&mut new_indices);
-    }
-
-    (vertices, normals, indices)
-}
 
 
 
@@ -393,15 +376,40 @@ pub fn get_branch_pipeline(
 // }
 
 
+/// combines and returns all the branch meshes in the world
+fn get_total_branch_mesh_data(
+    plant_query: Query<&PlantData, With<PlantTag>>,
+) -> (Vec<PositionVertex>, Vec<Normal>, Vec<u32>){
+    let mut total_vertices: Vec<PositionVertex> = vec![];
+    let mut total_normals: Vec<Normal> = vec![];
+    let mut total_indices: Vec<u32> = vec![];
+
+    for plant_data in plant_query.iter() {
+        if plant_data.root_branch.is_none() {continue;}
+        for branch in get_branches_base_to_tip(&plant_data.root_branch.unwrap()) {
+            let current_length = total_vertices.len() as u32;
+            let (mut vertices, mut indices, mut normals) = branch.mesh.components();
+
+            total_vertices.append(&mut vertices);
+            total_normals.append(&mut normals);
+            indices.iter_mut().for_each(|x| *x += current_length);
+            total_indices.append(&mut indices);
+        }
+    }
+
+    (total_vertices, total_normals, total_indices)
+}
+
+
 pub fn update_branch_data_buffers(
-    branch_mesh_query: Query<&Mesh, With<BranchTag>>,
+    plant_query: Query<&PlantData, With<PlantTag>>,
 
     mesh_gen_res: Res<BranchGraphicsResources>,
     mut buffers_res: ResMut<BranchMeshBuffers>,
 ) {
 
     let (vertices, normals, indices) = {
-        let (vertices, normals, indices) = get_total_branch_mesh_data(&branch_mesh_query);
+        let (vertices, normals, indices) = get_total_branch_mesh_data(plant_query);
         if vertices.len() == 0 {
             (vec![Vector3::ZERO().into(), Vector3::ZERO().into(), Vector3::ZERO().into()],
             vec![Vector3::Y().into(), Vector3::Y().into(), Vector3::Y().into()], 

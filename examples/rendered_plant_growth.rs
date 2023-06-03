@@ -7,7 +7,7 @@ use synthetic_silviculture::{
 fn main() {
     let branch_types = vec![
         (
-            25.0,
+            0.25,
             vec![vec![2], vec![1, 2], vec![2, 1, 2]],
             vec![
                 [0.743, 0.371, 0.557],
@@ -30,7 +30,7 @@ fn main() {
     let plant_species = vec![
         (
             (PlantGrowthControlFactors{
-            max_age: 200.0,
+            max_age: 20.0,
             max_vigor: 42.0,
             min_vigor: 2.0,
             apical_control: 0.62,

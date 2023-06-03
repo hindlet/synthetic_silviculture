@@ -63,7 +63,7 @@ pub fn create_terrain_mesh_buffers(
     let meshes = state.get(world).0;
 
     let (vertices, normals, indices) = {
-        let (vertices, normals, indices) = meshes.single().get_components();
+        let (vertices, normals, indices) = meshes.single().components();
         if vertices.len() == 0 {
             (vec![Vector3::ZERO().into(), Vector3::ZERO().into(), Vector3::ZERO().into()],
             vec![Vector3::Y().into(), Vector3::Y().into(), Vector3::Y().into()], 

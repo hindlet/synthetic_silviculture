@@ -4,7 +4,7 @@ use super::super::maths::vector_three_int::Vector3Int;
 use bevy_ecs::prelude::*;
 
 
-#[derive(Resource, Debug)]
+#[derive(Debug)]
 /// LightCells stores shadow data in a grid of cube units for growth vigor calulcations
 /// 
 /// Components:

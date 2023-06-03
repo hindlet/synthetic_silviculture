@@ -7,36 +7,13 @@ use super::super::{
 
 
 // gravity
-#[derive(Resource)]
 pub struct GravityResources{
     pub gravity_dir: Vector3,
     pub tropism_strength: f32, // positive for gravitropism, negative for phototropism
 }
 
-/// adds resouces for gravity into the world, normalises the direction of gravity
-pub fn create_gravity_resource(
-    world: &mut World,
-    gravity_dir: impl Into<Vector3>,
-    tropism_strength: f32
-) {
-    let gravity_dir: Vector3 = gravity_dir.into();
-
-    world.insert_resource(GravityResources{
-        gravity_dir: gravity_dir.normalised(),
-        tropism_strength
-    });
-}
-
 
 // PhysicalAgeStep
-#[derive(Resource)]
 pub struct PhysicalAgeStep{
     pub step: f32,
-}
-
-pub fn create_physical_age_time_step(
-    world: &mut World,
-    step: f32
-) {
-    world.insert_resource(PhysicalAgeStep{step});
 }

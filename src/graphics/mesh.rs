@@ -150,7 +150,7 @@ impl Mesh {
     }
 
 
-    pub fn get_components(&self) -> (Vec<PositionVertex>, Vec<Normal>, Vec<u32>){
+    pub fn components(&self) -> (Vec<PositionVertex>, Vec<Normal>, Vec<u32>){
         (self.vertices.clone(), self.normals.clone(), self.indices.clone())
     }
 }

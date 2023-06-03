@@ -2,8 +2,12 @@
 use std::default;
 
 use bevy_ecs::prelude::*;
-use super::{
-    super::maths::{vector_three::Vector3, bounding_box::BoundingBox},
+
+use crate::branches::branch_sorting::get_branches_base_to_tip;
+
+use super::super::{
+    maths::{vector_three::Vector3, bounding_box::BoundingBox},
+    branches::branch::*,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -14,27 +18,24 @@ use super::{
 #[derive(Default, Component)]
 pub struct PlantTag;
 
+
+pub struct Plant {
+    pub position: Vector3,
+    pub age: f32,
+    pub root: Branch,
+
+    pub growth_factors: PlantGrowthControlFactors,
+    pub plasticity: PlantPlasticityParameters,
+    pub bounds: BoundingBox
+}
+
+
+
 #[derive(Component)]
 pub struct PlantData {
     pub position: Vector3,
-    pub intersection_list: Vec<Entity>,
     pub age: f32,
-    pub root_node: Option<Entity>,
-}
-
-#[derive(Component)]
-pub struct PlantBounds {
-    pub bounds: BoundingBox,
-}
-
-
-#[derive(Bundle)]
-pub struct PlantBundle {
-    pub tag: PlantTag,
-    pub bounds: PlantBounds,
-    pub data: PlantData,
-    pub growth_factors: PlantGrowthControlFactors,
-    pub plasticity_params: PlantPlasticityParameters,
+    pub root_branch: Branch,
 }
 
 #[derive(Resource)]
@@ -61,7 +62,7 @@ pub struct PlantGrowthControlFactors {
     pub growth_rate: f32,
     pub max_branch_segment_length: f32,
     pub branch_segment_length_scaling_coef: f32,
-    pub tropism_time_control: f32,
+    pub tropism_control: f32,
     pub branching_angle: f32,
     pub thickening_factor: f32,
 }
@@ -80,44 +81,17 @@ impl PlantDeathRate {
 }
 
 
-impl Default for PlantBundle {
-    fn default() -> Self {
-        PlantBundle {
-            tag: PlantTag,
-            bounds: PlantBounds::default(),
-            data: PlantData::default(),
-            growth_factors: PlantGrowthControlFactors::default(),
-            plasticity_params: PlantPlasticityParameters::default(),
-        }
-    }
-}
-
 impl Default for PlantData {
     fn default() -> Self {
         PlantData {
-            root_node: None,
+            root_branch: None,
             position: Vector3::ZERO(),
-            intersection_list: Vec::new(),
             age: 0.0,
         }
     }
 }
 
-impl Default for PlantBounds {
-    fn default() -> Self {
-        PlantBounds {
-            bounds: BoundingBox::ZERO(),
-        }
-    }
-}
 
-impl From<BoundingBox> for PlantBounds {
-    fn from(bounds: BoundingBox) -> Self {
-        Self {
-            bounds
-        }
-    }
-}
 
 impl Default for PlantGrowthControlFactors {
     fn default() -> Self {
@@ -130,7 +104,7 @@ impl Default for PlantGrowthControlFactors {
             growth_rate: 1.0,
             max_branch_segment_length: 1.0,
             branch_segment_length_scaling_coef: 1.0,
-            tropism_time_control: 1.0,
+            tropism_control: 1.0,
             branching_angle: 0.0,
             thickening_factor: 0.01,
         }

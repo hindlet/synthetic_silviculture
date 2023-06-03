@@ -6,9 +6,9 @@ use super::{
     branch_graphics::BranchGraphicsResources,
     mesh::Mesh,
     super::{
-        maths::{vector_three::{self, Vector3}, matrix_three::Matrix3},
+        maths::{vector_three::{self, Vector3}, matrix_three::Matrix3, quicksort},
         plants::plant::*,
-        branches::{branch::*, branch_node::*},
+        branches::{branch::*, branch_node::*, branch_sorting::get_branch_mesh_update_times, node_sorting::get_node_data_and_connections_base_to_tip},
     }
 };
 
@@ -38,103 +38,52 @@ impl AddAssign<Vector3> for Normal {
 
 
 
-#[derive(Component)]
-pub struct MeshUpdateQueue (pub VecDeque<Entity>);
-
-impl MeshUpdateQueue {
-    pub fn new() -> Self {
-        MeshUpdateQueue(VecDeque::new())
-    }
-
-    pub fn new_from_single(id: Entity) -> Self {
-        MeshUpdateQueue(VecDeque::from([id]))
-    }
-
-    pub fn new_from_many(ids: Vec<Entity>) -> Self {
-        MeshUpdateQueue(VecDeque::from(ids))
-    }
-}
-
-
 pub fn update_next_mesh(
-    mut queue_qry: Query<&mut MeshUpdateQueue>,
-    branch_data: Query<&BranchData, With<BranchTag>>,
-    mut branch_meshes: Query<&mut Mesh, With<BranchTag>>,
-    node_connections: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
-    node_data: Query<&BranchNodeData, With<BranchNodeTag>>,
-    branch_graphics_res: Res<BranchGraphicsResources>,
+    plants: &Vec<Plant>,
+    branch_graphics_res: &BranchGraphicsResources,
 ) {
-    let mut queue = queue_qry.single_mut();
     let polygons = &branch_graphics_res.polygon_vectors;
 
-    loop {
-        if queue.0.len() == 0 {break;}
-        let id = queue.0.pop_front().unwrap();
-        if update_branch_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, id, polygons) {
-            break;
-        }
+    let unsorted_branch_updates = get_branch_mesh_update_times(plants);
+
+    if unsorted_branch_updates.len() == 0 {return;}
+
+    if unsorted_branch_updates.len() == 1 {
+        let (positions, radii, pairs) = get_node_data_and_connections_base_to_tip(&unsorted_branch_updates[0].1.root);
+        unsorted_branch_updates[0].1.mesh = create_branch_mesh(unsorted_branch_updates[0].1.data.root_position, positions, radii, pairs, polygons);
+        return;
     }
+
+    let branch = quicksort(unsorted_branch_updates)[0].1;
+    let (positions, radii, pairs) = get_node_data_and_connections_base_to_tip(&branch.root);
+    branch.mesh = create_branch_mesh(branch.data.root_position, positions, radii, pairs, polygons);
+    return;
+
+
 }
 
 
-pub fn check_for_force_update(
-    branch_id_query: Query<Entity, With<BranchTag>>,
-    branch_data: Query<&BranchData, With<BranchTag>>,
-    mut branch_meshes: Query<&mut Mesh, With<BranchTag>>,
-    node_connections: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
-    node_data: Query<&BranchNodeData, With<BranchNodeTag>>,
-    branch_graphics_res: Res<BranchGraphicsResources>,
-) {
-    if branch_graphics_res.is_changed() {
-        let polygons = &branch_graphics_res.polygon_vectors;
-        for id in branch_id_query.iter() {
-            update_branch_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, id, polygons);
-        }
-    }
-}
+// pub fn check_for_force_update(
+    
+//     branch_graphics_res: &BranchGraphicsResources,
+// ) {
+//     if branch_graphics_res.is_changed() {
+//         let polygons = &branch_graphics_res.polygon_vectors;
+//         for id in branch_id_query.iter() {
+//             update_branch_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, id, polygons);
+//         }
+//     }
+// }
 
-
-fn update_branch_mesh(
-    branch_meshes: &mut Query<&mut Mesh, With<BranchTag>>,
-    branch_data: &Query<&BranchData, With<BranchTag>>,
-    node_connections: &Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
-    node_data: &Query<&BranchNodeData, With<BranchNodeTag>>,
-    id: Entity,
-    polygon_directions: &Vec<Vector3>,
-) -> bool {
-    let new_mesh = {    
-        if let Ok(branch) = branch_data.get(id.clone()) {
-            if branch.root_node.is_none() {return false;}
-            let (pos, thick, connections) = get_node_data_and_connections_base_to_tip(node_connections, node_data, branch.root_node.unwrap());
-            create_branch_mesh(branch.normal, branch.root_position, pos, thick, connections, polygon_directions)
-        } else {return false;}
-    };
-    if let Ok(mut mesh) = branch_meshes.get_mut(id.clone()) {
-        mesh.set(new_mesh);
-        return true;
-    }
-    false
-}
 
 /// generates a mesh for a branch from node pairs and polygon directions
 fn create_branch_mesh(
-    branch_normal: Vector3,
     root_pos: Vector3,
-    mut node_pos: Vec<Vector3>,
+    node_pos: Vec<Vector3>,
     node_thicknesses: Vec<f32>,
     node_pairs:  Vec<(usize, usize)>,
     polygon_directions: &Vec<Vector3>,
 ) -> Mesh {
-
-    let branch_rotation_matrix = {
-        let rotation_axis = branch_normal.cross(Vector3::Y());
-        let rotation_angle = branch_normal.angle_to(Vector3::Y());
-        Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
-    };
-    
-    for node in node_pos.iter_mut() {
-        node.mut_transform(branch_rotation_matrix);
-    }   
 
     let mut vertices: Vec<PositionVertex> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
@@ -182,5 +131,5 @@ fn create_branch_mesh(
         *vertex += root_pos;
     }
 
-    Mesh::new(vertices, indices).recalculate_normals().clone()
+    Mesh::new(vertices, indices).recalculate_normals()
 }

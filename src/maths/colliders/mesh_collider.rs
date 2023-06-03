@@ -1,5 +1,5 @@
 #![allow(dead_code, unused_variables, unused_imports)]
-use super::{Vector3, Collider, RayHitInfo, triangle_collider::TriangleCollider, BoundingBox};
+use super::{Vector3, Collider, RayHitInfo, triangle_collider::TriangleCollider, BoundingBox, quicksort};
 
 
 #[derive(Default, Debug, PartialEq, Clone)]
@@ -9,26 +9,7 @@ pub struct MeshCollider {
 }
 
 
-/// basic quicksort function
-fn quicksort(unsorted: Vec<(usize, f32)>) -> Vec<(usize, f32)>{
-    if unsorted.len() <= 1 {return unsorted;}
 
-    let mid = unsorted[unsorted.len() / 2];
-
-    let mut lower = Vec::new();
-    let mut higher = Vec::new();
-    let mut equal = Vec::new();
-    for val in unsorted {
-        if val.1 < mid.1 {lower.push(val)}
-        else if val.1 > mid.1 {higher.push(val)}
-        else {equal.push(val)}
-    }
-
-    let mut result = quicksort(lower);
-    result.append(&mut equal);
-    result.append(&mut quicksort(higher));
-    result
-}
 
 
 impl MeshCollider {
@@ -66,42 +47,20 @@ impl Collider for MeshCollider {
         let dist_indices = {
             let mut indices = Vec::new();
             for i in 0..self.tris.len() {
-                indices.push((i, self.tris[i].centre_dist_to(root_position)));
+                indices.push((self.tris[i].centre_dist_to(root_position), i));
             }
             indices
         };
 
         let sorted_indices = quicksort(dist_indices);
         for index in sorted_indices {
-            let check = self.tris[index.0].check_ray(root_position, direction, max_distance);
+            let check = self.tris[index.1].check_ray(root_position, direction, max_distance);
             if check.is_some() {return check;}
         }
         None
     }
 }
 
-
-#[cfg(test)]
-mod mesh_quicksort_tests {
-    use super::quicksort;
-    #[test]
-    fn random_test() {
-        let list: Vec<(usize, f32)> = vec![(0, 25.6),(1, 22.7),(2, 9.8),(3, 1.5),(4, 5.0),(5, 4.7)];
-        assert_eq!(quicksort(list), vec![(3, 1.5),(5, 4.7),(4, 5.0),(2, 9.8),(1, 22.7),(0, 25.6)]);
-    }
-
-    #[test]
-    fn reverse_test() {
-        let list: Vec<(usize, f32)> = vec![(0, 25.6),(1, 22.7),(2, 9.8),(4, 5.0),(5, 4.7),(3, 1.5)];
-        assert_eq!(quicksort(list), vec![(3, 1.5),(5, 4.7),(4, 5.0),(2, 9.8),(1, 22.7),(0, 25.6)]);
-    }
-
-    #[test]
-    fn pre_sorted_test() {
-        let list: Vec<(usize, f32)>= vec![(3, 1.5),(5, 4.7),(4, 5.0),(2, 9.8),(1, 22.7),(0, 25.6)];
-        assert_eq!(quicksort(list.clone()), list);
-    }
-}
 
 #[cfg(test)]
 mod mesh_collider_tests {

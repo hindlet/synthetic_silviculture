@@ -11,6 +11,8 @@ use super::{
         branch_development::*,
         branch_prototypes::*,
         branch_node::*,
+        branch_sorting::*,
+        node_sorting::*,
     },
     plants::{
         plant::*,
@@ -55,6 +57,8 @@ enum OutputType {
     All,
 }
 
+
+
 #[derive(Clone)]
 pub struct TreeAppOutput {
     pub data: Option<Vec<([f32; 3], Vec<([f32; 3], f32)>, Vec<(usize, usize)>)>>,
@@ -69,56 +73,52 @@ impl Default for TreeAppOutput {
 
 
 fn data_output(
-    world: &mut World,
-) -> Vec<([f32; 3], Vec<([f32; 3], f32)>, Vec<(usize, usize)>)>{
+    plants: &Vec<Plant>
+) -> Vec<(Vec<([f32; 3], f32)>, Vec<(usize, usize)>)>{
 
-    let mut state: SystemState<(
-        Query<&BranchNodeData, With<BranchNodeTag>>,
-        Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
-        Query<&BranchData, With<BranchTag>>,
-        Query<&BranchConnectionData, With<BranchTag>>,
-        Query<&PlantData, With<PlantBounds>>,
-    )> = SystemState::new(world);
+    let mut out = Vec::new();
 
-    let (node_data, node_connections, branch_data, branch_connections, plant_data) = state.get(world);
+    for plant in plants.iter() {
+        let plant_pos = plant.position;
 
-    // plant positions : node position and thickness : node connections
-    let mut data: Vec<([f32; 3], Vec<([f32; 3], f32)>, Vec<(usize, usize)>)> = Vec::new();
-    for plant in plant_data.iter() {
-        if plant.root_node.is_none() {continue;}
+        let mut node_data: Vec<([f32; 3], f32)> = Vec::new();
+        let mut node_pairs: Vec<(usize, usize)> = Vec::new();
+
+        let mut node_offset = 0;
+
+        for branch in get_branches_base_to_tip(&plant.root) {
+
+            let (intial_data, initial_pairs) = get_node_data_and_connections_base_to_tip(&branch.root);
         
-        let position: [f32; 3] = plant.position.into();
-
-        let mut plant_data: (Vec<([f32; 3], f32)>, Vec<(usize, usize)>) = (Vec::new(), Vec::new());
-
-        let mut current_nodes: usize = 0;
-
-        for id in get_branches_base_to_tip(&branch_connections, plant.root_node.unwrap()) {
-            if let Ok(branch) = branch_data.get(id) {
-                if branch.root_node.is_none() {continue;}
-
-                let (positions, thicknesses, pairs) = get_node_data_and_connections_base_to_tip(&node_connections, &node_data, branch.root_node.unwrap());
-                let mut sub_data: Vec<([f32; 3], f32)> = Vec::new();
-                for i in 0..positions.len() {
-                    sub_data.push((positions[i].into(), thicknesses[i]));
-                }
-                let start_point = plant_data.0.iter().position(|&x| x == sub_data[0]).unwrap_or(0);
-                if start_point != 0 {current_nodes -= 1; sub_data.remove(0);}
-
-                let mut new_pairs: Vec<(usize, usize)> = Vec::new();
-                for pair in pairs {
-                    let one = if pair.0 == 0 {start_point} else {pair.0 + current_nodes};
-                    let two = if pair.0 == 0 {start_point} else {pair.0 + current_nodes};
-                    new_pairs.push((one, two));
-                }
-                plant_data.0.append(&mut sub_data);
-                plant_data.1.append(&mut new_pairs);
-                current_nodes = plant_data.0.len() - 1;
+            // reposition nodes
+            let mut final_data: Vec<([f32; 3], f32)> = Vec::new();
+            for data in intial_data {
+                final_data.push(((data.0 + branch.data.root_position).into(), data.1));
             }
+
+
+            // find the index of the starting node  
+            let zero_index = node_data.iter().position(|&x| x == final_data[0]).unwrap_or(0);
+            if zero_index != 0 {
+                node_offset -= 1;
+                final_data.remove(0);
+            }
+
+            let mut adjusted_pairs = Vec::new();
+            for pair in initial_pairs {
+                let one = if pair.0 == 0 {zero_index} else {pair.0 + node_offset};
+                adjusted_pairs.push((one, pair.1 + node_offset));
+            }
+
+            node_data.append(&mut final_data);
+            node_pairs.append(&mut adjusted_pairs);
+
+            node_offset = node_data.len() - 1;
         }
-        data.push((position, plant_data.0, plant_data.1));
+
+        out.push((node_data, node_pairs));
+
     }
 
-
-    data
+    out
 }

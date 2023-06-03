@@ -28,7 +28,7 @@ use super::super::{
         camera_maths::Camera,
         terrain_graphics::*,
     },
-    debug::debug_log_branches,
+    debug::*,
 };
 use super::*;
 use egui_winit_vulkano::Gui;
@@ -88,7 +88,7 @@ pub struct GraphicsAppBuilder {
 
 
 pub struct GraphicsTreeApp {
-    world: World,
+    plants: Vec<Plant>,
     device: Arc<Device>,
     queue: Arc<Queue>,
     surface: Arc<Surface>,
@@ -612,6 +612,7 @@ impl GraphicsAppBuilder {
                 update_branch_bounds,
                 // update_plant_bounds,
                 // update_plant_intersections,
+                step_plant_age,
                 calculate_branch_light_exposure,
                 calculate_growth_vigor,
                 assign_growth_rates,
@@ -622,6 +623,7 @@ impl GraphicsAppBuilder {
                 assign_thicknesses,
                 calculate_segment_lengths_and_tropism,
                 update_branch_data_buffers,
+                debug_log_nodes_and_branches,
             ).chain());
     
         }
