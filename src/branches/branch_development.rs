@@ -366,8 +366,8 @@ pub fn assign_thicknesses(
         let node_layers = get_node_layers(&branch.root);
 
         // assign the radii to node indices that do not exist
-        let mut child_one_radius = (node_layers[node_layers.len()].len(), 0.0);
-        let mut child_two_radius = (node_layers[node_layers.len()].len(), 0.0);
+        let mut child_one_radius = (node_layers[node_layers.len() - 1].len(), 0.0);
+        let mut child_two_radius = (node_layers[node_layers.len() - 1].len(), 0.0);
 
         if let Some(child_one_cell) = &branch.children.0 {
             let child = child_one_cell.as_ref().borrow();

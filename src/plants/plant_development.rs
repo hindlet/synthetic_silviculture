@@ -61,7 +61,10 @@ pub fn calculate_growth_vigor(
         }
 
         // convert light to vigor
-        plant.root.borrow_mut().growth_data.growth_rate = plant.root.borrow().growth_data.light_exposure;
+        {
+            let light = plant.root.borrow().growth_data.light_exposure;
+            plant.root.borrow_mut().growth_data.growth_rate = light;
+        }
 
         for cell in branches_base_to_tip(&plant.root) {
 

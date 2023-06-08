@@ -35,7 +35,7 @@ fn main() {
             min_vigor: 2.0,
             apical_control: 0.62,
             growth_rate: 0.19,
-            tropism_time_control: 0.38,
+            tropism_control: 0.38,
             max_branch_segment_length: 1.0,
             branch_segment_length_scaling_coef: 1.0,
             tropism_angle_weight: 0.37,

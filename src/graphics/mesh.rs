@@ -168,6 +168,8 @@ impl From<(Vec<Vector3>, Vec<u32>)> for Mesh {
             }
             verts
         };
-        Mesh::new(vertices, value.1)
+        let mut mesh = Mesh::new(vertices, value.1);
+        mesh.recalculate_normals();
+        mesh
     }
 }

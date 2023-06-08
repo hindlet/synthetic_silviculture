@@ -546,22 +546,22 @@ impl GraphicsAppBuilder {
         let cells = LightCells::new(cell_settings.0 as i32, cell_settings.1);
 
 
-        let (terrain_type, plant_spawning_bounds, terrain) = {
+        let (terrain_type, plant_spawning_bounds, terrain, terrain_mesh) = {
             if self.has_terrain {     
                 let settings = self.terrain_settings.clone().unwrap();
                 if settings.2.is_none() {
-                    let (terrain, bounds) = create_flat_terrain(settings.0, settings.1);
-                    (TerrainType::Flat, bounds, terrain)
+                    let (terrain, bounds, mesh_data) = create_flat_terrain(settings.0, settings.1);
+                    (TerrainType::Flat, bounds, terrain, Mesh::from(mesh_data))
                 }
                 else {
                     let subsettings = settings.2.clone().unwrap();
-                    let (terrain, bounds) = create_heightmap_terrain(settings.0, subsettings.0, subsettings.1, settings.1, subsettings.2);
-                    (TerrainType::Bumpy, bounds, terrain)
+                    let (terrain, bounds, mesh_data) = create_heightmap_terrain(settings.0, subsettings.0, subsettings.1, settings.1, subsettings.2);
+                    (TerrainType::Bumpy, bounds, terrain, Mesh::from(mesh_data))
                 }
             }
             else {
-                let (terrain, bounds) = create_flat_terrain(DEFAULT_TERRAIN.0, DEFAULT_TERRAIN.1);
-                (TerrainType::Absent, bounds, terrain)
+                let (terrain, bounds, mesh_data) = create_flat_terrain(DEFAULT_TERRAIN.0, DEFAULT_TERRAIN.1);
+                (TerrainType::Absent, bounds, terrain, Mesh::empty())
             }
         };
 
@@ -612,11 +612,11 @@ impl GraphicsAppBuilder {
                 (GraphicsPipeline::start().build(device.clone()).unwrap(), buffers)
             },
             TerrainType::Bumpy => {
-                let buffers = create_terrain_mesh_buffers(&memory_allocator, &terrain.mesh);
+                let buffers = create_terrain_mesh_buffers(&memory_allocator, &terrain_mesh);
                 (get_heightmap_terrain_pipeline(window_dimensions, &device, &render_pass, 0), buffers)
             },
             TerrainType::Flat => {
-                let buffers = create_terrain_mesh_buffers(&memory_allocator, &terrain.mesh);
+                let buffers = create_terrain_mesh_buffers(&memory_allocator, &terrain_mesh);
                 (get_flat_terrain_pipeline(window_dimensions, &device, &render_pass, 0), buffers)
             }
         };

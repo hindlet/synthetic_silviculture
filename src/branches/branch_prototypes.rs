@@ -211,10 +211,10 @@ impl BranchPrototypesSampler {
 
     pub fn get_prototype_index(&self, apical: f32, determinancy: f32) -> usize {
 
-        let x: u32 = (apical * (self.voronoi.height() as f32 / self.max_apical)).round() as u32 - 1;
-        let y: u32 = (determinancy * (self.voronoi.width() as f32 / self.max_determinancy)).round() as u32 - 1;
+        let x: u32 = (apical * (self.voronoi.height() as f32 / self.max_apical)).round() as u32;
+        let y: u32 = (determinancy * (self.voronoi.width() as f32 / self.max_determinancy)).round() as u32;
         
-        self.prototypes.get(&self.voronoi.get_pixel(x, y)).unwrap().clone()
+        self.prototypes.get(&self.voronoi.get_pixel(x.min(self.voronoi.height() - 1), y.min(self.voronoi.width() - 1))).unwrap().clone()
     }
 
     #[allow(unused_must_use)]
