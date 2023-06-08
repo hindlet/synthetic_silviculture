@@ -1,12 +1,10 @@
 use super::{*, super::{
     maths::vector_three::Vector3,
 }};
-use bevy_ecs::prelude::*;
 
 
 
 pub struct LoopedTreeApp {
-    update_schedule: Schedule,
     output: OutputType,
 
     // terrain_settings: (f32, Vector3, Option<(u32, f32, String)>), // size, centre, verts per side, height mult, path
@@ -19,7 +17,6 @@ pub struct LoopedTreeApp {
 impl Default for LoopedTreeApp {
     fn default() -> Self {
         LoopedTreeApp {
-            update_schedule: Schedule::new(),
             output: OutputType::Absent,
 
             // terrain_settings: DEFAULT_TERRAIN,
@@ -38,7 +35,6 @@ impl LoopedTreeApp {
     }
 
     pub fn reset(&mut self) -> &mut LoopedTreeApp {
-        self.update_schedule = Schedule::new();
         self.output = OutputType::Absent;
 
         // self.terrain_settings = DEFAULT_TERRAIN;

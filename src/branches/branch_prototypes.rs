@@ -1,7 +1,5 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 use std::{collections::HashMap};
-
-use bevy_ecs::prelude::*;
 use plotters::{prelude::*, palette::white_point::C};
 use voronator::{
     delaunator::Point,

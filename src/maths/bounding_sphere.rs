@@ -224,7 +224,7 @@ impl Collider for BoundingSphere {
 
         let l = root_position - self.centre;
         if l.magnitude() <= self.radius {
-            return Some(RayHitInfo::new(root_position, 0.0));
+            return Some(RayHitInfo::new(root_position, Vector3::ZERO(), 0.0));
         }
 
         let a = direction.dot(direction);
@@ -236,7 +236,9 @@ impl Collider for BoundingSphere {
         let dist = dist.unwrap();
         if max_distance.is_some() && dist > max_distance.unwrap() {return None;}
 
-        return Some(RayHitInfo::new(root_position + direction * dist, dist));
+        let hit_pos = root_position + direction * dist;
+
+        return Some(RayHitInfo::new(hit_pos, (l).normalised(), dist));
     }
 }
 
@@ -278,6 +280,7 @@ mod sphere_collider_tests {
         let sphere = BoundingSphere::new([0, 0, 0], 5.0);
         let hit = sphere.check_ray([0.0, 2.5, 0.0], [1, 0, 0], Some(2.0)).unwrap();
         assert_eq!(hit.hit_position, [0.0, 2.5, 0.0].into());
+        assert_eq!(hit.hit_normal, [0, 0, 0].into());
         assert_eq!(hit.hit_distance, 0.0);
     }
 
@@ -286,6 +289,7 @@ mod sphere_collider_tests {
         let sphere = BoundingSphere::new([0, 0, 0], 2.5);
         let hit = sphere.check_ray([5.0, 0.0, 0.0], [-1, 0, 0], Some(20.0)).unwrap();
         assert_eq!(hit.hit_position, [2.5, 0.0, 0.0].into());
+        assert_eq!(hit.hit_normal, [1, 0, 0].into());
         assert_eq!(hit.hit_distance, 2.5);
     }
 

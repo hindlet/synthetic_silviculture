@@ -1,5 +1,6 @@
+use crate::graphics::mesh::Mesh;
+
 use super::super::{
-    fixed_schedule::FixedSchedule,
     branches::{
         branch::*,
         branch_development::*,
@@ -15,7 +16,6 @@ use super::super::{
     environment::{
         terrain::*,
         light_cells::*,
-        params::*,
     },
     maths::{
         vector_three::Vector3,
@@ -37,8 +37,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::Window, platform::run_return::EventLoopExtRunReturn,
 };
+use core::time;
 use std::{time::{Duration, Instant}, sync::Arc, cell::RefCell, rc::Rc, borrow::BorrowMut};
-use bevy_ecs::{prelude::*, system::SystemState};
 use vulkano::{
     render_pass::{RenderPass, Subpass, Framebuffer},
     device::{Device, Queue},
@@ -52,7 +52,6 @@ use vulkano::{
     descriptor_set::allocator::StandardDescriptorSetAllocator,
     buffer::{Buffer, BufferUsage, BufferCreateInfo},
 };
-
 
 
 
@@ -89,6 +88,19 @@ pub struct GraphicsAppBuilder {
 
 pub struct GraphicsTreeApp {
     plants: Vec<Plant>,
+    gravity: GravitySettings,
+    time_step: f32,
+    _terrain: Terrain,
+    lightcells: LightCells,
+    plant_death_rate: f32,
+    branch_prototypes: BranchPrototypes,
+    branch_sampler: BranchPrototypesSampler,
+
+    // scheduling
+    accumulated: Duration,
+    period: Duration,
+
+
     device: Arc<Device>,
     queue: Arc<Queue>,
     surface: Arc<Surface>,
@@ -99,20 +111,24 @@ pub struct GraphicsTreeApp {
     framebuffers: Vec<Arc<Framebuffer>>,
 
 
-    frame_schedule: Schedule,
-    update_schedule: FixedSchedule,
     output: OutputType,
 
     graphics_pass: Subpass,
-    branch_pipeline: Arc<GraphicsPipeline>,
-    terrain: TerrainType,
-    terrain_pipeline: Option<Arc<GraphicsPipeline>>,
-    terrain_settings: Option<([f32; 3], [f32; 3], f32, f32)>,
     light: ([f32; 3], f32),
+
+    branch_pipeline: Arc<GraphicsPipeline>,
+    branch_graphics_settings: BranchGraphicsSettings,
+    branch_mesh_buffers: BranchMeshBuffers,
+
+    terrain_type: TerrainType,
+    terrain_pipeline: Arc<GraphicsPipeline>,
+    terrain_graphics_settings: ([f32; 3], [f32; 3], f32, f32),
+    terrain_mesh_buffers: TerrainMeshBuffers,
+
     gui: Option<Gui>,
+    gui_data: Vec<GUIData>,
 
     camera_state: ([f32; 3], [f32; 3]),
-
 }
 
 
@@ -149,9 +165,7 @@ impl GraphicsTreeApp {
 
     pub fn run(mut self) -> TreeAppOutput{
 
-        let mut update_schedule = self.update_schedule;
-        let mut frame_schedule = self.frame_schedule;
-        let mut world = self.world;
+
         let device = self.device.clone();
         let queue = self.queue.clone();
         let surface = self.surface.clone();
@@ -196,7 +210,7 @@ impl GraphicsTreeApp {
                             *control_flow = ControlFlow::Exit;
                             match self.output {
                                 OutputType::Absent => {}
-                                _ => {output_ref.replace(TreeAppOutput{data: Some(data_output(&mut world)), meshes: None});}
+                                _ => {output_ref.replace(TreeAppOutput{data: Some(data_output(&self.plants)), meshes: None});}
                             }
                         }
                         WindowEvent::KeyboardInput {
@@ -217,16 +231,27 @@ impl GraphicsTreeApp {
                 Event::MainEventsCleared => {
                     // fixed schedules
                     let delta_time = last_frame_time.elapsed();
-                    update_schedule.run(&mut world, delta_time);
                     camera.do_move(delta_time);
+                    self.accumulated += delta_time;
                     last_frame_time = Instant::now();
                     
 
                     // schedules
-                    if let Some(gui) = self.gui.as_mut() {
-                        run_gui_commands(&mut world, gui);
+                    
+                    if let Some(new_accum) = self.accumulated.checked_sub(self.period) {
+                        self.accumulated = new_accum;
+
+                        update_branch_bounds(&self.plants);
+                        step_plant_age(&mut self.plants, self.time_step, self.plant_death_rate);
+                        calculate_branch_light_exposure(&self.plants, &mut self.lightcells);
+                        calculate_growth_vigor(&self.plants);
+                        assign_growth_rates(&self.plants);
+                        step_physiological_age(&self.plants, self.time_step);
+                        update_branch_nodes(&self.plants, &self.branch_prototypes);
+                        determine_create_new_branches(&self.plants, &self.branch_sampler, &self.branch_prototypes, &self.gravity);
+                        assign_thicknesses(&self.plants);
+                        calculate_segment_lengths_and_tropism(&self.plants, &self.branch_prototypes, &self.gravity);
                     }
-                    frame_schedule.run(&mut world);
 
 
 
@@ -244,10 +269,10 @@ impl GraphicsTreeApp {
                         if let Ok((new_swapchain, new_framebuffers, new_dimensions)) = recreate_swapchain_and_framebuffers(swapchain.clone(), dimensions, &memory_allocator, &render_pass) {
                             swapchain = new_swapchain;
                             branch_pipeline = get_branch_pipeline(new_dimensions, &device, &render_pass, 0);
-                            match self.terrain {
+                            match self.terrain_type {
                                 TerrainType::Absent => {},
-                                TerrainType::Flat => {terrain_pipeline = Some(get_flat_terrain_pipeline(new_dimensions, &device, &render_pass, 0))},
-                                TerrainType::Bumpy => {terrain_pipeline = Some(get_heightmap_terrain_pipeline(new_dimensions, &device, &render_pass, 0))}
+                                TerrainType::Flat => {terrain_pipeline = get_flat_terrain_pipeline(new_dimensions, &device, &render_pass, 0)},
+                                TerrainType::Bumpy => {terrain_pipeline = get_heightmap_terrain_pipeline(new_dimensions, &device, &render_pass, 0)}
                             }
                             framebuffers = new_framebuffers;
                             recreate_swapchain = false
@@ -297,29 +322,32 @@ impl GraphicsTreeApp {
 
 
                     ///// terrain graphics
-                    match self.terrain {
+                    match self.terrain_type {
                         TerrainType::Absent => {},
 
                         TerrainType::Flat => {
-                            let terrain_uniforms = create_flat_uniform_buffer(&swapchain, &camera, self.light, self.terrain_settings.unwrap().0, &uniform_allocator);
-                            add_flat_terrain_draw_commands(&mut secondary_builder, terrain_pipeline.as_ref().unwrap(), &descriptor_set_allocator, &terrain_uniforms, 0, &mut world);
+                            let terrain_uniforms = create_flat_uniform_buffer(&swapchain, &camera, self.light, self.terrain_graphics_settings.0, &uniform_allocator);
+                            add_flat_terrain_draw_commands(&mut secondary_builder, &terrain_pipeline, &descriptor_set_allocator, &terrain_uniforms, 0, &self.terrain_mesh_buffers);
                         },
 
                         TerrainType::Bumpy => {
-                            let terrain_uniforms = create_heightmap_uniform_buffer(&swapchain, &camera, self.light, self.terrain_settings.unwrap().0, self.terrain_settings.unwrap().1, self.terrain_settings.unwrap().2, self.terrain_settings.unwrap().3, &uniform_allocator);
-                            add_heightmap_terrain_draw_commands(&mut secondary_builder, terrain_pipeline.as_ref().unwrap(), &descriptor_set_allocator, &terrain_uniforms, 0, &mut world);
+                            let terrain_uniforms = create_heightmap_uniform_buffer(&swapchain, &camera, self.light, self.terrain_graphics_settings, &uniform_allocator);
+                            add_heightmap_terrain_draw_commands(&mut secondary_builder, &terrain_pipeline, &descriptor_set_allocator, &terrain_uniforms, 0, &self.terrain_mesh_buffers);
                         }
                     }
 
                     ////// branch_graphics
+                    update_next_mesh(&self.plants, &self.branch_graphics_settings);
+                    update_branch_data_buffers(&self.plants, &self.branch_graphics_settings, &mut self.branch_mesh_buffers, &self.memory_allocator);
                     let branch_uniforms = create_branch_uniform_buffer(&swapchain, &camera, self.light, &uniform_allocator);
-                    add_branch_draw_commands(&mut secondary_builder, &branch_pipeline, &descriptor_set_allocator, &branch_uniforms, &mut world);
+                    add_branch_draw_commands(&mut secondary_builder, &branch_pipeline, &descriptor_set_allocator, &branch_uniforms, &self.branch_mesh_buffers);
                     
 
                     builder.execute_commands(secondary_builder.build().unwrap()).unwrap();
 
                     ////// gui graphics
                     if let Some(gui) = self.gui.as_mut() {
+                        draw_gui(&mut self.gui_data, gui);
                         builder.next_subpass(SubpassContents::SecondaryCommandBuffers).unwrap();
                         let gui_command_buffer = get_gui_resource_commands(gui, dimensions.into());
                         builder.execute_commands(gui_command_buffer).unwrap();
@@ -488,7 +516,7 @@ impl GraphicsAppBuilder {
     /// builds and returns the app for running
     pub fn build(&mut self) -> GraphicsTreeApp{
 
-        // transform data
+        ///////////////// transform data
         let output = {
             if self.output == 0 {OutputType::Absent}
             else if self.output == 1 {OutputType::Data}
@@ -506,128 +534,64 @@ impl GraphicsAppBuilder {
         let plant_species = self.plant_species.clone().unwrap_or(DEFAULT_PLANT_SPECIES);
         let environmental_params = self.environmental_params.unwrap_or(DEFAULT_ENVIRONMENTAL_PARAMS);
         
+        
+
+
+        ///////////////// create data structs
         let branch_sampler = BranchPrototypesSampler::create(branch_conditions.0, SAMPLER_SIZE, branch_conditions.1, branch_conditions.2);
         let plant_species_sampler = PlantSpeciesSampler::new(plant_species);
 
-        ///////////////// world
-        let mut world = World::new();
-
-        ///////////////// resources
-        create_gravity_resource(&mut world, [0, -1, 0], gravity_strength);
-        create_physical_age_time_step(&mut world, time_step);
-
-        
-        
-        world.insert_resource(BranchPrototypes::new(branch_types));
-        world.insert_resource(LightCells::new(cell_settings.0 as i32, cell_settings.1));
-        world.insert_resource(PlantDeathRate::new(plant_death_rate));
+        let gravity = GravitySettings::create([0, -1, 0], gravity_strength);
+        let prototypes = BranchPrototypes::new(branch_types);
+        let cells = LightCells::new(cell_settings.0 as i32, cell_settings.1);
 
 
-        let (terrain_type, plant_spawning_bounds, terrain_collider_ref) = {
+        let (terrain_type, plant_spawning_bounds, terrain) = {
             if self.has_terrain {     
                 let settings = self.terrain_settings.clone().unwrap();
                 if settings.2.is_none() {
-                    let plant_spawn_bounds = spawn_flat_terrain(settings.0, settings.1, &mut world);
-                    (TerrainType::Flat, plant_spawn_bounds.0, plant_spawn_bounds.1)
+                    let (terrain, bounds) = create_flat_terrain(settings.0, settings.1);
+                    (TerrainType::Flat, bounds, terrain)
                 }
                 else {
                     let subsettings = settings.2.clone().unwrap();
-                    let plant_spawn_bounds = spawn_heightmap_terrain(settings.0, subsettings.0, subsettings.1, settings.1, subsettings.2, &mut world);
-                    (TerrainType::Bumpy, plant_spawn_bounds.0, plant_spawn_bounds.1)
+                    let (terrain, bounds) = create_heightmap_terrain(settings.0, subsettings.0, subsettings.1, settings.1, subsettings.2);
+                    (TerrainType::Bumpy, bounds, terrain)
                 }
             }
             else {
-                let plant_spawn_bounds = spawn_flat_terrain(DEFAULT_TERRAIN.0, DEFAULT_TERRAIN.1, &mut world);
-                (TerrainType::Absent, plant_spawn_bounds.0, plant_spawn_bounds.1)
+                let (terrain, bounds) = create_flat_terrain(DEFAULT_TERRAIN.0, DEFAULT_TERRAIN.1);
+                (TerrainType::Absent, bounds, terrain)
             }
         };
 
+        //////////// spawn initial plant(s)
 
-
-
-        let mut update_schedule = Schedule::new();
-
-        // spawn initial plant(s)
-
-        let mut initial_plant_data = Vec::new();
+        let mut plants = Vec::new();
         let mut rng = thread_rng();
 
         for _i in 0..self.start_plants {
 
             let (x, z) = (rng.gen_range(plant_spawning_bounds.1.clone()), rng.gen_range(plant_spawning_bounds.2.clone()));
 
-            let hit_pos = terrain_collider_ref.check_ray([x, plant_spawning_bounds.0 + 5.0, z], [0, -1, 0], None).unwrap();
+            let hit_pos = terrain.check_ray([x, plant_spawning_bounds.0 + 5.0, z], [0, -1, 0], None).unwrap();
+            let spawn_data = plant_species_sampler.get_plant(environmental_params.0 + hit_pos.hit_position.y * environmental_params.1, environmental_params.2);
 
-            initial_plant_data.push((plant_species_sampler.get_plant(environmental_params.0 + hit_pos.hit_position.y * environmental_params.1, environmental_params.2), [x, hit_pos.hit_position.y, z]))
-        }
-
-        let mut root_ids = Vec::new();
-        for data in initial_plant_data {
-
-            if let (Some(spawn_data), pos) = data {
-
-                let root_node_id = world.spawn(BranchNodeBundle{
-                    data: BranchNodeData{
-                        thickening_factor: spawn_data.0.thickening_factor,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                }).id();
-
-                let root_branch_id = world.spawn(BranchBundle{
-                    data: BranchData {
-                        root_node: Some(root_node_id),
-                        root_position: pos.into(),
-                        ..Default::default()
-                    },
-                    prototype: BranchPrototypeRef(branch_sampler.get_prototype_index(spawn_data.0.apical_control, branch_conditions.2)),
-                    ..Default::default()
-                }).id();
-
-                world.spawn(PlantBundle{
-                    growth_factors: spawn_data.0,
-                    data: PlantData {
-                        root_node: Some(root_branch_id),
-                        position: pos.into(),
-                        ..Default::default()
-                    },
-                    plasticity_params: spawn_data.1,
-                    ..Default::default()
-                });
-
-                root_ids.push(root_branch_id);
+            if let Some((growth_factors, plasticity)) = spawn_data {
+                let apical = growth_factors.apical_control;
+                plants.push(
+                    Plant::new(
+                        plasticity,
+                        growth_factors,
+                        [x, plant_spawning_bounds.0 + 5.0, z],
+                        hit_pos.hit_normal,
+                        branch_sampler.get_prototype_index(apical, branch_conditions.2), // max determinancy
+                    )
+                )
             }
         }
-        world.insert_resource(branch_sampler);
         
-        // plant
-        if has_plants {
-
-            if root_ids.len() == 0 {panic!("No intial plants generated")}
-            
-            // mesh queue
-            world.spawn(MeshUpdateQueue::new_from_many(root_ids));
-
-            update_schedule.add_systems((
-                update_branch_bounds,
-                // update_plant_bounds,
-                // update_plant_intersections,
-                step_plant_age,
-                calculate_branch_light_exposure,
-                calculate_growth_vigor,
-                assign_growth_rates,
-                step_physiological_age,
-                update_branch_nodes,
-                determine_create_new_branches,
-                apply_system_buffers, // this makes sure nodes and branches have spawned
-                assign_thicknesses,
-                calculate_segment_lengths_and_tropism,
-                update_branch_data_buffers,
-                debug_log_nodes_and_branches,
-            ).chain());
-    
-        }
-        else {world.spawn(MeshUpdateQueue::new());}
+        if has_plants &&  plants.len() == 0{panic!("No intial plants generated")}
 
 
 
@@ -637,53 +601,55 @@ impl GraphicsAppBuilder {
         let render_pass = if self.has_gui {double_pass_renderpass(&device, &swapchain)} else {single_pass_renderpass(&device, &swapchain)};
         let (framebuffers, window_dimensions) = get_framebuffers(&memory_allocator, &swapchain_images, &render_pass);
 
-
-        add_world_branch_graphics_resources(&mut world, memory_allocator.clone());
         
 
         /////// subpasses and pipelines
         
 
-        let terrain_pipeline = match terrain_type {
-            TerrainType::Absent => None,
+        let (terrain_pipeline, terrain_mesh_buffers) = match terrain_type {
+            TerrainType::Absent => {
+                let buffers = create_terrain_mesh_buffers(&memory_allocator, &Mesh::empty());
+                (GraphicsPipeline::start().build(device.clone()).unwrap(), buffers)
+            },
             TerrainType::Bumpy => {
-                create_terrain_mesh_buffers(&memory_allocator, &mut world);
-                Some(get_heightmap_terrain_pipeline(window_dimensions, &device, &render_pass, 0))
+                let buffers = create_terrain_mesh_buffers(&memory_allocator, &terrain.mesh);
+                (get_heightmap_terrain_pipeline(window_dimensions, &device, &render_pass, 0), buffers)
             },
             TerrainType::Flat => {
-                create_terrain_mesh_buffers(&memory_allocator, &mut world);
-                Some(get_flat_terrain_pipeline(window_dimensions, &device, &render_pass, 0))
+                let buffers = create_terrain_mesh_buffers(&memory_allocator, &terrain.mesh);
+                (get_flat_terrain_pipeline(window_dimensions, &device, &render_pass, 0), buffers)
             }
         };
 
         let branch_pipeline = get_branch_pipeline(window_dimensions, &device, &render_pass, 0);
+        let branch_graphics_settings = create_branch_graphics_settings(3, false);
+        let branch_mesh_buffers = init_branch_mesh_buffers(&plants, &branch_graphics_settings, &memory_allocator);
 
         let graphics_pass = Subpass::from(render_pass.clone(), 0).unwrap();
-        let gui = {
+
+        let (gui, gui_data) = {
             if self.has_gui {
                 let subpass = Subpass::from(render_pass.clone(), 1).unwrap();
-                Some(create_gui_from_subpass(&event_loop, &surface, &queue, &subpass))
+               (Some(create_gui_from_subpass(&event_loop, &surface, &queue, &subpass)), Vec::new())
             }
-            else {None}
+            else {(None, Vec::new())}
         };
 
 
-
-
-        let mut frame_schedule = Schedule::default();
-        frame_schedule.add_systems((check_for_force_update, update_next_mesh));
-
-
-        // startrup
-        let mut startup_schedule = Schedule::new();
-
-        startup_schedule.add_system(init_branch_mesh_buffers_res);
-
-        startup_schedule.run(&mut world);
-
-
         GraphicsTreeApp{
-            world: world,
+
+            plants: plants,
+            gravity: gravity,
+            time_step: time_step,
+            _terrain: terrain,
+            lightcells: cells,
+            plant_death_rate: plant_death_rate,
+            branch_prototypes: prototypes,
+            branch_sampler: branch_sampler,
+
+            accumulated: Duration::ZERO,
+            period: Duration::from_secs_f32(0.1),
+
             device,
             queue,
             surface,
@@ -693,20 +659,25 @@ impl GraphicsAppBuilder {
             render_pass,
             framebuffers,
 
-            frame_schedule,
-            update_schedule: FixedSchedule::new(Duration::from_secs_f32(0.1), update_schedule),
             output,
 
-            
             graphics_pass,
+            light: self.light.unwrap_or(DEFAULT_LIGHT),
+
             branch_pipeline,
-            terrain: terrain_type,
+            branch_graphics_settings: branch_graphics_settings,
+            branch_mesh_buffers: branch_mesh_buffers,
+
+            terrain_type: terrain_type,
             terrain_pipeline,
-            terrain_settings: self.terrain_graphics_settings,
+            terrain_graphics_settings: self.terrain_graphics_settings.unwrap_or(DEFAULT_TERRAIN_SETTINGS),
+            terrain_mesh_buffers: terrain_mesh_buffers,
+
             gui,
+            gui_data: gui_data,
             // this made me want to give up on the whole project - 2023-05-21: the second value was [0.0; 3] which caused no 3d graphics to render, I had been debugging for 3 days
             camera_state: ([-2.0, 0.0, 0.0], [1.0, 0.0, 0.0]),
-            light: self.light.unwrap_or(DEFAULT_LIGHT)
+            
         }
     }
 

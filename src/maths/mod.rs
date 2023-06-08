@@ -40,7 +40,7 @@ pub fn quicksort<T>(list: Vec<(f32, T)>) -> Vec<(f32, T)>{
 
     for item in list {
         if item.0 < target_val {less.push(item)}
-        else if item > target_val {more.push(item)}
+        else if item.0 > target_val {more.push(item)}
         else {equal.push(item)}
     }
 
@@ -61,19 +61,19 @@ mod quicksort_tests {
     use super::quicksort;
     #[test]
     fn random_test() {
-        let list: Vec<(usize, f32)> = vec![(25.6, 0),(22.7, 1),(9.8, 2),(1.5, 3),(5.0, 4),(4.7, 5)];
+        let list = vec![(25.6, 0),(22.7, 1),(9.8, 2),(1.5, 3),(5.0, 4),(4.7, 5)];
         assert_eq!(quicksort(list), vec![(1.5, 3),(4.7, 5),(5.0, 4),(9.8, 2),(22.7, 1),(25.6, 0)]);
     }
 
     #[test]
     fn reverse_test() {
-        let list: Vec<(usize, f32)> = vec![(25.6, 0),(22.7, 1),(9.8, 2),(5.0, 4),(4.7, 5),(1.5, 3)];
+        let list = vec![(25.6, 0),(22.7, 1),(9.8, 2),(5.0, 4),(4.7, 5),(1.5, 3)];
         assert_eq!(quicksort(list), vec![(1.5, 3),(4.7, 5),(5.0, 4),(9.8, 2),(22.7, 1),(25.6, 0)]);
     }
 
     #[test]
     fn pre_sorted_test() {
-        let list: Vec<(usize, f32)>= vec![(1.5, 3),(4.7, 5),(5.0, 4),(9.8, 2),(22.7, 1),(25.6, 0)];
+        let list = vec![(1.5, 3),(4.7, 5),(5.0, 4),(9.8, 2),(22.7, 1),(25.6, 0)];
         assert_eq!(quicksort(list.clone()), list);
     }
 }

@@ -6,11 +6,9 @@ use std::{sync::Arc, ops::{RangeInclusive, DerefMut}, borrow::Cow};
 use vulkano_util::{
     window::VulkanoWindows
 };
-use bevy_ecs::prelude::*;
 /////////////// structs
 
 // my gui will only really be used to control settings so only needs to store a reference of what the settings are and what they effect
-#[derive(Component)]
 pub struct GUIData {
     pub name: String,
     pub bools: Vec<(String, bool)>,
@@ -94,27 +92,27 @@ fn set_gui_style(
     ctx.set_fonts(font); 
 }
 
-pub fn create_gui_subpass(
-    event_loop: &EventLoop<()>,
-    surface: &Arc<Surface>,
-    queue: &Arc<Queue>,
-    render_pass: &Arc<RenderPass>,
-) -> Gui{
-    let gui = Gui::new_with_subpass(
-        event_loop,
-        surface.clone(),
-        queue.clone(),
-        Subpass::from(render_pass.clone(), 0).unwrap(),
-        GuiConfig {
-            preferred_format: Some(vulkano::format::Format::B8G8R8A8_SRGB),
-            // Must match your pipeline's sample count
-            samples: SampleCount::Sample4,
-            ..Default::default()
-        },
-    );
-    set_gui_style(&gui.context());
-    gui
-}
+// pub fn create_gui_subpass(
+//     event_loop: &EventLoop<()>,
+//     surface: &Arc<Surface>,
+//     queue: &Arc<Queue>,
+//     render_pass: &Arc<RenderPass>,
+// ) -> Gui{
+//     let gui = Gui::new_with_subpass(
+//         event_loop,
+//         surface.clone(),
+//         queue.clone(),
+//         Subpass::from(render_pass.clone(), 0).unwrap(),
+//         GuiConfig {
+//             preferred_format: Some(vulkano::format::Format::B8G8R8A8_SRGB),
+//             // Must match your pipeline's sample count
+//             samples: SampleCount::Sample4,
+//             ..Default::default()
+//         },
+//     );
+//     set_gui_style(&gui.context());
+//     gui
+// }
 
 pub fn create_gui_from_subpass(
     event_loop: &EventLoop<()>,
@@ -146,17 +144,6 @@ pub fn get_gui_commands(
 }
 
 
-fn get_gui_data_from_world(
-    world: &mut World,
-) -> Vec<Mut<GUIData>>{
-    let mut query = world.query::<&mut GUIData>();
-    let mut data = Vec::new();
-    for gui_data in query.iter_mut(world) {
-        data.push(gui_data)
-    }
-    data
-}
-
 
 pub fn pass_winit_event_to_gui(
     gui: &mut Gui,
@@ -172,8 +159,8 @@ pub fn get_gui_resource_commands(
     get_gui_commands(gui, dimensions)
 }
 
-fn draw_gui_objects(
-    mut gui_data: Vec<Mut<GUIData>>,
+pub fn draw_gui(
+    gui_data: &mut Vec<GUIData>,
     gui: &mut Gui
 ) {
     gui.immediate_ui(|gui| {
@@ -188,10 +175,3 @@ fn draw_gui_objects(
     });
 }
 
-pub fn run_gui_commands(
-    world: &mut World,
-    gui: &mut Gui
-) {
-    let gui_data = get_gui_data_from_world(world);
-    draw_gui_objects(gui_data, gui);
-}

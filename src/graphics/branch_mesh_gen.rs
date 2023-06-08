@@ -1,9 +1,8 @@
 use std::{f32::consts::PI, ops::AddAssign, collections::VecDeque};
 use crate::{};
-use bevy_ecs::{prelude::*, system::SystemState};
 use super::{
     general_graphics::{PositionVertex, Normal},
-    branch_graphics::BranchGraphicsResources,
+    branch_graphics::BranchGraphicsSettings,
     mesh::Mesh,
     super::{
         maths::{vector_three::{self, Vector3}, matrix_three::Matrix3, quicksort},
@@ -40,23 +39,25 @@ impl AddAssign<Vector3> for Normal {
 
 pub fn update_next_mesh(
     plants: &Vec<Plant>,
-    branch_graphics_res: &BranchGraphicsResources,
+    branch_graphics_settings: &BranchGraphicsSettings,
 ) {
-    let polygons = &branch_graphics_res.polygon_vectors;
+    let polygons = &branch_graphics_settings.polygon_vectors;
 
     let unsorted_branch_updates = get_branch_mesh_update_times(plants);
 
     if unsorted_branch_updates.len() == 0 {return;}
 
     if unsorted_branch_updates.len() == 1 {
-        let (positions, radii, pairs) = get_node_data_and_connections_base_to_tip(&unsorted_branch_updates[0].1.root);
-        unsorted_branch_updates[0].1.mesh = create_branch_mesh(unsorted_branch_updates[0].1.data.root_position, positions, radii, pairs, polygons);
+        let mut branch = unsorted_branch_updates[0].1.borrow_mut();
+        let (data, pairs) = get_node_data_and_connections_base_to_tip(&branch.root);
+        branch.mesh = create_branch_mesh(branch.data.root_position, data, pairs, polygons);
         return;
     }
+    let sorted_branch_updates = quicksort(unsorted_branch_updates);
 
-    let branch = quicksort(unsorted_branch_updates)[0].1;
-    let (positions, radii, pairs) = get_node_data_and_connections_base_to_tip(&branch.root);
-    branch.mesh = create_branch_mesh(branch.data.root_position, positions, radii, pairs, polygons);
+    let mut branch = sorted_branch_updates[0].1.borrow_mut();
+    let (data, pairs) = get_node_data_and_connections_base_to_tip(&branch.root);
+    branch.mesh = create_branch_mesh(branch.data.root_position, data, pairs, polygons);
     return;
 
 
@@ -79,8 +80,7 @@ pub fn update_next_mesh(
 /// generates a mesh for a branch from node pairs and polygon directions
 fn create_branch_mesh(
     root_pos: Vector3,
-    node_pos: Vec<Vector3>,
-    node_thicknesses: Vec<f32>,
+    node_data: Vec<(Vector3, f32)>,
     node_pairs:  Vec<(usize, usize)>,
     polygon_directions: &Vec<Vector3>,
 ) -> Mesh {
@@ -91,8 +91,8 @@ fn create_branch_mesh(
     let num_indices = polygon_directions.len() as u32 * 2;
 
     for pair in node_pairs.iter() {
-        let (node_1, node_2) = (node_pos[pair.0], node_pos[pair.1]);
-        let (thick_1, thick_2) = (node_thicknesses[pair.0], node_thicknesses[pair.1]);
+        let (node_1, node_2) = (node_data[pair.0].0, node_data[pair.1].0);
+        let (thick_1, thick_2) = (node_data[pair.0].1, node_data[pair.1].1);
 
         let mut branch_line = node_2 - node_1;
         branch_line.normalise();
@@ -131,5 +131,7 @@ fn create_branch_mesh(
         *vertex += root_pos;
     }
 
-    Mesh::new(vertices, indices).recalculate_normals()
+    let mut mesh = Mesh::new(vertices, indices);
+    mesh.recalculate_normals();
+    mesh
 }

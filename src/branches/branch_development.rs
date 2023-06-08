@@ -1,14 +1,10 @@
 #![allow(dead_code, unused_variables, unused_imports)]
-use std::time::{Duration, Instant};
-
-use bevy_ecs::prelude::*;
-use crate::maths::quicksort;
-
+use std::{time::{Duration, Instant}, rc::Rc, cell::RefCell, borrow::{BorrowMut, Borrow}};
 use super::{
     super::{
         plants::plant::*,
         environment::{light_cells::*, *},
-        maths::{vector_three::Vector3, matrix_three::Matrix3, lerp, bounding_sphere::BoundingSphere},
+        maths::{vector_three::Vector3, matrix_three::Matrix3, lerp, bounding_sphere::BoundingSphere, quicksort},
     },
     branch::*,
     branch_node::*,
@@ -26,7 +22,8 @@ pub fn calculate_branch_light_exposure(
 ) {
     // update the light cells
     light_cells.set_all_zero();
-    for branch in get_all_branches(plants) {
+    for branch_cell in get_all_branches(plants) {
+        let branch = branch_cell.as_ref().borrow();
         light_cells.add_volume_to_cell(branch.bounds.centre / light_cells.size(), branch.bounds.get_volume());
     }
 
@@ -34,7 +31,8 @@ pub fn calculate_branch_light_exposure(
     for plant in plants.iter() {
         let shadow_tolerance = plant.plasticity.shadow_tolerance;
 
-        for branch in get_mut_terminal_branches(&mut plant.root) {
+        for branch_cell in branches_base_to_tip(&plant.root) {
+            let mut branch = branch_cell.as_ref().borrow_mut();
             branch.growth_data.light_exposure = lerp(shadow_tolerance, 1.0, light_cells.get_cell_light(branch.bounds.centre / light_cells.size()));
         }
 
@@ -46,14 +44,15 @@ pub fn calculate_branch_light_exposure(
 /// 
 /// Growth Rate = Sigmoid( (branch_vigor - plant_min_vigor)/(plant_max_vigor - plant_min_vigor) ) * plant_growth_rate
 pub fn assign_growth_rates(
-    mut plants: &Vec<Plant>
+    plants: &Vec<Plant>
 ) {
     for plant in plants.iter() {
         let v_min = plant.growth_factors.min_vigor;
         let v_max = plant.growth_factors.max_vigor;
         let plant_growth = plant.growth_factors.growth_rate;
 
-        for branch in get_mut_branches_base_to_tip(&mut plant.root) {
+        for branch_cell in branches_base_to_tip(&plant.root) {
+            let mut branch = branch_cell.as_ref().borrow_mut();
             branch.growth_data.growth_rate = sigmoid((branch.growth_data.growth_vigor - v_min) / (v_max - v_min)) * plant_growth;
         }
 
@@ -73,10 +72,11 @@ pub fn step_physiological_age(
     plants: &Vec<Plant>,
     age_step: f32,
 ) {
-    for mut branch in get_mut_all_branches(plants) {
+    for branch_cell in get_all_branches(plants) {
+        let mut branch = branch_cell.as_ref().borrow_mut();
         branch.growth_data.physiological_age += branch.growth_data.growth_rate * age_step;
-        for mut node in get_mut_nodes_base_to_tip(&mut branch.root) {
-            node.data.phys_age += age_step;
+        for node_cell in nodes_base_to_tip(&branch.root) {
+            node_cell.as_ref().borrow_mut().data.phys_age += age_step;
         }
     }
 }
@@ -90,34 +90,36 @@ pub fn step_physiological_age(
 /// The number of layers on the tree that stores the nodes will be lineraly interpolated between 1 and max 
 /// using the age of the branch and the mature age of its prototype reference
 pub fn update_branch_nodes(
-    plants: &mut Vec<Plant>,
+    plants: &Vec<Plant>,
     branch_prototypes: &BranchPrototypes,
 ) {
     let prototype_data = branch_prototypes.get_age_layers_and_count();
 
-    for branch in get_mut_all_branches(plants) {
+    for branch_cell in get_all_branches(plants) {
+        let mut branch = branch_cell.as_ref().borrow_mut();
         // calculate how many layers the branch should currently have
         let target_layers = lerp(1.0, prototype_data[branch.prototype_id].1 as f32, branch.growth_data.physiological_age / prototype_data[branch.prototype_id].0).floor() as u32;
 
         // if the branch is missing layers, add one more laye
         if branch.growth_data.layers < target_layers {
 
-            let mut working_layer_nodes = get_mut_nodes_on_layer(&mut branch.root, branch.growth_data.layers);
-            let layer_child_counts = prototype_data[branch.prototype_id].2[branch.growth_data.layers as usize - 1];
+            let working_layer_nodes = get_nodes_on_layer(&branch.root, branch.growth_data.layers);
+            let layer_child_counts = prototype_data[branch.prototype_id].2[branch.growth_data.layers as usize - 1].clone();
 
             for i in 0..working_layer_nodes.len() {
                 // check how many children it should have, if none, skip
                 let num_children = layer_child_counts[i];
                 if num_children == 0 {continue;}
 
-                let parent_thickening_factor = working_layer_nodes[i].data.thickening_factor;
+                let mut parent_node = working_layer_nodes[i].as_ref().borrow_mut();
+                let parent_thickening_factor = parent_node.data.thickening_factor;
 
                 for j in 0..num_children {
-                    working_layer_nodes[i].children.push(
-                        BranchNode {
+                    parent_node.children.push(
+                        Rc::new(RefCell::new(BranchNode {
                             data: BranchNodeData {thickening_factor: parent_thickening_factor, phys_age: branch.growth_data.physiological_age, ..Default::default()},
                             ..Default::default()
-                        }
+                        }))
                     )
                 }
             }
@@ -140,7 +142,7 @@ pub fn determine_create_new_branches(
     branch_prototypes_sampler: &BranchPrototypesSampler,
     branch_prototypes: &BranchPrototypes,
 
-    gravity_res: &GravityResources,
+    gravity_res: &GravitySettings,
 ) {
 
     let prototypes = &branch_prototypes.prototypes;
@@ -157,42 +159,43 @@ pub fn determine_create_new_branches(
 
         let branch_bounds = get_branch_bounds(&plant.root);
 
-        for (branch, index) in get_mut_terminal_branches_with_index(&mut plant.root) {
+        for (branch_cell, index) in branches_terminal_with_index(&plant.root) {
+            let mut branch = branch_cell.as_ref().borrow_mut();
 
             // only branches where age > mature_age can have new branches attached
             if branch.growth_data.physiological_age <= prototypes[branch.prototype_id].mature_age {continue;}
 
             // check how many more children the branch needs, if none continue
-            let mut num_needed_children: u32 = if branch.children.1.is_some() {0} else if branch.children.0.is_some() {1} else {2};
+            let num_needed_children: u32 = if branch.children.1.is_some() {0} else if branch.children.0.is_some() {1} else {2};
             if num_needed_children == 0 {continue;}
 
-            let terminal_nodes = get_mut_terminal_nodes(&mut branch.root);
-            let terminal_node_light = branch.growth_data.light_exposure / terminal_nodes.len() as f32;
-            for node in terminal_nodes {
-                node.growth_data.light_exposure = terminal_node_light;
+            let terminal_node_cells = terminal_nodes(&branch.root);
+            let terminal_node_light = branch.growth_data.light_exposure / terminal_node_cells.len() as f32;
+            for cell in terminal_node_cells.iter() {
+                cell.as_ref().borrow_mut().growth_data.light_exposure = terminal_node_light;
             }
 
             // get the new prototype index: Determinancy = parent_vigor * max_det / v_max
             let new_prototype_index = branch_prototypes_sampler.get_prototype_index(apical, branch.growth_data.growth_vigor * branch_prototypes_sampler.max_determinancy / v_max);
 
-            let layers = get_mut_node_layers(&mut branch.root);
+            let layers = get_node_layers(&branch.root);
 
             dist_node_vigor(layers);
-            let mut possible_nodes = get_best_terminal_nodes(get_terminal_nodes(&branch.root), branch.data.root_position, v_min, &prototypes[new_prototype_index], plant_angle, plant_distr_control, branch.data.normal, tropism_dir, max_branch_length, branch_bounds);
+            let mut possible_nodes = get_best_terminal_nodes(terminal_node_cells, branch.data.root_position, v_min, &prototypes[new_prototype_index], plant_angle, plant_distr_control, branch.data.normal, tropism_dir, max_branch_length, &branch_bounds);
 
             if possible_nodes.len() == 0 {continue;}
 
             // children.0
             if num_needed_children == 2 {
                 let data = possible_nodes.remove(0);
-                branch.children.0 = Some(Box::new(Branch::new(data.3, data.1, data.2, new_prototype_index, data.0, index)));
+                branch.children.0 = Some(Rc::new(RefCell::new(Branch::new(data.3, data.1, data.2, new_prototype_index, data.0, index))));
             }
             
             if possible_nodes.len() == 0 {continue;}
 
             // children.1
             let data = possible_nodes.remove(0);
-            branch.children.1 = Some(Box::new(Branch::new(data.3, data.1, data.2, new_prototype_index, data.0, index)));
+            branch.children.1 = Some(Rc::new(RefCell::new(Branch::new(data.3, data.1, data.2, new_prototype_index, data.0, index))));
         }
 
     }
@@ -201,36 +204,42 @@ pub fn determine_create_new_branches(
 
 /// takes in a list of node layers from base to tip and distributes light exposure down and then growth vigor up
 fn dist_node_vigor(
-    mut nodes: Vec<Vec<&mut BranchNode>>,
+    mut node_cells: Vec<Vec<Rc<RefCell<BranchNode>>>>,
 ) {
 
     // distribute light down
-    nodes.reverse();
-    for i in 0..nodes.len() - 1 {
+    node_cells.reverse();
+    for i in 0..node_cells.len() - 1 {
 
-        for node in nodes[i + 1] {
-            node.growth_data.light_exposure = 0.0;
+        for cell in node_cells[i + 1].iter() {
+            cell.as_ref().borrow_mut().growth_data.light_exposure = 0.0;
         }
 
-        for node in nodes[i] {
-            nodes[i + 1][node.parent].growth_data.light_exposure += node.growth_data.light_exposure;
+        for cell in node_cells[i].iter() {
+            let node = cell.as_ref().borrow();
+            node_cells[i + 1][node.parent].as_ref().borrow_mut().growth_data.light_exposure += node.growth_data.light_exposure;
         }
     }
 
     // reverse and convert light to vigor
-    nodes.reverse();
-    nodes[0][0].growth_data.growth_vigor = nodes[0][0].growth_data.light_exposure;
+    node_cells.reverse();
+    {
+        let mut node = node_cells[0][0].as_ref().borrow_mut();
+        node.growth_data.growth_vigor = node.growth_data.light_exposure;
+    }
 
     // distribute vigor up
-    for i in 0..nodes.len() - 1 {
+    for i in 0..node_cells.len() - 1 {
 
-        for node in nodes[i] {
+        for cell in node_cells[i].iter() {
+            let node = cell.as_ref().borrow_mut();
 
             let mut child_light_sum = 0.0;
-            for child in node.children.iter() {
-                child_light_sum += child.growth_data.light_exposure;
+            for child_cell in node.children.iter() {
+                child_light_sum += child_cell.as_ref().borrow().growth_data.light_exposure;
             }
-            for child in node.children.iter_mut() {
+            for child_cell in node.children.iter() {
+                let mut child = child_cell.as_ref().borrow_mut();
                 child.growth_data.growth_vigor = node.growth_data.growth_vigor * child.growth_data.light_exposure / child_light_sum;
             }
 
@@ -242,7 +251,7 @@ fn dist_node_vigor(
 /// returns a sorted list of the terminal nodes based on the "distribution" fn below
 /// the usize given is the node's index in the branch's terminal nodes list
 fn get_best_terminal_nodes(
-    terminal_nodes: Vec<&BranchNode>,
+    terminal_nodes: Vec<Rc<RefCell<BranchNode>>>,
     
     branch_root_pos: Vector3,
     min_vigor: f32,
@@ -260,11 +269,12 @@ fn get_best_terminal_nodes(
     let mut out_data = Vec::new();
 
     for i in 0..terminal_nodes.len() {
-        if terminal_nodes[i].growth_data.growth_vigor <= min_vigor {continue;}
-        let pos = terminal_nodes[i].data.relative_position + terminal_nodes[i].data.tropism_offset + branch_root_pos;
+        let node = terminal_nodes[i].as_ref().borrow();
+        if node.growth_data.growth_vigor <= min_vigor {continue;}
+        let pos = node.data.relative_position + branch_root_pos;
 
         let (normal, weight) = get_new_normal(plant_angle, plant_distr_control, parent_normal, tropism_dir, prototype_data, max_branch_length, pos, other_branch_bounds);
-        out_data.push((weight, (i, terminal_nodes[i].data.thickening_factor, normal, pos)));
+        out_data.push((weight, (i, node.data.thickening_factor, normal, pos)));
     }
 
     let sorted = quicksort(out_data);
@@ -350,46 +360,50 @@ pub fn assign_thicknesses(
     let mut branch_list = get_all_branches(plants);
     branch_list.reverse();
 
-    for branch in branch_list {
+    for branch_cell in branch_list {
+        let branch = branch_cell.as_ref().borrow();
 
-
-        let mut node_layers = get_mut_node_layers(&mut branch.root);
+        let node_layers = get_node_layers(&branch.root);
 
         // assign the radii to node indices that do not exist
         let mut child_one_radius = (node_layers[node_layers.len()].len(), 0.0);
         let mut child_two_radius = (node_layers[node_layers.len()].len(), 0.0);
 
-        if let Some(child_one) = &branch.children.0 {
-            child_one_radius = (child_one.parent_node_index, child_one.root.data.radius);
+        if let Some(child_one_cell) = &branch.children.0 {
+            let child = child_one_cell.as_ref().borrow();
+            child_one_radius = (child.parent_node_index, child.root.as_ref().borrow().data.radius);
         }
 
-        if let Some(child_two) = &branch.children.1 {
-            child_two_radius = (child_two.parent_node_index, child_two.root.data.radius);
+        if let Some(child_two_cell) = &branch.children.1 {
+            let child = child_two_cell.as_ref().borrow();
+            child_two_radius = (child.parent_node_index, child.root.as_ref().borrow().data.radius);
         }
 
         
         for i in (0..node_layers.len()).rev() {
             for j in 0..node_layers[i].len() {
 
+                let mut node = node_layers[i][j].as_ref().borrow_mut();
+
                 if i == node_layers.len() - 1 {
                     if j == child_one_radius.0 {
-                        node_layers[i][j].data.radius = child_one_radius.1;
+                        node.data.radius = child_one_radius.1;
                         continue;
                     }
                     else if j == child_two_radius.0 {
-                        node_layers[i][j].data.radius = child_two_radius.1;
+                        node.data.radius = child_two_radius.1;
                         continue;
                     }
                 }
 
-                if node_layers[i][j].children.len() == 0 && node_layers[i][j].data.radius == 0.0 {node_layers[i][j].data.radius = node_layers[i][j].data.thickening_factor; continue;}
+                if node.children.len() == 0 && node.data.radius == 0.0 {node.data.radius = node.data.thickening_factor; continue;}
 
                 let mut squared_child_sum = 0.0;
-                for child in node_layers[i][j].children.iter() {
-                    squared_child_sum += child.data.radius;
+                for child in node.children.iter() {
+                    squared_child_sum += child.as_ref().borrow().data.radius;
                 }
     
-                node_layers[i][j].data.radius = squared_child_sum.sqrt();
+                node.data.radius = squared_child_sum.sqrt();
             }
         }
     }
@@ -405,7 +419,7 @@ pub fn calculate_segment_lengths_and_tropism(
     plants: &Vec<Plant>,
 
     branch_prototypes: &BranchPrototypes,
-    gravity_res: GravityResources,
+    gravity_res: &GravitySettings,
 ) {
 
     let directions = branch_prototypes.get_directions();
@@ -418,29 +432,31 @@ pub fn calculate_segment_lengths_and_tropism(
         let plant_tropism = plant.growth_factors.tropism_control;
 
 
-        for branch in get_mut_branches_base_to_tip(&mut plant.root) {
+        for branch_cell in branches_base_to_tip(&plant.root) {
+
+            let mut branch = branch_cell.as_ref().borrow_mut();
 
             if branch.data.finalised_mesh {continue;}
             if branch.growth_data.physiological_age > ages[branch.prototype_id] {
                 branch.data.finalised_mesh = true;
             }
 
-            let rotation_mat = Matrix3::from_angle_and_axis(branch.data.normal.cross(Vector3::Y()), branch.data.normal.angle_to(Vector3::Y));
+            let rotation_mat = Matrix3::from_angle_and_axis(branch.data.normal.angle_to(Vector3::Y()), branch.data.normal.cross(Vector3::Y()));
 
 
-            let layers = get_mut_node_layers(&mut branch.root);
+            let layers = get_node_layers(&branch.root);
 
             // if there are no children, the index will be outside the range so will not be checked
             let child_one_index = {
-                if let Some(branch) = branch.children.0 {
-                    branch.parent_node_index
+                if let Some(child_branch) = &branch.children.0 {
+                    branch.borrow().parent_node_index
                 }
                 else {layers[layers.len() - 1].len()}
             };
 
             let child_two_index = {
-                if let Some(branch) = branch.children.1 {
-                    branch.parent_node_index
+                if let Some(child_branch) = &branch.children.1 {
+                    branch.borrow().parent_node_index
                 }
                 else {layers[layers.len() - 1].len()}
             };
@@ -450,10 +466,13 @@ pub fn calculate_segment_lengths_and_tropism(
             // update branch node positions
             for i in 0..layers.len() - 1 {
 
-                for node in layers[i] {
+                for node_cell in layers[i].iter() {
+                    let node = node_cell.as_ref().borrow();
                     let parent_pos = node.data.relative_position;
 
-                    for child in node.children.iter_mut() {
+                    for child_cell in node.children.iter() {
+                        let mut child = child_cell.as_ref().borrow_mut();
+
                         let segment_age = (branch_age - child.data.phys_age).max(0.0);
                         let segment_length = (branch_scale * segment_age).min(max_length);
         
@@ -470,10 +489,10 @@ pub fn calculate_segment_lengths_and_tropism(
             // send positions to child
             for i in 0..layers[layers.len() - 1].len() {
                 if i == child_one_index {
-                    branch.children.0.unwrap().data.root_position = layers[layers.len() - 1][i].data.relative_position + branch.data.root_position;
+                    branch.children.0.as_ref().unwrap().as_ref().borrow_mut().data.root_position = layers[layers.len() - 1][i].as_ref().borrow().data.relative_position + branch.data.root_position;
                 }
                 if i == child_two_index {
-                    branch.children.1.unwrap().data.root_position = layers[layers.len() - 1][i].data.relative_position + branch.data.root_position;
+                    branch.children.1.as_ref().unwrap().as_ref().borrow_mut().data.root_position = layers[layers.len() - 1][i].as_ref().borrow().data.relative_position + branch.data.root_position;
                 }
             }
 
@@ -493,12 +512,14 @@ pub fn update_branch_bounds(
     plants: &Vec<Plant>
 ) {
 
-    for branch in get_mut_all_branches(plants) {
+    for branch_cell in get_all_branches(plants) {
 
+        let mut branch = branch_cell.as_ref().borrow_mut();
+        let root_pos = branch.data.root_position;
 
         let mut node_positions = Vec::new();
-        for node in get_nodes_base_to_tip(&branch.root) {
-            node_positions.push(node.data.relative_position);
+        for node in nodes_base_to_tip(&branch.root) {
+            node_positions.push(node.as_ref().borrow().data.relative_position);
         }
 
         if node_positions.len() <= 1 {
@@ -507,7 +528,7 @@ pub fn update_branch_bounds(
         else {
             branch.bounds = BoundingSphere::from_points(node_positions)
         }
-        branch.bounds.centre += branch.data.root_position;
+        branch.bounds.centre += root_pos;
 
     }
 }

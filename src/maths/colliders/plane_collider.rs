@@ -1,7 +1,7 @@
 use super::{Vector3, Vector2, Collider, RayHitInfo};
 
 
-/// Axis Alligned Plane Collider
+/// Axis Alligned Plane Collider, normal is the Y axis
 #[derive(Default, Debug, PartialEq, Clone, Copy)]
 pub struct PlaneCollider {
     position: Vector3,
@@ -35,7 +35,7 @@ impl Collider for PlaneCollider {
         let direction = direction.normalised();
 
         if (root_position == self.position) || ((self.centre - root_position).dot(Vector3::Y()) == 0.0) {
-            return Some(RayHitInfo::new(root_position, 0.0));
+            return Some(RayHitInfo::new(root_position, Vector3::Y(), 0.0));
         }
 
         if direction.dot(Vector3::Y()) == 0.0 {return None;}
@@ -48,7 +48,7 @@ impl Collider for PlaneCollider {
 
         if (point.x - self.position.x > self.x_length) || (point.z - self.position.z > self.z_length) {return None;}
 
-        Some(RayHitInfo::new(point, distance))
+        Some(RayHitInfo::new(point, Vector3::Y(), distance))
     }
 }
 

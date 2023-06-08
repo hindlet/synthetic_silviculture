@@ -11,9 +11,10 @@ use vulkano::{
     swapchain::Swapchain,
     sync::{self, GpuFuture}
 };
-use bevy_ecs::{prelude::*, system::SystemState};
 use std::{sync::Arc, collections::BTreeMap};
 use egui::epaint::ahash::HashMap;
+
+use crate::environment::terrain::Terrain;
 
 use super::{
     mesh::Mesh,
@@ -22,7 +23,6 @@ use super::{
     gui::GUIData,
     super::{
         maths::{vector_three::Vector3, matrix_three::Matrix3},
-        environment::terrain::TerrainTag,
     }
 };
 
@@ -44,7 +44,7 @@ mod flat_vert_shader {
 }
 
 
-#[derive(Resource, Debug)]
+#[derive(Debug)]
 pub struct TerrainMeshBuffers {
     pub vertices: Subbuffer<[PositionVertex]>,
     pub normals: Subbuffer<[Normal]>,
@@ -53,17 +53,12 @@ pub struct TerrainMeshBuffers {
 
 pub fn create_terrain_mesh_buffers(
     buffer_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
-    world: &mut World
-) {
+    terrain_mesh: &Mesh,
+) -> TerrainMeshBuffers {
 
-    let mut state: SystemState<(
-        Query<&Mesh, With<TerrainTag>>,
-    )> = SystemState::new(world);
-
-    let meshes = state.get(world).0;
 
     let (vertices, normals, indices) = {
-        let (vertices, normals, indices) = meshes.single().components();
+        let (vertices, normals, indices) = terrain_mesh.components();
         if vertices.len() == 0 {
             (vec![Vector3::ZERO().into(), Vector3::ZERO().into(), Vector3::ZERO().into()],
             vec![Vector3::Y().into(), Vector3::Y().into(), Vector3::Y().into()], 
@@ -112,11 +107,11 @@ pub fn create_terrain_mesh_buffers(
     ).unwrap();
 
 
-    world.insert_resource(TerrainMeshBuffers{
+    TerrainMeshBuffers {
         vertices: vertex_buffer,
         normals: normal_buffer,
-        indices: index_buffer,
-    })
+        indices: index_buffer
+    }
 }
 
 
@@ -307,16 +302,8 @@ pub fn add_heightmap_terrain_draw_commands(
     // frag_light_buffers: &(Subbuffer<[heightmap_vert_shader::PointLight]>, Subbuffer<[heightmap_vert_shader::DirectionalLight]>),
     layout_index: u32,
 
-    world: &mut World,
+    terrain_mesh_buffers: &TerrainMeshBuffers
 ) {
-
-    // create the system state to query data and then query it
-    let mut state: SystemState<(
-        Res<TerrainMeshBuffers>,
-    )> = SystemState::new(world);
-
-    let buffers = state.get(world).0;
-
 
 
     let layout = graph_pipeline.layout().set_layouts().get(layout_index as usize).unwrap();
@@ -336,9 +323,9 @@ pub fn add_heightmap_terrain_draw_commands(
             0,
             uniforms_set
         )
-        .bind_vertex_buffers(0, (buffers.vertices.clone(), buffers.normals.clone()))
-        .bind_index_buffer(buffers.indices.clone())
-        .draw_indexed(buffers.indices.len() as u32, 1, 0, 0, 0)
+        .bind_vertex_buffers(0, (terrain_mesh_buffers.vertices.clone(), terrain_mesh_buffers.normals.clone()))
+        .bind_index_buffer(terrain_mesh_buffers.indices.clone())
+        .draw_indexed(terrain_mesh_buffers.indices.len() as u32, 1, 0, 0, 0)
         .unwrap();
 }
 
@@ -348,10 +335,7 @@ pub fn create_heightmap_uniform_buffer(
     swapchain: &Arc<Swapchain>,
     camera: &Camera,
     light: ([f32; 3], f32),
-    grass_colour: [f32; 3],
-    rock_colour: [f32; 3],
-    grass_slope_threshold: f32,
-    grass_blend_amount: f32,
+    settings: ([f32; 3], [f32; 3], f32, f32),
     terrain_uniform: &SubbufferAllocator,
 ) -> Subbuffer<heightmap_vert_shader::Data> {
     let (view, proj) = get_generic_uniforms(swapchain, camera);
@@ -360,10 +344,10 @@ pub fn create_heightmap_uniform_buffer(
         view: view.into(),
         proj: proj.into(),
         light: heightmap_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1},
-        grass_colour: grass_colour.into(),
-        rock_colour: rock_colour.into(),
-        grass_slope_threshold: grass_slope_threshold.into(),
-        grass_blend_amount: grass_blend_amount.into(),
+        grass_colour: settings.0.into(),
+        rock_colour: settings.1.into(),
+        grass_slope_threshold: settings.2.into(),
+        grass_blend_amount: settings.3.into(),
     };
     let subbuffer = terrain_uniform.allocate_sized().unwrap();
     *subbuffer.write().unwrap() = data;
@@ -478,15 +462,8 @@ pub fn add_flat_terrain_draw_commands(
     // frag_light_buffers: &(Subbuffer<[flat_vert_shader::PointLight]>, Subbuffer<[flat_vert_shader::DirectionalLight]>),
     layout_index: u32,
 
-    world: &mut World,
+    terrain_mesh_buffers: &TerrainMeshBuffers
 ) {
-
-    // create the system state to query data and then query it
-    let mut state: SystemState<(
-        Res<TerrainMeshBuffers>,
-    )> = SystemState::new(world);
-
-    let buffers = state.get(world).0;
 
 
 
@@ -507,9 +484,9 @@ pub fn add_flat_terrain_draw_commands(
             0,
             uniforms_set
         )
-        .bind_vertex_buffers(0, (buffers.vertices.clone(), buffers.normals.clone()))
-        .bind_index_buffer(buffers.indices.clone())
-        .draw_indexed(buffers.indices.len() as u32, 1, 0, 0, 0)
+        .bind_vertex_buffers(0, (terrain_mesh_buffers.vertices.clone(), terrain_mesh_buffers.normals.clone()))
+        .bind_index_buffer(terrain_mesh_buffers.indices.clone())
+        .draw_indexed(terrain_mesh_buffers.indices.len() as u32, 1, 0, 0, 0)
         .unwrap();
 }
 

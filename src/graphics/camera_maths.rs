@@ -1,10 +1,9 @@
+#![allow(dead_code)]
 use std::time::Duration;
-use bevy_ecs::prelude::Component;
 use winit::event::VirtualKeyCode;
 use super::super::maths::{vector_three::{Vector3, cross}, matrix_three::Matrix3, matrix_four::Matrix4};
 
 
-#[derive(Component)]
 pub struct Camera {
     pub position: Vector3, 
     pub direction: Vector3,

@@ -1,6 +1,5 @@
-#![allow(unused_variables, unused_imports)]
+#![allow(unused_variables)]
 use std::sync::Arc;
-use bevy_ecs::prelude::*;
 use vulkano::{
     VulkanLibrary,
     instance::{Instance, InstanceCreateInfo},
@@ -27,13 +26,19 @@ use winit::{
 use bytemuck::{Pod, Zeroable};
 use super::{
     camera_maths::Camera,
-    gui::create_gui_subpass,
     super::{
         maths::{vector_three::Vector3, matrix_four::Matrix4, matrix_three::Matrix3},
     }
 };
 
 
+
+pub mod basic_frag_shader {
+    vulkano_shaders::shader!{
+        ty: "fragment",
+        path: "assets/shaders/basic_frag.glsl",
+    }
+}
 
 
 
@@ -264,34 +269,6 @@ pub fn recreate_swapchain_and_framebuffers(
 }
 
 
-pub fn get_single_renderpass (
-    device: &Arc<Device>,
-    swapchain: &Arc<Swapchain>,
-) -> Arc<RenderPass> {
-
-    vulkano::single_pass_renderpass!(device.clone(),
-        attachments: {
-            color: {
-                load: Clear,
-                store: Store,
-                format: swapchain.image_format(),
-                samples: 1,
-            },
-            depth: {
-                load: Clear,
-                store: DontCare,
-                format: Format::D16_UNORM,
-                samples: 1,
-            }
-        },
-        pass: {
-            color: [color],
-            depth_stencil: {depth}
-        }
-    ).unwrap()
-}
-
-
 pub fn get_framebuffers(
     memory_allocator: &StandardMemoryAllocator,
     images: &[Arc<SwapchainImage>],
@@ -340,21 +317,4 @@ pub fn get_generic_uniforms(
     let scale = Matrix4::from(Matrix3::from_scale(1.0));
 
     (scale * camera.get_view_matrix(), proj)
-}
-
-
-
-
-
-pub mod basic_frag_shader {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "assets/shaders/basic_frag.glsl",
-    }
-}
-
-pub fn get_basic_frag_shader(
-    device: &Arc<Device>
-) -> Arc<ShaderModule> {
-    basic_frag_shader::load(device.clone()).unwrap()
 }

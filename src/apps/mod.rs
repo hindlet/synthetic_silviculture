@@ -1,8 +1,4 @@
-use std::ops::RangeInclusive;
-use bevy_ecs::{
-    prelude::*,
-    system::SystemState
-};
+use std::{ops::RangeInclusive, time::Duration};
 use rand::{Rng, thread_rng};
 use crate::maths::colliders::mesh_collider::MeshCollider;
 use super::{
@@ -24,7 +20,7 @@ use super::{
     },
 };
 
-#[cfg(feature = "vulkan_graphics")]
+
 pub mod graphics_app;
 pub mod looped_app;
 
@@ -36,13 +32,16 @@ const DEFAULT_GRAVITY_STRENGTH: f32 = 0.5;
 const DEFAULT_TIMESTEP: f32 = 1.0;
 const DEFAULT_CELL_SETTINGS: (u32, f32) = (5, 0.5);
 const DEFAULT_PLANT_DEATH_RATE: f32 = 1.0;
-const DEFAULT_LIGHT: ([f32; 3], f32) = ([0.0, -1.0, 0.0], 0.5);
 const DEFAULT_ENVIRONMENTAL_PARAMS: (f32, f32, f32) = (10.0, 0.01, 110.0); // based on the UK
 const DEFAULT_TERRAIN: (f32, [f32; 3]) = (50.0, [0.0, 0.0, 0.0]);
 
 const DEFAULT_BRANCH_TYPES: Vec<(f32, Vec<Vec<u32>>, Vec<[f32; 3]>)> = Vec::new();
 const DEFAULT_BRANCH_CONTIDITIONS: (Vec<(f32, f32)>, f32, f32) = (Vec::new(), 1.0, 1.0);
 const DEFAULT_PLANT_SPECIES: Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))> = Vec::new();
+
+const DEFAULT_LIGHT: ([f32; 3], f32) = ([0.0, -1.0, 0.0], 0.5);
+const DEFAULT_TERRAIN_SETTINGS: ([f32; 3], [f32; 3], f32, f32) = ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0.0, 0.0);
+
 
 enum TerrainType {
     Absent,
@@ -56,6 +55,7 @@ enum OutputType {
     Meshes,
     All,
 }
+
 
 
 
@@ -74,9 +74,9 @@ impl Default for TreeAppOutput {
 
 fn data_output(
     plants: &Vec<Plant>
-) -> Vec<(Vec<([f32; 3], f32)>, Vec<(usize, usize)>)>{
+) -> Vec<([f32; 3], Vec<([f32; 3], f32)>, Vec<(usize, usize)>)>{
 
-    let mut out = Vec::new();
+    let mut out: Vec<([f32; 3], Vec<([f32; 3], f32)>, Vec<(usize, usize)>)> = Vec::new();
 
     for plant in plants.iter() {
         let plant_pos = plant.position;
@@ -86,7 +86,8 @@ fn data_output(
 
         let mut node_offset = 0;
 
-        for branch in get_branches_base_to_tip(&plant.root) {
+        for branch_cell in branches_base_to_tip(&plant.root) {
+            let branch = branch_cell.as_ref().borrow_mut();
 
             let (intial_data, initial_pairs) = get_node_data_and_connections_base_to_tip(&branch.root);
         
@@ -116,7 +117,7 @@ fn data_output(
             node_offset = node_data.len() - 1;
         }
 
-        out.push((node_data, node_pairs));
+        out.push((plant_pos.into(), node_data, node_pairs));
 
     }
 

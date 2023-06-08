@@ -1,5 +1,5 @@
 #![allow(dead_code, unused_variables, unused_imports)]
-use std::mem::take;
+use std::{mem::take, rc::Rc, cell::RefCell};
 use super::super::maths::vector_three::Vector3;
 
 
@@ -7,7 +7,7 @@ use super::super::maths::vector_three::Vector3;
 pub struct BranchNode {
     pub data: BranchNodeData,
     pub growth_data: BranchNodeGrowthData,
-    pub children: Vec<BranchNode>,
+    pub children: Vec<Rc<RefCell<BranchNode>>>,
     pub parent: usize // index of parent node in its layer
 }
 

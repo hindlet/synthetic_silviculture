@@ -1,5 +1,5 @@
-use std::mem::take;
-
+#![allow(dead_code)]
+use std::{mem::take, cell::RefCell, rc::Rc};
 use super::{
     branch::Branch,
     super::{
@@ -15,50 +15,13 @@ use super::{
 
 
 /// returns a base to tip pass through all the branches of each tree
-pub fn get_all_branches<T>(
-    plants: T
-) -> Vec<&'static Branch>
-    where
-        T: IntoIterator<Item = Plant>
-{
+pub fn get_all_branches(
+    plants: &Vec<Plant>
+) -> Vec<Rc<RefCell<Branch>>> {
     let mut out = Vec::new();
 
     for plant in plants.iter() {
-        out.append(&mut get_branches_base_to_tip(&plant.root));
-    }
-
-    out
-}
-
-/// returns a base to tip pass through all the mutable branches of each tree
-pub fn get_mut_all_branches<T>(
-    plants: T
-) -> Vec<&'static mut Branch>
-    where
-        T: IntoIterator<Item = Plant>
-{
-    let mut out = Vec::new();
-
-    for plant in plants.iter() {
-        out.append(&mut get_mut_branches_base_to_tip(&mut plant.root));
-    }
-
-    out
-}
-
-/// returns a list of all mutable branches needing mesh updates and the time since the update was required
-pub fn get_branch_mesh_update_times<T>(
-    plants: T
-) -> Vec<(f32, &'static mut Branch)>
-    where
-        T: IntoIterator<Item = Plant>
-{
-    let mut out = Vec::new();
-
-    for branch in get_mut_all_branches(plants) {
-        if let Some(called) = branch.needs_mesh_update {
-            out.push((called.elapsed().as_secs_f32(), branch));
-        }
+        out.append(&mut branches_base_to_tip(&plant.root));
     }
 
     out
@@ -69,33 +32,15 @@ pub fn get_branch_mesh_update_times<T>(
 ///////////////////////////// base to tip /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
-pub fn get_branches_base_to_tip(
-    root_branch: &Branch,
-) -> Vec<&Branch> {
-    let mut list: Vec<&Branch> = vec![root_branch];
+pub fn branches_base_to_tip(
+    root_branch: &Rc<RefCell<Branch>>,
+) -> Vec<Rc<RefCell<Branch>>> {
 
-    let mut i = 0;
-    loop {
-        if i >= list.len() {break;}
-        if list[i].children.0.is_some() {list.push(&list[i].children.0.unwrap())}
-        if list[i].children.1.is_some() {list.push(&list[i].children.1.unwrap())}
-        i += 1;
-    }
+    let mut layers = get_branch_layers(root_branch);
+    let mut list: Vec<Rc<RefCell<Branch>>> = Vec::new();
 
-    list
-}
-
-pub fn get_mut_branches_base_to_tip(
-    root_branch: &mut Branch,
-) -> Vec<&mut Branch> {
-    let mut list: Vec<&mut Branch> = vec![root_branch];
-
-    let mut i = 0;
-    loop {
-        if i >= list.len() {break;}
-        if list[i].children.0.is_some() {list.push(&mut list[i].children.0.unwrap())}
-        if list[i].children.1.is_some() {list.push(&mut list[i].children.1.unwrap())}
-        i += 1;
+    for layer in layers.iter_mut() {
+        list.append(layer);
     }
 
     list
@@ -106,19 +51,10 @@ pub fn get_mut_branches_base_to_tip(
 ///////////////////////////////////////////////////////////////////////////////////////
 
 
-pub fn get_branches_tip_to_base(
-    root_branch: &Branch,
-) -> Vec<&Branch> {
-    let mut list = get_branches_base_to_tip(root_branch);
-    list.reverse();
-
-    list
-}
-
-pub fn get_mut_branches_tip_to_base(
-    root_branch: &mut Branch,
-) -> Vec<&mut Branch> {
-    let mut list = get_mut_branches_base_to_tip(root_branch);
+pub fn branches_tip_to_base(
+    root_branch: &Rc<RefCell<Branch>>,
+) -> Vec<Rc<RefCell<Branch>>> {
+    let mut list = branches_base_to_tip(root_branch);
     list.reverse();
 
     list
@@ -132,75 +68,42 @@ pub fn get_mut_branches_tip_to_base(
 
 
 /// returns all branches from a root that can still have children
-pub fn get_terminal_branches(
-    root_branch: &Branch,
-) -> Vec<&Branch> {
+pub fn branches_terminal(
+    root_branch: &Rc<RefCell<Branch>>,
+) -> Vec<Rc<RefCell<Branch>>> {
 
-    let mut list: Vec<&Branch> = vec![root_branch];
+    let branches = branches_base_to_tip(root_branch);
+    let mut list: Vec<Rc<RefCell<Branch>>> = Vec::new();
 
-    let mut i = 0;
-    loop {
-        if i >= list.len() {break;}
-
-        if list[i].children.0.is_some() {
-            list.push(&list[i].children.0.unwrap())
+    for branch_cell in branches.iter() {
+        if branch_cell.as_ref().borrow().children.0.is_none() {
+            list.push(Rc::clone(branch_cell))
         }
-        else {
-            i += 1;
-            continue;
-        }
-
-        if list[i].children.1.is_some() {list.push(&list[i].children.1.unwrap())}
-        list.remove(i)
     }
 
     list
 }
 
-pub fn get_mut_terminal_branches(
-    root_branch: &mut Branch,
-) -> Vec<&mut Branch> {
-
-    let mut list: Vec<&mut Branch> = vec![root_branch];
-
-    let mut i = 0;
-    loop {
-        if i >= list.len() {break;}
-
-        if list[i].children.0.is_some() {
-            list.push(&mut list[i].children.0.unwrap())
-        }
-        else {
-            i += 1;
-            continue;
-        }
-
-        if list[i].children.1.is_some() {list.push(&mut list[i].children.1.unwrap())}
-        list.remove(i)
-    }
-
-    list
-}
-
-
-pub fn get_mut_terminal_branches_with_index(
-    root_branch: &mut Branch,
-) -> Vec<(&mut Branch, usize)> {
+pub fn branches_terminal_with_index(
+    root_branch: &Rc<RefCell<Branch>>
+) -> Vec<(Rc<RefCell<Branch>>, usize)> {
 
     let mut out = Vec::new();
-    let mut working_layer: Vec<&mut Branch> = vec![root_branch];
-    let mut next_layer: Vec<&mut Branch> = Vec::new();
+    let mut working_layer: Vec<Rc<RefCell<Branch>>> = vec![Rc::clone(root_branch)];
+    let mut next_layer: Vec<Rc<RefCell<Branch>>> = Vec::new();
 
 
     loop {
         for i in 0..working_layer.len() {
 
-            if working_layer[i].children.0.is_some() {
-                next_layer.push(&mut working_layer[i].children.0.unwrap())
+            let branch = working_layer[i].borrow();
+
+            if branch.children.0.is_some() {
+                next_layer.push(Rc::clone(&branch.children.0.as_ref().unwrap()))
             } else {
-                out.push((working_layer[i], i))
+                out.push((Rc::clone(&working_layer[i]), i))
             }
-            if working_layer[i].children.1.is_some() {next_layer.push(&mut working_layer[i].children.1.unwrap())}
+            if branch.children.1.is_some() {next_layer.push(Rc::clone(&branch.children.1.as_ref().unwrap()))}
 
         }
 
@@ -220,61 +123,18 @@ pub fn get_mut_terminal_branches_with_index(
 ///////////////////////////////////////////////////////////////////////////////////////
 
 
-/// returns all non-terminal branches from a tree
-pub fn get_non_terminal_branches(
-    root_branch: &Branch
-) -> Vec<&Branch> {
+/// returns all non-terminal branches from a tree in no particular order
+pub fn non_terminal_branches(
+    root_branch: &Rc<RefCell<Branch>>
+) -> Vec<Rc<RefCell<Branch>>> {
 
-    let mut list: Vec<&Branch> = vec![root_branch];
+    let branches = branches_base_to_tip(root_branch);
+    let mut list = Vec::new();
 
-    let mut i = 0;
-    let mut full = (false, false);
-    loop {
-        if i >= list.len() {break;}
-
-        full = (false, false);
-        if list[i].children.0.is_some() {
-            list.push(&list[i].children.0.unwrap());
-            full.0 = true;
+    for branch_cell in branches.iter() {
+        if branch_cell.as_ref().borrow().children.0.is_some() {
+            list.push(Rc::clone(branch_cell));
         }
-        if list[i].children.1.is_some() {
-            list.push(&list[i].children.1.unwrap());
-            full.1 = true;
-        }
-
-        if !full.0 && !full.1 {
-            list.swap_remove(i);
-        } else {i += 1;}
-    }
-
-    list
-}
-
-/// returns all non-terminal branches from a tree
-pub fn get_mut_non_terminal_branches(
-    root_branch: &mut Branch
-) -> Vec<&mut Branch> {
-
-    let mut list: Vec<&mut Branch> = vec![root_branch];
-
-    let mut i = 0;
-    let mut full = (false, false);
-    loop {
-        if i >= list.len() {break;}
-
-        full = (false, false);
-        if list[i].children.0.is_some() {
-            list.push(&mut list[i].children.0.unwrap());
-            full.0 = true;
-        }
-        if list[i].children.1.is_some() {
-            list.push(&mut list[i].children.1.unwrap());
-            full.1 = true;
-        }
-
-        if !full.0 && !full.1 {
-            list.swap_remove(i);
-        } else {i += 1;}
     }
 
     list
@@ -288,12 +148,27 @@ pub fn get_mut_non_terminal_branches(
 
 
 pub fn get_branch_bounds(
-    root_branch: &Branch
-) -> Vec<&'static BoundingSphere> {
+    root_branch: &Rc<RefCell<Branch>>
+) -> Vec<BoundingSphere> {
     let mut out = Vec::new();
 
-    for branch in get_branches_base_to_tip(root_branch) {
-        out.push(&branch.bounds);
+    for branch in branches_base_to_tip(root_branch) {
+        out.push(branch.borrow().bounds.clone());
+    }
+
+    out
+}
+
+/// returns a list of all mutable branches needing mesh updates and the time since the update was required
+pub fn get_branch_mesh_update_times(
+    plants: &Vec<Plant>
+) -> Vec<(f32, Rc<RefCell<Branch>>)> {
+    let mut out = Vec::new();
+
+    for branch in get_all_branches(plants) {
+        if let Some(called) = branch.borrow().needs_mesh_update {
+            out.push((called.elapsed().as_secs_f32(), Rc::clone(&branch)));
+        }
     }
 
     out
@@ -305,42 +180,21 @@ pub fn get_branch_bounds(
 ///////////////////////////////////////////////////////////////////////////////////////
 
 pub fn get_branch_layers(
-    root_branch: &Branch
-)-> Vec<Vec<&Branch>>{
+    root_branch: &Rc<RefCell<Branch>>
+)-> Vec<Vec<Rc<RefCell<Branch>>>>{
     let mut out = Vec::new();
-    let mut working_layer: Vec<&Branch> = vec![root_branch];
-    let mut next_layer: Vec<&Branch> = Vec::new();
+    let mut working_layer: Vec<Rc<RefCell<Branch>>> = vec![Rc::clone(root_branch)];
+    let mut next_layer: Vec<Rc<RefCell<Branch>>> = Vec::new();
 
     loop {
-        for branch in working_layer {
-            if branch.children.0.is_some() {next_layer.push(&branch.children.0.unwrap())}
-            if branch.children.1.is_some() {next_layer.push(&branch.children.1.unwrap())}
+        for branch_cell in working_layer.iter() {
+            let branch = branch_cell.borrow();
+            if branch.children.0.is_some() {next_layer.push(Rc::clone(&branch.children.0.as_ref().unwrap()))}
+            if branch.children.1.is_some() {next_layer.push(Rc::clone(&branch.children.1.as_ref().unwrap()))}
         }
 
         // add working layer to out and swap next into working
-        out.push(working_layer);
-        working_layer = take(&mut next_layer);
-
-        if working_layer.len() == 0 {break;}
-    }
-    out
-}
-
-pub fn get_mut_branch_layers(
-    root_branch: &mut Branch
-)-> Vec<Vec<&mut Branch>>{
-    let mut out = Vec::new();
-    let mut working_layer: Vec<&mut Branch> = vec![root_branch];
-    let mut next_layer: Vec<&mut Branch> = Vec::new();
-
-    loop {
-        for branch in working_layer {
-            if branch.children.0.is_some() {next_layer.push(&mut branch.children.0.unwrap())}
-            if branch.children.1.is_some() {next_layer.push(&mut branch.children.1.unwrap())}
-        }
-
-        // add working layer to out and swap next into working
-        out.push(working_layer);
+        out.push(working_layer.clone());
         working_layer = take(&mut next_layer);
 
         if working_layer.len() == 0 {break;}

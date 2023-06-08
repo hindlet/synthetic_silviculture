@@ -1,4 +1,3 @@
-use bevy_ecs::prelude::*;
 use super::{
     super::{
         branches::{branch::*, branch_sorting::*},
@@ -29,57 +28,60 @@ pub fn step_plant_age(
 /// after this we use a helper function to distribute growth vigor up the plant
 /// this means that branches closer to the root have a higher growth vigor than those further away
 pub fn calculate_growth_vigor(
-    plants: &mut Vec<Plant>,
+    plants: &Vec<Plant>,
 ) {
 
-    for i in 0..plants.len() {
+    for plant in plants.iter() {
+        let _max_vigor = plant.growth_factors.max_vigor;
+        let _min_vigor = plant.growth_factors.min_vigor;
+        let apical = plant.growth_factors.apical_control;
 
-        let max_vigor = plants[i].growth_factors.max_vigor;
-        let min_vigor = plants[i].growth_factors.min_vigor;
-        let apical = plants[i].growth_factors.apical_control;
 
-        let mut layers = get_mut_branch_layers(&mut plants[i].root);
+        // reset light
+        for cell in non_terminal_branches(&plant.root) {
+            cell.borrow_mut().growth_data.light_exposure = 0.0;
+        }
 
-        // distr light down
-        for i in (1..layers.len()).rev() {
+        // distr light
+        for cell in branches_tip_to_base(&plant.root) {
+            let mut branch = cell.borrow_mut();
+            let mut child_light_sum = 0.0;
 
-            for branch in layers[i - 1] {
-                branch.growth_data.light_exposure = 0.0;
+            if let Some(child_one) = &branch.children.0 {
+                child_light_sum += child_one.borrow().growth_data.light_exposure;
+            }
+            if let Some(child_two) = &branch.children.1 {
+                child_light_sum += child_two.borrow().growth_data.light_exposure;
             }
 
-            for branch in layers[i] {
-                layers[i - 1][branch.parent_index].growth_data.light_exposure += branch.growth_data.light_exposure;
+            if child_light_sum != 0.0 {
+                branch.growth_data.light_exposure = child_light_sum;
             }
 
         }
 
         // convert light to vigor
-        layers[0][0].growth_data.growth_vigor = layers[0][0].growth_data.light_exposure;
+        plant.root.borrow_mut().growth_data.growth_rate = plant.root.borrow().growth_data.light_exposure;
 
-        // distr vigor up
-        for i in 0..layers.len() - 1 {
+        for cell in branches_base_to_tip(&plant.root) {
 
-            for branch in layers[i] {
+            let branch = cell.borrow();
+            if let Some(child_one) = &branch.children.0 {
 
-                if let Some(child_one) = branch.children.0 {
+                if let Some(child_two) = &branch.children.1 {
 
-                    if let Some(child_two) = branch.children.1 {
+                    let vigors = calculate_child_vigor(branch.growth_data.growth_vigor, child_one.borrow().growth_data.light_exposure, child_two.borrow().growth_data.light_exposure, apical);
+                    child_one.borrow_mut().growth_data.growth_vigor = vigors.0;
+                    child_two.borrow_mut().growth_data.growth_vigor = vigors.1;
 
-                        let vigors = calculate_child_vigor(branch.growth_data.growth_vigor, child_one.growth_data.light_exposure, child_two.growth_data.light_exposure, apical);
-                        child_one.growth_data.growth_vigor = vigors.0;
-                        child_two.growth_data.growth_vigor = vigors.1;
-
-                    }
-                    else {
-                        child_one.growth_data.growth_vigor = branch.growth_data.growth_vigor;
-                    }
+                }
+                else {
+                    child_one.borrow_mut().growth_data.growth_vigor = branch.growth_data.growth_vigor;
                 }
             }
         }
 
-
     }
-
 }
 
 

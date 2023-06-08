@@ -96,6 +96,7 @@ mod mesh_collider_tests {
         let hit = mesh.check_ray([-5, 3, 0], [1, 0, 0], Some(25.0)).unwrap();
 
         assert_eq!(hit.hit_position, [-2, 3, 0].into());
+        assert_eq!(hit.hit_normal, [0, 1, 0].into());
         assert_eq!(hit.hit_distance, 3.0);
     }
 
@@ -113,6 +114,7 @@ mod mesh_collider_tests {
         let hit = collider.check_ray([5, 10, 5], [0, -1, 0], None).unwrap();
 
         assert_eq!(hit.hit_position, [5, 0, 5].into());
+        assert_eq!(hit.hit_normal, [0, 1, 0].into());
         assert_eq!(hit.hit_distance, 10.0);
     }
 }

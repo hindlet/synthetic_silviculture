@@ -1,7 +1,5 @@
 //! generic code for meshes in 3D space
-
-
-use bevy_ecs::prelude::*;
+#![allow(dead_code)]
 use itertools::Itertools;
 use super::{
     general_graphics::{PositionVertex, Normal},
@@ -10,7 +8,7 @@ use super::{
 
 
 /// Data for a mesh in 3D space
-#[derive(Debug, Component, Clone)]
+#[derive(Debug, Clone)]
 pub struct Mesh {
     pub vertices: Vec<PositionVertex>,
     pub normals: Vec<Normal>,

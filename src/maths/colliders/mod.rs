@@ -1,5 +1,5 @@
+#![allow(dead_code)]
 use super::{vector_three::*, vector_two::Vector2, matrix_three::Matrix3, bounding_box::BoundingBox, quicksort};
-
 pub mod mesh_collider;
 pub mod plane_collider;
 pub mod triangle_collider;
@@ -17,13 +17,15 @@ pub trait Collider {
 #[derive(Debug)]
 pub struct RayHitInfo {
     pub hit_position: Vector3,
+    pub hit_normal: Vector3,
     pub hit_distance: f32,
 }
 
 impl RayHitInfo {
-    pub fn new(position: Vector3, dist: f32) -> Self{
+    pub fn new(position: Vector3, normal: Vector3, dist: f32) -> Self{
         RayHitInfo{
             hit_position: position,
+            hit_normal: normal,
             hit_distance: dist
         }
     }

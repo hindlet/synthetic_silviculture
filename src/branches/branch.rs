@@ -1,7 +1,5 @@
 #![allow(dead_code, unused_variables, unused_imports)]
-use std::time::Instant;
-
-use bevy_ecs::prelude::*;
+use std::{time::Instant, rc::Rc, cell::RefCell};
 use itertools::Itertools;
 use super::{
     super::maths::{vector_three::Vector3, bounding_sphere::BoundingSphere, matrix_three::Matrix3},
@@ -20,9 +18,9 @@ use super::{
 pub struct Branch {
     pub data: BranchData,
     pub growth_data: BranchGrowthData,
-    pub children: (Option<Box<Branch>>, Option<Box<Branch>>),
+    pub children: (Option<Rc<RefCell<Branch>>>, Option<Rc<RefCell<Branch>>>),
 
-    pub root: BranchNode,
+    pub root: Rc<RefCell<BranchNode>>,
     pub parent_node_index: usize, // the index of parent node in terminal nodes list of parent branch
     pub parent_index: usize, // the index of the parent branch in its layer 
 
@@ -78,7 +76,7 @@ impl Branch {
             mesh: Mesh::empty(),
             needs_mesh_update: None,
 
-            root: BranchNode {
+            root: Rc::new(RefCell::new(BranchNode {
                 children: Vec::new(),
                 parent: 0,
                 data: BranchNodeData {
@@ -86,8 +84,8 @@ impl Branch {
                     thickening_factor: thickening_factor,
                     ..Default::default()
                 },
-                growth_data: BranchGrowthData::default()
-            }
+                growth_data: BranchNodeGrowthData::default()
+            }))
         }
     }
 }

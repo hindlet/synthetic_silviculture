@@ -11,12 +11,11 @@ use vulkano::{
     swapchain::Swapchain,
     sync::{self, GpuFuture}
 };
-use bevy_ecs::{prelude::*, system::SystemState};
 use std::{f32::consts::PI, sync::Arc, collections::BTreeMap};
 use egui::epaint::ahash::HashMap;
 use itertools::Itertools;
 
-use crate::branches::branch_sorting::get_branches_base_to_tip;
+use crate::{branches::branch_sorting::*, plants::plant::Plant};
 
 use super::{
     mesh::Mesh,
@@ -26,7 +25,6 @@ use super::{
     super::{
         branches::branch::*,
         maths::{vector_three::Vector3, matrix_three::Matrix3},
-        plants::plant::{PlantData, PlantTag},
     }
 };
 
@@ -40,35 +38,32 @@ mod branch_vert_shader {
 }
 
 
-#[derive(Resource)]
-pub struct BranchGraphicsResources {
+pub struct BranchGraphicsSettings {
     pub flat_shaded: bool,
     pub polygon_vectors: Vec<Vector3>,
-    pub mem_allocator: Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
 }
 
-#[derive(Resource)]
 pub struct BranchMeshBuffers {
     pub vertices: Subbuffer<[PositionVertex]>,
     pub normals: Subbuffer<[Normal]>,
     pub indices: Subbuffer<[u32]>,
 }
 
-pub fn init_branch_mesh_buffers_res(
-    plant_query: Query<&PlantData, With<PlantTag>>,
+pub fn init_branch_mesh_buffers(
+    plants: &Vec<Plant>,
 
-    mesh_gen_res: Res<BranchGraphicsResources>,
-    mut commands: Commands
-) {
+    settings: &BranchGraphicsSettings,
+    mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
+) -> BranchMeshBuffers{
 
     let (vertices, normals, indices) = {
-        let (vertices, normals, indices) = get_total_branch_mesh_data(plant_query);
+        let (vertices, normals, indices) = get_total_branch_mesh_data(plants);
         if vertices.len() == 0 {
             (vec![Vector3::ZERO().into(), Vector3::ZERO().into(), Vector3::ZERO().into()],
             vec![Vector3::Y().into(), Vector3::Y().into(), Vector3::Y().into()], 
             vec![0, 1, 2])
         }
-        else if mesh_gen_res.flat_shaded {
+        else if settings.flat_shaded {
             Mesh::flat_shade_components(vertices, indices)
         } else {
             (vertices, normals, indices)
@@ -79,7 +74,7 @@ pub fn init_branch_mesh_buffers_res(
 
 
     let vertex_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
+        mem_allocator,
         BufferCreateInfo {
             usage: BufferUsage::VERTEX_BUFFER,
             ..Default::default()
@@ -92,7 +87,7 @@ pub fn init_branch_mesh_buffers_res(
     ).unwrap();
 
     let normal_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
+        mem_allocator,
         BufferCreateInfo {
             usage: BufferUsage::VERTEX_BUFFER,
             ..Default::default()
@@ -105,7 +100,7 @@ pub fn init_branch_mesh_buffers_res(
     ).unwrap();
 
     let index_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
+        mem_allocator,
         BufferCreateInfo {
             usage: BufferUsage::INDEX_BUFFER,
             ..Default::default()
@@ -117,11 +112,11 @@ pub fn init_branch_mesh_buffers_res(
         indices
     ).unwrap();
 
-    commands.insert_resource(BranchMeshBuffers {
+    BranchMeshBuffers {
         vertices: vertex_buffer,
         normals: normal_buffer,
         indices: index_buffer,
-    })
+    }
 }
 
 
@@ -155,48 +150,43 @@ fn create_vector_polygon(sides: u32, rotation: Option<f32>) -> Vec<Vector3> {
 //////////////////////////////////////////////////////////////////////////////////
 
 /// creates the gui object for branch resources
-pub fn add_world_branch_graphics_resources(
-    world: &mut World,
-    allocator: Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
-) {
-    world.insert_resource(BranchGraphicsResources {
-        flat_shaded: false,
-        polygon_vectors: create_vector_polygon(3, None),
-        mem_allocator: allocator
-    })
+pub fn create_branch_graphics_settings(
+    faces: u32,
+    flat_shaded: bool,
+) -> BranchGraphicsSettings {
+
+    BranchGraphicsSettings {
+        flat_shaded,
+        polygon_vectors: create_vector_polygon(faces.min(3), None),
+    }
 }
 
 /// updates the branch resources from the gui
 pub fn update_branch_resources(
-    gui_query: Query<&GUIData>,
-    mut branch_resources: ResMut<BranchGraphicsResources>,
+    branch_settings_gui: GUIData,
+    branch_graphics_settings: &mut BranchGraphicsSettings,
 ) {
-    for gui in gui_query.iter() {
-        if gui.name == "branch graphics settings" {
-            if gui.i32_sliders[0].1 != branch_resources.polygon_vectors.len() as i32 && gui.i32_sliders[0].1 > 2 {
-                branch_resources.polygon_vectors = create_vector_polygon(gui.i32_sliders[0].1 as u32, None);
-            }
+    if branch_settings_gui.i32_sliders[0].1 != branch_graphics_settings.polygon_vectors.len() as i32 && branch_settings_gui.i32_sliders[0].1 > 2 {
+        branch_graphics_settings.polygon_vectors = create_vector_polygon(branch_settings_gui.i32_sliders[0].1 as u32, None);
+    }
 
-            if gui.bools[0].1 != branch_resources.flat_shaded {
-                // inverts a bool
-                branch_resources.flat_shaded ^= true;
-            }
-        }
+    if branch_settings_gui.bools[0].1 != branch_graphics_settings.flat_shaded {
+        // inverts a bool
+        branch_graphics_settings.flat_shaded ^= true;
     }
 }
 
 /// creates the branch resource gui
 pub fn create_branch_resources_gui(
-    branch_resources: Res<BranchGraphicsResources>,
-    mut commands: Commands,
-) {
-    commands.spawn(GUIData {
+    branch_settings: BranchGraphicsSettings,
+) -> GUIData {
+    GUIData {
         name: "branch graphics settings".to_string(),
-        bools: vec![("flat shade branches".to_string(), branch_resources.flat_shaded)],
+        bools: vec![("flat shade branches".to_string(), branch_settings.flat_shaded)],
         // where is 10 from you may ask? Well I'll tell you a secret, I pulled it out my ass
-        i32_sliders: vec![("num branch vertices".to_string(), branch_resources.polygon_vectors.len() as i32, 3..=10)],
+        i32_sliders: vec![("num branch vertices".to_string(), branch_settings.polygon_vectors.len() as i32, 3..=10)],
         ..Default::default()
-    });
+    }
 }
 
 
@@ -378,23 +368,20 @@ pub fn get_branch_pipeline(
 
 /// combines and returns all the branch meshes in the world
 fn get_total_branch_mesh_data(
-    plant_query: Query<&PlantData, With<PlantTag>>,
+    plants: &Vec<Plant>,
 ) -> (Vec<PositionVertex>, Vec<Normal>, Vec<u32>){
     let mut total_vertices: Vec<PositionVertex> = vec![];
     let mut total_normals: Vec<Normal> = vec![];
     let mut total_indices: Vec<u32> = vec![];
 
-    for plant_data in plant_query.iter() {
-        if plant_data.root_branch.is_none() {continue;}
-        for branch in get_branches_base_to_tip(&plant_data.root_branch.unwrap()) {
-            let current_length = total_vertices.len() as u32;
-            let (mut vertices, mut indices, mut normals) = branch.mesh.components();
+    for cell in get_all_branches(plants) {
+        let current_length = total_vertices.len() as u32;
+        let (mut vertices, mut normals, mut indices) = cell.borrow().mesh.components();
 
-            total_vertices.append(&mut vertices);
-            total_normals.append(&mut normals);
-            indices.iter_mut().for_each(|x| *x += current_length);
-            total_indices.append(&mut indices);
-        }
+        total_vertices.append(&mut vertices);
+        total_normals.append(&mut normals);
+        indices.iter_mut().for_each(|x| *x += current_length);
+        total_indices.append(&mut indices);
     }
 
     (total_vertices, total_normals, total_indices)
@@ -402,20 +389,21 @@ fn get_total_branch_mesh_data(
 
 
 pub fn update_branch_data_buffers(
-    plant_query: Query<&PlantData, With<PlantTag>>,
+    plants: &Vec<Plant>,
 
-    mesh_gen_res: Res<BranchGraphicsResources>,
-    mut buffers_res: ResMut<BranchMeshBuffers>,
+    mesh_gen_settings: &BranchGraphicsSettings,
+    buffers: &mut BranchMeshBuffers,
+    mem_allocator: &Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>
 ) {
 
     let (vertices, normals, indices) = {
-        let (vertices, normals, indices) = get_total_branch_mesh_data(plant_query);
+        let (vertices, normals, indices) = get_total_branch_mesh_data(plants);
         if vertices.len() == 0 {
             (vec![Vector3::ZERO().into(), Vector3::ZERO().into(), Vector3::ZERO().into()],
             vec![Vector3::Y().into(), Vector3::Y().into(), Vector3::Y().into()], 
             vec![0, 1, 2])
         }
-        else if mesh_gen_res.flat_shaded {
+        else if mesh_gen_settings.flat_shaded {
             Mesh::flat_shade_components(vertices, indices)
         } else {
             (vertices, normals, indices)
@@ -424,7 +412,7 @@ pub fn update_branch_data_buffers(
 
 
     let vertex_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
+        mem_allocator,
         BufferCreateInfo {
             usage: BufferUsage::VERTEX_BUFFER,
             ..Default::default()
@@ -437,7 +425,7 @@ pub fn update_branch_data_buffers(
     ).unwrap();
 
     let normal_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
+        mem_allocator,
         BufferCreateInfo {
             usage: BufferUsage::VERTEX_BUFFER,
             ..Default::default()
@@ -450,7 +438,7 @@ pub fn update_branch_data_buffers(
     ).unwrap();
 
     let index_buffer = Buffer::from_iter(
-        &mesh_gen_res.mem_allocator,
+        mem_allocator,
         BufferCreateInfo {
             usage: BufferUsage::INDEX_BUFFER,
             ..Default::default()
@@ -462,9 +450,9 @@ pub fn update_branch_data_buffers(
         indices
     ).unwrap();
 
-    buffers_res.vertices = vertex_buffer;
-    buffers_res.normals = normal_buffer;
-    buffers_res.indices = index_buffer;
+    buffers.vertices = vertex_buffer;
+    buffers.normals = normal_buffer;
+    buffers.indices = index_buffer;
 }
 
 /// adds the commands to draw branches to the given builder
@@ -475,15 +463,8 @@ pub fn add_branch_draw_commands(
     vert_uniform_buffer: &Subbuffer<branch_vert_shader::Data>,
     // frag_light_buffers: &(Subbuffer<[branch_vert_shader::PointLight]>, Subbuffer<[branch_vert_shader::DirectionalLight]>),
 
-    world: &mut World,
+    buffers: &BranchMeshBuffers
 ) {
-
-    // create the system state to query data and then query it
-    let mut state: SystemState<(
-        Res<BranchMeshBuffers>,
-    )> = SystemState::new(world);
-
-    let buffers = state.get(world).0;
 
 
     let layout = graph_pipeline.layout().set_layouts().get(0).unwrap();

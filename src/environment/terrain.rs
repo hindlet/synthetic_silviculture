@@ -1,9 +1,8 @@
-use bevy_ecs::prelude::*;
 use image::{DynamicImage, GenericImageView};
 use std::ops::RangeInclusive;
 use super::super::{
     maths::{
-        colliders::{Collider, plane_collider::PlaneCollider, mesh_collider::MeshCollider},
+        colliders::{RayHitInfo, Collider, mesh_collider::MeshCollider},
         vector_three::Vector3, vector_two::Vector2,
     },
     graphics::{
@@ -12,36 +11,33 @@ use super::super::{
 };
 
 
-
-#[derive(Component)]
-pub struct TerrainTag;
-
-/// Wrapper for a Collider
-#[derive(Component)]
-pub struct TerrainCollider {
+pub struct Terrain{
     collider: MeshCollider,
+    pub mesh: Mesh
 }
 
 
-#[derive(Bundle)]
-pub struct TerrainBundle {
-    tag: TerrainTag,
-    collider: TerrainCollider,
-    mesh: Mesh
+impl Terrain {
+    pub fn check_ray(
+        &self,
+        root_position: impl Into<Vector3>,
+        direction: impl Into<Vector3>,
+        max_distance: Option<f32>,
+    ) -> Option<RayHitInfo> {
+        self.collider.check_ray(root_position, direction, max_distance)
+    }
 }
-
 
 
 
 /// this will spawn terrain from a given heightmap
-pub fn spawn_heightmap_terrain(
+pub fn create_heightmap_terrain(
     size: f32,
     vertices_per_side: u32,
     height_scale: f32,
     centre: impl Into<Vector3>,
     heightmap_path: String,
-    world: &mut World,
-) -> ((f32, RangeInclusive<f32>, RangeInclusive<f32>), MeshCollider) {
+) -> (Terrain, (f32, RangeInclusive<f32>, RangeInclusive<f32>)) {
     let size = size.max(0.000000001);
     let vertices_per_side = vertices_per_side.max(2);
     let centre: Vector3 = centre.into();
@@ -77,23 +73,16 @@ pub fn spawn_heightmap_terrain(
 
     
     let mesh: Mesh = Mesh::from((vertices.clone(), indices.clone())).recalculate_normals().clone();
-    world.spawn(
-        TerrainBundle{
-            tag: TerrainTag,
-            collider: TerrainCollider{collider: collider.clone()},
-            mesh
-        }
-    );
+    
 
-    ((max_height, (centre.x - size)..=(centre.x + size), (centre.z - size)..=(centre.z + size)), collider)
+    (Terrain{collider: collider, mesh: mesh}, (max_height, (centre.x - size)..=(centre.x + size), (centre.z - size)..=(centre.z + size)))
 }
 
 
-pub fn spawn_flat_terrain(
+pub fn create_flat_terrain(
     size: f32,
     centre: impl Into<Vector3>,
-    world: &mut World,
-) -> ((f32, RangeInclusive<f32>, RangeInclusive<f32>), MeshCollider){
+) -> (Terrain, (f32, RangeInclusive<f32>, RangeInclusive<f32>)){
     let size = size.max(0.000000001);
     let centre: Vector3 = centre.into();
     let half_size = size / 2.0;
@@ -109,23 +98,8 @@ pub fn spawn_flat_terrain(
     ];
 
     let mesh: Mesh = Mesh::from((vertices.clone(), indices.clone())).recalculate_normals().clone();
-    let collider = MeshCollider::new(vertices.clone(), indices.clone());
-
-    world.spawn(
-        TerrainBundle{
-            tag: TerrainTag,
-            collider: TerrainCollider {collider: collider.clone()},
-            mesh
-        }
-    );
-
-    ((centre.y, (centre.x - half_size)..=(centre.x + half_size), (centre.z - half_size)..=(centre.z + half_size)), collider)
-}
+    let collider = MeshCollider::new(vertices, indices);
 
 
-
-pub fn seeding(
-    terrain_query: Query<&TerrainCollider>
-) {
-
+    (Terrain{collider: collider, mesh: mesh}, (centre.y, (centre.x - half_size)..=(centre.x + half_size), (centre.z - half_size)..=(centre.z + half_size)))
 }

@@ -1,10 +1,5 @@
 #![allow(dead_code, unused_variables, unused_imports)]
-use std::default;
-
-use bevy_ecs::prelude::*;
-
-use crate::branches::branch_sorting::get_branches_base_to_tip;
-
+use std::{default, rc::Rc, cell::RefCell};
 use super::super::{
     maths::{vector_three::Vector3, bounding_box::BoundingBox},
     branches::branch::*,
@@ -14,15 +9,10 @@ use super::super::{
 ///////////////////////////// structs and components //////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
-
-#[derive(Default, Component)]
-pub struct PlantTag;
-
-
 pub struct Plant {
     pub position: Vector3,
     pub age: f32,
-    pub root: Branch,
+    pub root: Rc<RefCell<Branch>>,
 
     pub growth_factors: PlantGrowthControlFactors,
     pub plasticity: PlantPlasticityParameters,
@@ -30,21 +20,7 @@ pub struct Plant {
 }
 
 
-
-#[derive(Component)]
-pub struct PlantData {
-    pub position: Vector3,
-    pub age: f32,
-    pub root_branch: Branch,
-}
-
-#[derive(Resource)]
-pub struct PlantDeathRate {
-    pub v_max_decrease: f32,
-}
-
-
-#[derive(Component, Clone)]
+#[derive(Clone)]
 pub struct PlantPlasticityParameters {
     pub seeding_frequency: f32,
     pub seeding_radius: f32,
@@ -52,7 +28,7 @@ pub struct PlantPlasticityParameters {
 }
 
 
-#[derive(Component, Clone)]
+#[derive(Clone)]
 pub struct PlantGrowthControlFactors {
     pub max_age: f32,
     pub max_vigor: f32,
@@ -72,22 +48,25 @@ pub struct PlantGrowthControlFactors {
 /////////////////////////////////////// impls /////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
-impl PlantDeathRate {
-    pub fn new(death_rate: f32) -> Self {
-        PlantDeathRate {
-            v_max_decrease: death_rate,
-        }
-    }
-}
+impl Plant {
+    pub fn new(
+        plasticity: PlantPlasticityParameters,
+        growth_factors: PlantGrowthControlFactors,
+        position: impl Into<Vector3>,
+        normal: impl Into<Vector3>,
+        prototype_id: usize
+    ) -> Self {
 
-
-impl Default for PlantData {
-    fn default() -> Self {
-        PlantData {
-            root_branch: None,
-            position: Vector3::ZERO(),
+        let thick = growth_factors.thickening_factor;
+        Plant {
+            plasticity: plasticity,
+            position: position.into(),
             age: 0.0,
+            growth_factors: growth_factors,
+            bounds: BoundingBox::ZERO(),
+            root: Rc::new(RefCell::new(Branch::new(Vector3::ZERO(), thick, normal.into(), prototype_id, 0, 0))),
         }
+
     }
 }
 

@@ -86,7 +86,7 @@ impl Collider for TriangleCollider {
 
         if (max_distance.is_some() && t > max_distance.unwrap()) || (t < 0.0) {return None;}
 
-        Some(RayHitInfo::new(root_position + direction * t, t))
+        Some(RayHitInfo::new(root_position + direction * t, self.normal, t))
     }
 }
 
@@ -106,6 +106,7 @@ mod triangle_collider_tests {
         let tri = TriangleCollider::new([0, 0, 0], [1, 0, 0], [0, 0, 1]);
         let hit = tri.check_ray([0, 0, 0], [0, 1, 0], Some(25.0)).unwrap();
         assert_eq!(hit.hit_position, [0, 0, 0].into());
+        assert_eq!(hit.hit_normal, tri.normal);
         assert_eq!(hit.hit_distance, 0.0);
     }
 
@@ -114,6 +115,7 @@ mod triangle_collider_tests {
         let tri = TriangleCollider::new([0, 0, 0], [1, 0, 0], [0, 0, 1]);
         let hit = tri.check_ray([0.25, 0.0, 0.25], [0, 1, 0], Some(25.0)).unwrap();
         assert_eq!(hit.hit_position, [0.25, 0.0, 0.25].into());
+        assert_eq!(hit.hit_normal, tri.normal);
         assert_eq!(hit.hit_distance, 0.0);
     }
 
@@ -122,6 +124,7 @@ mod triangle_collider_tests {
         let tri = TriangleCollider::new([0, 0, 0], [1, 0, 0], [0, 0, 1]);
         let hit = tri.check_ray([0, 5, 0], [0, -1, 0], Some(25.0)).unwrap();
         assert_eq!(hit.hit_position, [0, 0, 0].into());
+        assert_eq!(hit.hit_normal, tri.normal);
         assert_eq!(hit.hit_distance, 5.0);
     }
 
