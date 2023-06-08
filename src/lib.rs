@@ -4,6 +4,7 @@
 mod maths;
 mod plants;
 mod branches;
+#[cfg(feature = "vulkan_graphics")]
 mod graphics;
 mod environment;
 mod debug;

@@ -4,8 +4,9 @@ use itertools::Itertools;
 use super::{
     super::maths::{vector_three::Vector3, bounding_sphere::BoundingSphere, matrix_three::Matrix3},
     branch_node::*,
-    super::graphics::mesh::Mesh
 };
+#[cfg(feature = "vulkan_graphics")]
+use super::super::graphics::mesh::Mesh;
 
 
 
@@ -13,7 +14,7 @@ use super::{
 ///////////////////////////// structs and components //////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
-
+#[cfg(feature = "vulkan_graphics")]
 #[derive(Debug)]
 pub struct Branch {
     pub data: BranchData,
@@ -27,6 +28,23 @@ pub struct Branch {
 
     pub bounds: BoundingSphere,
     pub mesh: Mesh,
+    pub needs_mesh_update: Option<Instant>,
+    pub prototype_id: usize,
+}
+
+#[cfg(not(feature = "vulkan_graphics"))]
+#[derive(Debug)]
+pub struct Branch {
+    pub data: BranchData,
+    pub growth_data: BranchGrowthData,
+    pub children: (Option<Rc<RefCell<Branch>>>, Option<Rc<RefCell<Branch>>>),
+
+    pub root: Rc<RefCell<BranchNode>>,
+    pub parent_node_index: usize, // the index of parent node in terminal nodes list of parent branch
+    pub parent_index: usize, // the index of the parent branch in its layer 
+
+
+    pub bounds: BoundingSphere,
     pub needs_mesh_update: Option<Instant>,
     pub prototype_id: usize,
 }
@@ -55,6 +73,7 @@ pub struct BranchGrowthData {
 ////////////////////////////////// Impl ///////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 
+#[cfg(feature = "vulkan_graphics")]
 impl Branch {
     pub fn new(
         root_pos: Vector3,
@@ -74,6 +93,42 @@ impl Branch {
             prototype_id: prototype_id,
             bounds: BoundingSphere::ZERO(),
             mesh: Mesh::empty(),
+            needs_mesh_update: None,
+
+            root: Rc::new(RefCell::new(BranchNode {
+                children: Vec::new(),
+                parent: 0,
+                data: BranchNodeData {
+                    relative_position: Vector3::ZERO(),
+                    thickening_factor: thickening_factor,
+                    ..Default::default()
+                },
+                growth_data: BranchNodeGrowthData::default()
+            }))
+        }
+    }
+}
+
+
+#[cfg(not(feature = "vulkan_graphics"))]
+impl Branch {
+    pub fn new(
+        root_pos: Vector3,
+        thickening_factor: f32,
+        normal: Vector3,
+        prototype_id: usize,
+        parent_node_id: usize,
+        parent_index: usize,
+    ) -> Self {
+        Branch {
+            data: BranchData {root_position: root_pos, normal: normal, ..Default::default()},
+            growth_data: BranchGrowthData::default(),
+            children: (None, None),
+            parent_node_index: parent_node_id,
+            parent_index: parent_index,
+
+            prototype_id: prototype_id,
+            bounds: BoundingSphere::ZERO(),
             needs_mesh_update: None,
 
             root: Rc::new(RefCell::new(BranchNode {

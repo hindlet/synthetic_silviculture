@@ -20,7 +20,7 @@ use super::{
     },
 };
 
-
+#[cfg(feature = "vulkan_graphics")]
 pub mod graphics_app;
 pub mod looped_app;
 
