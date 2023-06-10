@@ -6,7 +6,10 @@ use super::super::{
         colliders::{Collider, plane_collider::PlaneCollider, mesh_collider::MeshCollider},
         vector_three::Vector3, vector_two::Vector2,
     },
+    
 };
+#[cfg(feature="vulkan_graphics")]
+use super::super::graphics::mesh::Mesh;
 
 
 
@@ -19,7 +22,15 @@ pub struct TerrainCollider {
     collider: MeshCollider,
 }
 
+#[cfg(feature="vulkan_graphics")]
+#[derive(Bundle)]
+pub struct TerrainBundle {
+    tag: TerrainTag,
+    collider: TerrainCollider,
+    mesh: Mesh
+}
 
+#[cfg(not(feature="vulkan_graphics"))]
 #[derive(Bundle)]
 pub struct TerrainBundle {
     tag: TerrainTag,
@@ -69,13 +80,17 @@ pub fn spawn_heightmap_terrain(
         }
     }
 
-    let collider = MeshCollider::new(vertices, indices);
+    let collider = MeshCollider::new(vertices.clone(), indices.clone());
 
     
+    #[cfg(feature="vulkan_graphics")]
+    let mesh: Mesh = Mesh::from((vertices.clone(), indices.clone())).recalculate_normals().clone();
     world.spawn(
         TerrainBundle{
             tag: TerrainTag,
             collider: TerrainCollider{collider: collider.clone()},
+            #[cfg(feature="vulkan_graphics")]
+            mesh
         }
     );
 
@@ -102,13 +117,16 @@ pub fn spawn_flat_terrain(
         0, 3, 2, 3, 0, 1
     ];
 
-
-    let collider = MeshCollider::new(vertices, indices);
+    #[cfg(feature="vulkan_graphics")]
+    let mesh: Mesh = Mesh::from((vertices.clone(), indices.clone())).recalculate_normals().clone();
+    let collider = MeshCollider::new(vertices.clone(), indices.clone());
 
     world.spawn(
         TerrainBundle{
             tag: TerrainTag,
             collider: TerrainCollider {collider: collider.clone()},
+            #[cfg(feature="vulkan_graphics")]
+            mesh
         }
     );
 

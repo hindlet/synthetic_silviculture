@@ -22,7 +22,7 @@ use super::{
     gui::GUIData,
     super::{
         maths::{vector_three::Vector3, matrix_three::Matrix3},
-        environment::terrain_graph::TerrainTag,
+        environment::terrain::TerrainTag,
     }
 };
 
