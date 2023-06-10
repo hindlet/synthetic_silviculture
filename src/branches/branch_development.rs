@@ -591,7 +591,7 @@ pub fn calculate_segment_lengths_and_tropism(
             if let Ok((mut branch_data, branch_growth_data, prototype_ref)) = branch_data_query.get_mut(id) {
 
                 if branch_data.root_node.is_none() {continue;}
-                if branch_data.full_grown {continue;}
+                if branch_data.full_grown {queue.0.push_back(id); continue;}
                 if branch_growth_data.physiological_age > ages[prototype_ref.0] {
                     branch_data.full_grown = true;
                 }
