@@ -4,7 +4,7 @@
 mod maths;
 mod plants;
 mod branches;
-mod graphics;
+
 mod fixed_schedule;
 mod environment;
 mod debug;
@@ -13,4 +13,5 @@ mod debug;
 pub mod apps;
 pub use plants::plant::{PlantGrowthControlFactors, PlantPlasticityParameters};
 
-
+#[cfg(feature = "vulkan_graphics")]
+mod graphics;

@@ -13,7 +13,7 @@ use super::super::{
     },
     environment::*,
     environment::{
-        terrain::*,
+        terrain_graph::*,
         light_cells::*,
         params::*,
     },

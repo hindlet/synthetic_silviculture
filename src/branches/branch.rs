@@ -4,8 +4,10 @@ use itertools::Itertools;
 use super::{
     super::maths::{vector_three::Vector3, bounding_sphere::BoundingSphere, matrix_three::Matrix3},
     branch_node::{BranchNodeData, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip},
-    branch_prototypes::{BranchPrototypeRef}, super::graphics::mesh::Mesh
+    branch_prototypes::{BranchPrototypeRef}
 };
+#[cfg(feature = "vulkan_graphics")]
+use super::super::graphics::mesh::Mesh;
 
 
 
@@ -43,7 +45,7 @@ pub struct BranchBounds  {
     pub bounds: BoundingSphere
 }
 
-
+#[cfg(feature = "vulkan_graphics")]
 #[derive(Bundle)]
 pub struct BranchBundle {
     pub tag: BranchTag,
@@ -52,6 +54,17 @@ pub struct BranchBundle {
     pub growth_data: BranchGrowthData,
     pub connections: BranchConnectionData,
     pub mesh: Mesh,
+    pub prototype: BranchPrototypeRef,
+}
+
+#[cfg(not(feature = "vulkan_graphics"))]
+#[derive(Bundle)]
+pub struct BranchBundle {
+    pub tag: BranchTag,
+    pub bounds: BranchBounds,
+    pub data: BranchData,
+    pub growth_data: BranchGrowthData,
+    pub connections: BranchConnectionData,
     pub prototype: BranchPrototypeRef,
 }
 
@@ -74,6 +87,7 @@ impl BranchBundle {
     }
 }
 
+#[cfg(feature = "vulkan_graphics")]
 impl Default for BranchBundle {
     fn default() -> Self {
         BranchBundle {
@@ -83,6 +97,20 @@ impl Default for BranchBundle {
             growth_data: BranchGrowthData::default(),
             connections: BranchConnectionData::default(),
             mesh: Mesh::empty(),
+            prototype: BranchPrototypeRef(0)
+        }
+    }
+}
+
+#[cfg(not(feature = "vulkan_graphics"))]
+impl Default for BranchBundle {
+    fn default() -> Self {
+        BranchBundle {
+            tag: BranchTag,
+            bounds: BranchBounds::default(),
+            data: BranchData::default(),
+            growth_data: BranchGrowthData::default(),
+            connections: BranchConnectionData::default(),
             prototype: BranchPrototypeRef(0)
         }
     }

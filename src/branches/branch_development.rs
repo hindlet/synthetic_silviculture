@@ -5,13 +5,14 @@ use super::{
         plants::plant::*,
         environment::{params::*, light_cells::*},
         maths::{vector_three::Vector3, matrix_three::Matrix3, lerp, bounding_sphere::BoundingSphere},
-        graphics::branch_mesh_gen::MeshUpdateQueue,
     },
     branch::*,
     branch_node::*,
     branch_prototypes::*,
 };
 
+#[cfg(feature = "vulkan_graphics")]
+use super::super::graphics::branch_mesh_gen::MeshUpdateQueue;
 
 
 pub fn calculate_branch_light_exposure(
@@ -39,6 +40,81 @@ pub fn calculate_branch_light_exposure(
         }
     }
 }
+
+
+/// takes data from the branches and distributes it, we do a tip to base pass and sum light exposure at branching points
+/// after this we use a helper function to distribute growth vigor up the plant
+/// this means that branches closer to the root have a higher growth vigor than those further away
+pub fn calculate_growth_vigor(
+    plant_query: Query<(&PlantData, &PlantGrowthControlFactors), With<PlantTag>>,
+    mut branch_query: Query<&mut BranchGrowthData, With<BranchTag>>,
+    branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>
+) {
+    for plant_data in plant_query.iter() {
+
+        if plant_data.0.root_node.is_none() {continue;}
+        
+        // reset light exposure in all none-tip branches
+        for id in get_non_terminal_branches(&branch_connections_query, plant_data.0.root_node.unwrap()) {
+            if let Ok(mut branch_data) = branch_query.get_mut(id){
+                branch_data.light_exposure = 0.0;
+            }
+        }
+
+        // sum up light exposure at branching_points
+        for id in get_branches_tip_to_base(&branch_connections_query, plant_data.0.root_node.unwrap()) {
+            #[allow(unused_assignments)]
+            let mut light_exposure = 0.0;
+            if let Ok(branch_data) = branch_query.get(id) {
+                light_exposure = branch_data.light_exposure;
+            } else {panic!("Fuck shit balls")}
+            if let Ok(branch_connections) = branch_connections_query.get(id) {
+                if branch_connections.parent.is_none() {continue;}
+                if let Ok(mut parent_data) = branch_query.get_mut(branch_connections.parent.unwrap()) {
+                    parent_data.light_exposure += light_exposure;
+                }
+            }
+        }
+
+        if let Ok(mut root_data) = branch_query.get_mut(plant_data.0.root_node.unwrap()) {
+            root_data.growth_vigor = root_data.light_exposure.max(plant_data.1.max_vigor);
+        }
+        // distribute vigor to branches
+        for id in get_branches_base_to_tip(&branch_connections_query, plant_data.0.root_node.unwrap()) {
+            #[allow(unused_assignments)]
+            let mut vigor = 0.0;
+
+            if let Ok(parent_data) = branch_query.get(id) {
+                vigor = parent_data.growth_vigor;
+            } else {panic!("Fuck shit balls")}
+
+            if let Ok(parent_connections) = branch_connections_query.get(id) {
+                
+                if parent_connections.children.1.is_none() {
+                    if parent_connections.children.0.is_none() {continue;}
+                    if let Ok(mut only_child) = branch_query.get_mut(parent_connections.children.0.unwrap()) {
+                        only_child.growth_vigor = vigor;
+                        continue;
+                    } 
+                }
+
+                let vigor_distribution = get_children_vigor(
+                    &branch_query, vigor, 
+                    parent_connections.children.0.unwrap(), parent_connections.children.1.unwrap(), plant_data.1.apical_control);
+
+                if let Ok(mut children) = branch_query.get_many_mut([parent_connections.children.0.unwrap(), parent_connections.children.1.unwrap()]) {
+                    children[0].growth_vigor = vigor_distribution.0;
+                    children[1].growth_vigor = vigor_distribution.1;
+                }
+            
+            }   
+        }
+
+    }
+}
+
+
+
 
 /// Calculates growth rates for all branches
 /// 
@@ -533,7 +609,7 @@ pub fn assign_thicknesses(
 
 
 
-
+#[cfg(feature = "vulkan_graphics")]
 /// calculates the positions of all the branch nodes using:
 /// segment_length = min(max_segment_length, segment_length_scale * parent_node_physiological_age)
 pub fn calculate_segment_lengths_and_tropism(
@@ -591,7 +667,11 @@ pub fn calculate_segment_lengths_and_tropism(
             if let Ok((mut branch_data, branch_growth_data, prototype_ref)) = branch_data_query.get_mut(id) {
 
                 if branch_data.root_node.is_none() {continue;}
+
+                
                 if branch_data.full_grown {queue.0.push_back(id); continue;}
+
+
                 if branch_growth_data.physiological_age > ages[prototype_ref.0] {
                     branch_data.full_grown = true;
                 }
@@ -640,6 +720,112 @@ pub fn calculate_segment_lengths_and_tropism(
     }
 }
 
+
+#[cfg(not(feature = "vulkan_graphics"))]
+/// calculates the positions of all the branch nodes using:
+/// segment_length = min(max_segment_length, segment_length_scale * parent_node_physiological_age)
+pub fn calculate_segment_lengths_and_tropism(
+    plant_query: Query<(&PlantData, &PlantGrowthControlFactors), With<PlantTag>>,
+
+    branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>,
+    mut branch_data_query: Query<(&mut BranchData, &BranchGrowthData, &BranchPrototypeRef), With<BranchTag>>,
+
+    branch_prototypes: Res<BranchPrototypes>,
+
+    mut branch_node_query: Query<&mut BranchNodeData, With<BranchNodeTag>>,
+    branch_node_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
+
+    gravity_res: Res<GravityResources>,
+) {
+
+    let directions = branch_prototypes.get_directions();
+    let ages = branch_prototypes.get_ages();
+    let grav = gravity_res.gravity_dir * gravity_res.tropism_strength;
+
+    for (plant_data, plant_growth_factors) in plant_query.iter() {
+
+        if plant_data.root_node.is_none() {continue;}
+
+        let max_length = plant_growth_factors.max_branch_segment_length;
+        let scale = plant_growth_factors.branch_segment_length_scaling_coef;
+        let plant_tropism = plant_growth_factors.tropism_time_control;
+
+        for id in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()) {
+
+            let (parent_offset, parent_rotation_matrix) = {
+                let parent_id = get_branch_parent_id(id, &branch_connections_query);
+                
+                if parent_id.is_none() {
+                    (Vector3::ZERO(), Matrix3::identity())
+                }
+                else if let Ok(branch_parent_data) = branch_data_query.get(parent_id.unwrap()) {
+                    
+                    let rotation_matrix = {
+                        let rotation_axis = branch_parent_data.0.normal.cross(Vector3::Y());
+                        let rotation_angle = branch_parent_data.0.normal.angle_to(Vector3::Y());
+                        Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
+                    };
+                    (branch_parent_data.0.root_position, rotation_matrix)
+
+                } else {
+                    (Vector3::ZERO(), Matrix3::identity())
+                }
+            };
+
+
+            if let Ok((mut branch_data, branch_growth_data, prototype_ref)) = branch_data_query.get_mut(id) {
+
+                if branch_data.root_node.is_none() {continue;}
+
+                
+                if branch_data.full_grown {continue;}
+
+
+                if branch_growth_data.physiological_age > ages[prototype_ref.0] {
+                    branch_data.full_grown = true;
+                }
+                let branch_age = branch_growth_data.physiological_age;
+
+
+                if branch_data.parent_node.is_some() {
+                    // update the root node position based on the position of the parent node (they're the same)
+                    let root_position = {
+                        if let Ok(parent_node) = branch_node_query.get(branch_data.parent_node.unwrap()) {
+                            parent_node.position + parent_node.tropism_offset
+                        } else {panic!("failed to get branch parent node")}
+                    };
+                    branch_data.root_position = root_position.transform(parent_rotation_matrix) + parent_offset;
+                }
+
+                // update all node positions
+                let node_pairs = get_nodes_and_connections_base_to_tip(&branch_node_connections_query, branch_data.root_node.unwrap());
+
+                if node_pairs.len() == 0 {continue;}
+
+                for i in 0..node_pairs.len() {
+                    if let Ok(mut node_pair) = branch_node_query.get_many_mut(node_pairs[i]) {
+                        
+                        let segment_age = (branch_age - node_pair[1].phys_age).max(0.0);
+
+
+                        let length = max_length.min(scale * segment_age);
+
+                        let new_offset = directions[prototype_ref.0][i] * length;
+                        let tropism_offset = grav * plant_tropism * length / max_length;
+
+
+                        node_pair[1].tropism_offset = tropism_offset;
+                        node_pair[1].position = node_pair[0].position + new_offset;
+
+                        if node_pair[1].position == Vector3::ZERO() && node_pairs[i][0] != branch_data.root_node.unwrap() {
+                            panic!("Node positioned wrong, nodes: {:?}, {:?} \ndata: \nage: {:?} \nlength: {:?} \noffset: {:?} \nparent_pos: {:?}", node_pair[0], node_pair[1], segment_age, length, new_offset, node_pair[0].position);
+                        }
+                    }else {panic!("Could not get node pair, tried to get nodes: {:?}, {:?}", node_pairs[i][0], node_pairs[i][1])}
+                }
+            }
+        }
+    }
+}
 
 
 
