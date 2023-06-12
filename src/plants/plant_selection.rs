@@ -1,7 +1,7 @@
 use rand::Rng;
 use super::{
     plant::{PlantGrowthControlFactors, PlantPlasticityParameters},
-    super::maths::normal_probabilty_density,
+    super::maths::{normal_cmd},
 };
 
 
@@ -11,7 +11,7 @@ use super::{
 /// - species_params: A vec of the conditions needed for different species to be created, (ideal_temp, temp_standard_deviation, ideal_temp_prob_density ideal_moisture, moisture_standard_deviation, ideal_moisture_prob_density)
 pub struct PlantSpeciesSampler {
     species: Vec<(PlantGrowthControlFactors, PlantPlasticityParameters)>,
-    species_params: Vec<(f32, f32, f32, f32, f32, f32)>,
+    species_params: Vec<(f32, f32, f32, f32)>,
 }
 
 impl PlantSpeciesSampler {
@@ -23,7 +23,7 @@ impl PlantSpeciesSampler {
         for species in init_species {
             let mut growth_factors = species.0.0;
             growth_factors.max_vigor = growth_factors.species_max_vigor;
-            species_params.push((species.1.0, species.1.1, normal_probabilty_density(species.1.0, species.1.0, species.1.1), species.1.2, species.1.3, normal_probabilty_density(species.1.2, species.1.2, species.1.3)));
+            species_params.push((species.1.0, species.1.1, species.1.2, species.1.3,));
             plants.push((growth_factors, species.0.1));
         }
         PlantSpeciesSampler {
@@ -36,7 +36,7 @@ impl PlantSpeciesSampler {
         let mut species_params = Vec::new();
         let mut plants = Vec::new();
         for species in new_species {
-            species_params.push((species.1.0, species.1.1, normal_probabilty_density(species.1.0, species.1.0, species.1.1), species.1.2, species.1.3, normal_probabilty_density(species.1.2, species.1.2, species.1.3)));
+            species_params.push((species.1.0, species.1.1, species.1.2, species.1.3));
             plants.push(species.0);
         }
         self.species.append(&mut plants);
@@ -48,7 +48,7 @@ impl PlantSpeciesSampler {
         let mut species_params = Vec::new();
         let mut plants = Vec::new();
         for species in new_species {
-            species_params.push((species.1.0, species.1.1, normal_probabilty_density(species.1.0, species.1.0, species.1.1), species.1.2, species.1.3, normal_probabilty_density(species.1.2, species.1.2, species.1.3)));
+            species_params.push((species.1.0, species.1.1, species.1.2, species.1.3));
             plants.push(species.0);
         }
         self.species = plants;
@@ -65,7 +65,7 @@ impl PlantSpeciesSampler {
     pub fn replace(&mut self, index: usize, new: ((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))) {
         self.remove(index);
         self.species.insert(index, new.0);
-        let params = (new.1.0, new.1.1, normal_probabilty_density(new.1.0, new.1.0, new.1.1), new.1.2, new.1.3, normal_probabilty_density(new.1.2, new.1.2, new.1.3));
+        let params = (new.1.0, new.1.1, new.1.2, new.1.3);
         self.species_params.insert(index, params);
     }
 
@@ -82,11 +82,11 @@ impl PlantSpeciesSampler {
         let mut total_prob = 0.0;
 
         for i in 0..self.species_params.len() {
-            let (ideal_temp, std_dev_temp, ideal_temp_density, ideal_moist, std_dev_moist, ideal_moist_density) = self.species_params[i];
+            let (ideal_temp, std_dev_temp, ideal_moist, std_dev_moist) = self.species_params[i];
 
             // disregard any plants more than 5 standard deviations away in any direction
             if (temp - ideal_temp).abs() > 5.0 * std_dev_temp || (moist - ideal_moist).abs() > 5.0 * std_dev_moist {continue;}
-            let prob = (normal_probabilty_density(temp, ideal_temp, std_dev_temp) / ideal_temp_density) * (normal_probabilty_density(moist, ideal_moist, std_dev_moist) / ideal_moist_density);
+            let prob = (0.5 - normal_cmd(temp, ideal_temp, std_dev_temp)).abs() * (0.5 - normal_cmd(moist, ideal_moist, std_dev_moist)).abs();
             total_prob += prob;
             choices.push((i, total_prob));
         }

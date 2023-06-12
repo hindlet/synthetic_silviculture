@@ -19,8 +19,8 @@ use std::f32::{
     EPSILON
 };
 
-const ROOT_PI: f32 = FRAC_2_SQRT_PI * PI / 2.0; // sqrt(PI)
-const ROOT_TWOPI: f32 = SQRT_2 * ROOT_PI; // sqrt(2.0 * PI)
+
+
 
 
 
@@ -28,9 +28,34 @@ pub fn lerp(start: f32, end: f32, position: f32) -> f32{
     start + (end - start) * position.clamp(0.0, 1.0)
 }
 
+
+const ROOT_TWOPI: f32 = SQRT_2 * (FRAC_2_SQRT_PI * PI / 2.0); // sqrt(2.0 * PI)
+
 pub fn normal_probabilty_density(value: f32, mean: f32, standard_deviation: f32) -> f32 {
 
     (1.0 / (standard_deviation * ROOT_TWOPI)) * (-1.0 * (value - mean) * (value - mean) / (2.0 * standard_deviation * standard_deviation) ).exp()
+}
+
+
+const P: f32 = 0.47047;
+const A1: f32 = 0.3480242;
+const A2: f32 = -0.0958798;
+const A3: f32 = 0.7478556;
+
+/// an approxomation of the error function from Abramowitz and Stegun (equation 7.1.26), it has a maximum error of 2.5x10^-5
+fn error_fn_approx(value: f32) -> f32 {
+    let t = 1.0 / (1.0 + P * value);
+    1.0 - (A1 * t + A2 * t * t + A3 * t * t * t) * (t * t * -1.0).exp()
+}
+
+
+/// cumulative normal distribution fn
+pub fn normal_cmd(value: f32, mean: f32, standard_deviation: f32) -> f32 {
+    let x = (value - mean) / (standard_deviation * SQRT_2);
+
+    if x == 0.0 {return 0.5;}
+    if x < 0.0 {return 0.5 * (1.0 - error_fn_approx(-x));}
+    else {return 0.5 * (1.0 + error_fn_approx(x))}
 }
 
 #[test]
