@@ -22,9 +22,7 @@ pub struct BranchTag;
 
 #[derive(Debug, Component)]
 pub struct BranchData {
-    pub intersections_volume: f32,
     pub normal: Vector3,
-    pub intersection_list: Vec<Entity>,
     pub root_node: Option<Entity>,
     pub parent_node: Option<Entity>, // a reference to the node on another branch that this branch started from
     pub root_position: Vector3,
@@ -72,8 +70,8 @@ pub struct BranchBundle {
 pub struct BranchConnectionData {
     pub parent: Option<Entity>,
     pub children: (Option<Entity>, Option<Entity>),
+    pub updates_to_more_children: u32,
 }
-
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -132,10 +130,8 @@ impl From<BoundingSphere> for BranchBounds {
 impl Default for BranchData {
     fn default() -> Self {
         BranchData {
-            intersections_volume: 0.0,
             full_grown: false,
             normal: Vector3::Y(),
-            intersection_list: Vec::new(),
             root_node: None,
             parent_node: None,
             root_position: Vector3::ZERO(),
@@ -160,6 +156,7 @@ impl Default for BranchConnectionData {
         BranchConnectionData {
             parent: None,
             children: (None, None),
+            updates_to_more_children: 0,
         }
     }
 }
@@ -177,7 +174,7 @@ pub fn get_branch_parent_id(
     if let Ok(child_data) = connections_query.get(child_id) {
         return child_data.parent;
     }
-    else {panic!("Failed to get parent branch")}
+    else {panic!("Failed to get parent branch: child id was {:?}", child_id)}
 }
 
 

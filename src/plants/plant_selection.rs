@@ -21,8 +21,10 @@ impl PlantSpeciesSampler {
         let mut species_params = Vec::new();
         let mut plants = Vec::new();
         for species in init_species {
+            let mut growth_factors = species.0.0;
+            growth_factors.max_vigor = growth_factors.species_max_vigor;
             species_params.push((species.1.0, species.1.1, normal_probabilty_density(species.1.0, species.1.0, species.1.1), species.1.2, species.1.3, normal_probabilty_density(species.1.2, species.1.2, species.1.3)));
-            plants.push(species.0);
+            plants.push((growth_factors, species.0.1));
         }
         PlantSpeciesSampler {
             species: plants, species_params

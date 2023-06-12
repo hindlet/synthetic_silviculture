@@ -16,7 +16,7 @@ pub fn step_plant_age(
     descrease_rate: Res<PlantDeathRate>
 ) {
     for (mut plant_data, mut plant_growth_data) in plant_query.iter_mut() {
-        plant_data.age += timestep.step;
+        plant_data.age += timestep.step * plant_growth_data.growth_rate;
         if plant_data.age > plant_growth_data.max_age {
             plant_growth_data.max_vigor = 0.0_f32.max(plant_growth_data.max_vigor - descrease_rate.v_max_decrease);
         }

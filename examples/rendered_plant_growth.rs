@@ -7,7 +7,7 @@ use synthetic_silviculture::{
 fn main() {
     let branch_types = vec![
         (
-            25.0,
+            0.1,
             vec![vec![2], vec![1, 2], vec![2, 1, 2]],
             vec![
                 [0.743, 0.371, 0.557],
@@ -30,9 +30,10 @@ fn main() {
     let plant_species = vec![
         (
             (PlantGrowthControlFactors{
-            max_age: 200.0,
-            max_vigor: 42.0,
-            min_vigor: 2.0,
+            max_age: 40.0,
+            species_max_vigor: 10.0,
+            max_vigor: 10.0,
+            min_vigor: 0.5,
             apical_control: 0.62,
             growth_rate: 0.19,
             tropism_time_control: 0.38,
@@ -55,8 +56,8 @@ fn main() {
     let app = GraphicsTreeApp::new("plant_growth_example".into())
         .set_branch_presets(branch_types, branch_conditions)
         .set_shadow_cell_data(0.5, 3)
-        .set_plant_death_rate(0.5)
-        .set_time_step(0.75)
+        .set_plant_death_rate(0.1)
+        .set_time_step(5.0)
         .with_branch_graphics_gui()
         .set_light(([2.0, -1.0, 0.0], 1.0))
         .set_initial_plant_num(1)

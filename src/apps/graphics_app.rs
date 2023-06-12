@@ -28,12 +28,12 @@ use super::super::{
         camera_maths::Camera,
         terrain_graphics::*,
     },
-    debug::debug_log_branches,
+    debug::*,
 };
 use super::*;
 use egui_winit_vulkano::Gui;
 use winit::{
-    event::{Event, WindowEvent, ElementState},
+    event::{Event, WindowEvent, ElementState, VirtualKeyCode},
     event_loop::{ControlFlow, EventLoop},
     window::Window, platform::run_return::EventLoopExtRunReturn,
 };
@@ -86,7 +86,7 @@ pub struct GraphicsAppBuilder {
 
 
 
-
+/// p to pause
 pub struct GraphicsTreeApp {
     world: World,
     device: Arc<Device>,
@@ -102,6 +102,7 @@ pub struct GraphicsTreeApp {
     frame_schedule: Schedule,
     update_schedule: FixedSchedule,
     output: OutputType,
+    paused: bool,
 
     graphics_pass: Subpass,
     branch_pipeline: Arc<GraphicsPipeline>,
@@ -178,6 +179,8 @@ impl GraphicsTreeApp {
         let mut recreate_swapchain = false;
         let mut last_frame_time = Instant::now();
         let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
+
+        let mut prev_pause_key_state = ElementState::Released;
         
         self.event_loop.run_return(move |event, _, control_flow| {
             match event {
@@ -207,6 +210,13 @@ impl GraphicsTreeApp {
                             },
                             .. 
                         } => {
+                            if keycode == VirtualKeyCode::P && state == ElementState::Pressed && prev_pause_key_state == ElementState::Released{
+                                self.paused ^= true;
+                            }
+                            if keycode == VirtualKeyCode::P {
+                                prev_pause_key_state = state;
+                            }
+
                             camera.process_key(keycode, state == ElementState::Pressed);
                         }
                         _ => (),
@@ -217,7 +227,9 @@ impl GraphicsTreeApp {
                 Event::MainEventsCleared => {
                     // fixed schedules
                     let delta_time = last_frame_time.elapsed();
-                    update_schedule.run(&mut world, delta_time);
+                    if !self.paused {
+                        update_schedule.run(&mut world, delta_time);
+                    }
                     camera.do_move(delta_time);
                     last_frame_time = Instant::now();
                     
@@ -458,6 +470,8 @@ impl GraphicsAppBuilder {
 
 
     /// sets the physical time step used for plant aging in years per step, defaults to 1.0
+    /// 
+    /// This is how many years will pass per second
     pub fn set_time_step(&mut self, step: f32) -> &mut GraphicsAppBuilder {
         self.time_step = Some(step.abs());
 
@@ -497,7 +511,7 @@ impl GraphicsAppBuilder {
         };
         
         let gravity_strength = self.gravity_strength.unwrap_or(DEFAULT_GRAVITY_STRENGTH);
-        let time_step = self.time_step.unwrap_or(DEFAULT_TIMESTEP);
+        let time_step = self.time_step.unwrap_or(DEFAULT_TIMESTEP) / 10.0;
         let branch_conditions = self.prototype_conditions.clone().unwrap_or(DEFAULT_BRANCH_CONTIDITIONS);
         let branch_types = self.prototypes.clone().unwrap_or(DEFAULT_BRANCH_TYPES);
         let cell_settings = self.cell_settings.unwrap_or(DEFAULT_CELL_SETTINGS);
@@ -608,21 +622,32 @@ impl GraphicsAppBuilder {
             // mesh queue
             world.spawn(MeshUpdateQueue::new_from_many(root_ids));
 
+            update_schedule.set_apply_final_buffers(false);
+
             update_schedule.add_systems((
                 update_branch_bounds,
                 // update_plant_bounds,
                 // update_plant_intersections,
+                step_plant_age,
                 calculate_branch_light_exposure,
                 calculate_growth_vigor,
+                trim_branches,
+                apply_system_buffers, // this makes sure nodes and branches have been removed
+                remove_dead_connections,
                 assign_growth_rates,
                 step_physiological_age,
+            ).chain());
+
+            update_schedule.add_systems((
                 update_branch_nodes,
+                apply_system_buffers, // this makes sure new nodes are spawned
                 determine_create_new_branches,
-                apply_system_buffers, // this makes sure nodes and branches have spawned
+                apply_system_buffers, // this makes sure new branches are spawned
                 assign_thicknesses,
+                // debug_log_nodes_and_branches,
                 calculate_segment_lengths_and_tropism,
                 update_branch_data_buffers,
-            ).chain());
+            ).chain().after(step_physiological_age));
     
         }
         else {world.spawn(MeshUpdateQueue::new());}
@@ -694,6 +719,7 @@ impl GraphicsAppBuilder {
             frame_schedule,
             update_schedule: FixedSchedule::new(Duration::from_secs_f32(0.1), update_schedule),
             output,
+            paused: false,
 
             
             graphics_pass,

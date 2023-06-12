@@ -10,7 +10,7 @@ pub struct BranchNodeTag;
 pub struct BranchNodeData {
     pub position: Vector3,
     pub tropism_offset: Vector3,
-    pub phys_age: f32,
+    pub phys_age: (f32, f32),
     // node_type: Option<BranchNodeType>, // will only be used if the node is a special type, no need otherwise
     pub thickness: f32,
     pub thickening_factor: f32,
@@ -54,7 +54,7 @@ impl Default for BranchNodeData {
         BranchNodeData {
             position: Vector3::ZERO(),
             tropism_offset: Vector3::ZERO(),
-            phys_age: 0.0,
+            phys_age: (0.0, 1.0),
             thickness: 0.0,
             thickening_factor: 0.0,
         }

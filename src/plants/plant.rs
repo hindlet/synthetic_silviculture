@@ -54,6 +54,7 @@ pub struct PlantPlasticityParameters {
 #[derive(Component, Clone)]
 pub struct PlantGrowthControlFactors {
     pub max_age: f32,
+    pub species_max_vigor: f32,
     pub max_vigor: f32,
     pub min_vigor: f32,
     pub apical_control: f32, // range 0..1
@@ -122,6 +123,7 @@ impl From<BoundingBox> for PlantBounds {
 impl Default for PlantGrowthControlFactors {
     fn default() -> Self {
         PlantGrowthControlFactors {
+            species_max_vigor: 0.0,
             max_vigor: 0.0,
             min_vigor: 0.0,
             max_age: 0.0,
@@ -135,7 +137,7 @@ impl Default for PlantGrowthControlFactors {
             thickening_factor: 0.01,
         }
     }
-}   
+}
 
 
 impl Default for PlantPlasticityParameters {

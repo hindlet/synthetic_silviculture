@@ -53,6 +53,7 @@ pub fn calculate_growth_vigor(
     for plant_data in plant_query.iter() {
 
         if plant_data.0.root_node.is_none() {continue;}
+        let min_vigor = plant_data.1.min_vigor;
         
         // reset light exposure in all none-tip branches
         for id in get_non_terminal_branches(&branch_connections_query, plant_data.0.root_node.unwrap()) {
@@ -77,7 +78,7 @@ pub fn calculate_growth_vigor(
         }
 
         if let Ok(mut root_data) = branch_query.get_mut(plant_data.0.root_node.unwrap()) {
-            root_data.growth_vigor = root_data.light_exposure.max(plant_data.1.max_vigor);
+            root_data.growth_vigor = root_data.light_exposure.min(plant_data.1.max_vigor);
         }
         // distribute vigor to branches
         for id in get_branches_base_to_tip(&branch_connections_query, plant_data.0.root_node.unwrap()) {
@@ -87,6 +88,7 @@ pub fn calculate_growth_vigor(
             if let Ok(parent_data) = branch_query.get(id) {
                 vigor = parent_data.growth_vigor;
             } else {panic!("Fuck shit balls")}
+
 
             if let Ok(parent_connections) = branch_connections_query.get(id) {
                 
@@ -114,6 +116,93 @@ pub fn calculate_growth_vigor(
 }
 
 
+pub fn trim_branches(
+    plant_query: Query<(&PlantData, &PlantGrowthControlFactors, Entity), With<PlantTag>>,
+    branch_query: Query<(&BranchData, &BranchGrowthData), With<BranchTag>>,
+    branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>,
+    node_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
+    mut commands: Commands,
+) {
+
+    let mut to_kill: Vec<Entity> = Vec::new();
+
+    for plant in plant_query.iter() {
+        if plant.0.root_node.is_none() {continue;}
+        let min_vigor = plant.1.min_vigor;
+
+        for id in get_branches_base_to_tip(&branch_connections_query, plant.0.root_node.unwrap()) {
+
+            if let Ok(branch) = branch_query.get(id) {
+                // kill branch and children if vigor too low
+                if branch.1.growth_vigor < min_vigor {
+
+                    for child_id in get_branches_base_to_tip(&branch_connections_query, id) {
+
+                        // kill nodes
+                        if let Ok(branch) = branch_query.get(child_id) {
+                            if let Some(root) = branch.0.root_node {
+                                for node_id in get_nodes_base_to_tip(&node_connections_query, root) {
+                                    to_kill.push(node_id)
+                                }
+                            }
+                        }
+                        
+                        // kill branch
+                        to_kill.push(child_id);
+                    }
+
+                    // kill the plant if it's root dies
+                    if id == plant.0.root_node.unwrap() {
+                        to_kill.push(plant.2);
+                    }
+
+                }
+            }
+        }
+    }
+
+    // remove duplicates
+    to_kill.sort_unstable();
+    to_kill.dedup();
+
+    // println!("killing: {:?}", to_kill);
+
+    // remove to_kill
+    for id in to_kill {
+        commands.entity(id).despawn();
+    }
+
+    
+}
+
+/// removes any children or parents of branches that no longer exit
+pub fn remove_dead_connections(
+    branch_query: Query<Entity, With<BranchTag>>,
+    mut branch_connections_query: Query<&mut BranchConnectionData, With<BranchTag>>,
+) {
+    for mut branch in branch_connections_query.iter_mut() {
+
+        if let Some(parent_id) = branch.parent {
+            if !branch_query.contains(parent_id) {branch.parent = None}
+        }
+
+        if let Some(child_id) = branch.children.1 {
+            if !branch_query.contains(child_id) {branch.updates_to_more_children += 1; branch.children.1 = None}
+        }
+
+        if let Some(child_id) = branch.children.0 {
+            if !branch_query.contains(child_id) {branch.updates_to_more_children += 1; branch.children.0 = branch.children.1; branch.children.1 = None;}
+        }
+
+    }
+}
+
+
+
+
+
+
+
 
 
 /// Calculates growth rates for all branches
@@ -128,12 +217,13 @@ pub fn assign_growth_rates(
 
         if plant_data.root_node.is_none() {continue;}
         let v_min = plant_growth_factors.min_vigor;
-        let v_max = plant_growth_factors.max_vigor;
+        let v_max = plant_growth_factors.species_max_vigor;
         let plant_growth = plant_growth_factors.growth_rate;
         
         for id in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()) {
             if let Ok(mut branch_data) = branch_data_query.get_mut(id){
                 branch_data.growth_rate = sigmoid((branch_data.growth_vigor - v_min) / (v_max - v_min)) * plant_growth;
+                // branch_data.growth_rate = sigmoid((branch_data.growth_vigor - v_min) / (v_max - v_min));
             }
         }
     }
@@ -149,21 +239,36 @@ fn sigmoid(x: f32) -> f32 {
 
 /// increases the physiological age of all the branches and their nodes by their growth rate
 pub fn step_physiological_age(
+    plant_query: Query<(&PlantGrowthControlFactors, &PlantData), With<PlantTag>>,
+    branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>,
     mut branch_query: Query<(&BranchData, &mut BranchGrowthData), With<BranchTag>>,
     node_connections_query: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
     mut node_data_query: Query<&mut BranchNodeData, With<BranchNodeTag>>,
 
     age_step: Res<PhysicalAgeStep>,
 ) {
-    for (data, mut growth_data) in branch_query.iter_mut() {
-        growth_data.physiological_age += growth_data.growth_rate;
-        if data.root_node.is_none() {continue;}
-        for id in get_nodes_base_to_tip(&node_connections_query, data.root_node.unwrap()) {
-            if let Ok(mut node_data) = node_data_query.get_mut(id) {
-                node_data.phys_age += growth_data.growth_rate * age_step.step;
+
+    for plant in plant_query.iter() {
+
+        if plant.1.root_node.is_none() {continue;}
+
+        let growth_rate = plant.0.growth_rate;
+
+        for id in get_branches_base_to_tip(&branch_connections_query, plant.1.root_node.unwrap()) {
+            if let Ok((data, mut growth_data)) = branch_query.get_mut(id) {
+                growth_data.physiological_age += growth_data.growth_rate * age_step.step;
+                if data.root_node.is_none() {continue;}
+                for id in get_nodes_base_to_tip(&node_connections_query, data.root_node.unwrap()) {
+                    if let Ok(mut node_data) = node_data_query.get_mut(id) {
+                        node_data.phys_age.0 += growth_data.growth_rate * age_step.step;
+                    }
+                }
             }
         }
+
     }
+
+    
 }
 
 
@@ -191,7 +296,7 @@ pub fn update_branch_nodes(
         let target_layers = lerp(1.0,  prototype_data[prototype_ref.0].1 as f32, branch_growth_data.physiological_age / prototype_data[prototype_ref.0].0).round() as u32;
 
         // if the branch is missing layers, keep adding more
-        while branch_growth_data.layers < target_layers {
+        if branch_growth_data.layers < target_layers {
             // println!("check");
             // get a list of nodes on the current layer and loop through them
             let current_layer = get_nodes_on_layer(&mut node_connections_query, branch_data.root_node.unwrap(), branch_growth_data.layers);
@@ -207,7 +312,7 @@ pub fn update_branch_nodes(
                 let node_thickning_factor = {
                     if let Ok(node_data) = node_data_query.get(current_layer[i]) {
                         node_data.thickening_factor
-                    }else {panic!()}
+                    }else {panic!("could not get node, id: {:?}", current_layer[i])}
                 };
 
                 // create the new children and add them to the parent node, new nodes will take their parent's thickness
@@ -215,7 +320,7 @@ pub fn update_branch_nodes(
                     for j in 0..num_children {
                         let id = commands.spawn(BranchNodeBundle {
                             connections: BranchNodeConnectionData{parent: Some(current_layer[i]), ..Default::default()},
-                            data: BranchNodeData{thickening_factor: node_thickning_factor, phys_age: branch_growth_data.physiological_age, ..Default::default()},
+                            data: BranchNodeData{thickening_factor: node_thickning_factor, phys_age: (0.0, prototype_data[prototype_ref.0].0 - branch_growth_data.physiological_age), ..Default::default()},
                             ..Default::default() 
                         }).id();
                         node_connections.children.push(id);
@@ -261,7 +366,7 @@ pub fn determine_create_new_branches(
 
         let branches_to_check = get_terminal_branches(&branch_connections_query, plant_data.root_node.unwrap());
         let v_min = plant_growth_factors.min_vigor;
-        let v_max = plant_growth_factors.max_vigor;
+        let v_max = plant_growth_factors.species_max_vigor;
         let apical = plant_growth_factors.apical_control;
         let plant_dist_control = plant_growth_factors.tropism_angle_weight;
         let plant_angle = plant_growth_factors.branching_angle;
@@ -278,6 +383,15 @@ pub fn determine_create_new_branches(
                 
                 // branch must be older than mature for new branches to be added
                 if branch_growth_data.physiological_age <= branch_prototypes.prototypes[prototype_ref.0].mature_age {continue;}
+                if branch_growth_data.layers < branch_prototypes.prototypes[prototype_ref.0].layers {continue;}
+
+                // check how many updates left until more children can be added, if more than zero, reduce and continue
+                if let Ok(mut connection_data) = branch_connections_query.get_mut(id) {
+                    if connection_data.updates_to_more_children > 0 {
+                        connection_data.updates_to_more_children -= 1;
+                        continue;
+                    }
+                }
 
                 // assign light exposure to terminal branch nodes
                 let terminal_node_ids = get_terminal_nodes(&node_connections_query, branch_data.root_node.unwrap());
@@ -669,12 +783,12 @@ pub fn calculate_segment_lengths_and_tropism(
                 if branch_data.root_node.is_none() {continue;}
 
                 
-                if branch_data.full_grown {queue.0.push_back(id); continue;}
+                // if branch_data.full_grown {queue.0.push_back(id); continue;}
 
 
-                if branch_growth_data.physiological_age > ages[prototype_ref.0] {
-                    branch_data.full_grown = true;
-                }
+                // if branch_growth_data.physiological_age > ages[prototype_ref.0] {
+                //     branch_data.full_grown = true;
+                // }
                 let branch_age = branch_growth_data.physiological_age;
 
 
@@ -696,7 +810,7 @@ pub fn calculate_segment_lengths_and_tropism(
                 for i in 0..node_pairs.len() {
                     if let Ok(mut node_pair) = branch_node_query.get_many_mut(node_pairs[i]) {
                         
-                        let segment_age = (branch_age - node_pair[1].phys_age).max(0.0);
+                        let segment_age = node_pair[1].phys_age.0.max(0.0) / node_pair[1].phys_age.1;
 
 
                         let length = max_length.min(scale * segment_age);
@@ -709,7 +823,7 @@ pub fn calculate_segment_lengths_and_tropism(
                         node_pair[1].position = node_pair[0].position + new_offset;
 
                         if node_pair[1].position == Vector3::ZERO() && node_pairs[i][0] != branch_data.root_node.unwrap() {
-                            panic!("Node positioned wrong, nodes: {:?}, {:?} \ndata: \nage: {:?} \nlength: {:?} \noffset: {:?} \nparent_pos: {:?}", node_pair[0], node_pair[1], segment_age, length, new_offset, node_pair[0].position);
+                            panic!("Node positioned wrong, node_one:\n   id: {:?}\n   data: {:?}\n node_two:\n   id: {:?}\n   data: {:?} \n\ndata: \n   age: {:?} \n   length: {:?} \n   offset: {:?} \n   parent_pos: {:?}",node_pairs[i][0], node_pair[0], node_pairs[i][1], node_pair[1], segment_age, length, new_offset, node_pair[0].position);
                         }
                     }else {panic!("Could not get node pair, tried to get nodes: {:?}, {:?}", node_pairs[i][0], node_pairs[i][1])}
                 }
@@ -805,7 +919,7 @@ pub fn calculate_segment_lengths_and_tropism(
                 for i in 0..node_pairs.len() {
                     if let Ok(mut node_pair) = branch_node_query.get_many_mut(node_pairs[i]) {
                         
-                        let segment_age = (branch_age - node_pair[1].phys_age).max(0.0);
+                        let segment_age = node_pair[1].phys_age.0.max(0.0) / node_pair[1].phys_age.1;
 
 
                         let length = max_length.min(scale * segment_age);
@@ -818,7 +932,7 @@ pub fn calculate_segment_lengths_and_tropism(
                         node_pair[1].position = node_pair[0].position + new_offset;
 
                         if node_pair[1].position == Vector3::ZERO() && node_pairs[i][0] != branch_data.root_node.unwrap() {
-                            panic!("Node positioned wrong, nodes: {:?}, {:?} \ndata: \nage: {:?} \nlength: {:?} \noffset: {:?} \nparent_pos: {:?}", node_pair[0], node_pair[1], segment_age, length, new_offset, node_pair[0].position);
+                            panic!("Node positioned wrong, node_one:\n   id: {:?}\n   data: {:?}\n node_two:\n   id: {:?}\n   data: {:?} \n\ndata: \n   age: {:?} \n   length: {:?} \n   offset: {:?} \n   parent_pos: {:?}",node_pairs[i][0], node_pair[0], node_pairs[i][1], node_pair[1], segment_age, length, new_offset, node_pair[0].position);
                         }
                     }else {panic!("Could not get node pair, tried to get nodes: {:?}, {:?}", node_pairs[i][0], node_pairs[i][1])}
                 }
