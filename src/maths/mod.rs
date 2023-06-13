@@ -49,7 +49,7 @@ fn error_fn_approx(value: f32) -> f32 {
 }
 
 
-/// cumulative normal distribution fn
+/// cumulative normal distribution fn, maximum error of 2.5x10^-5
 pub fn normal_cmd(value: f32, mean: f32, standard_deviation: f32) -> f32 {
     let x = (value - mean) / (standard_deviation * SQRT_2);
 
