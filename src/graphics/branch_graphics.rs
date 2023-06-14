@@ -516,7 +516,7 @@ pub fn create_branch_uniform_buffer(
     let data = branch_vert_shader::Data {
         view: view.into(),
         proj: proj.into(),
-        light: branch_vert_shader::DirectionalLight {direction: (-dir).normalised().into(), intensity: light.1}
+        light: branch_vert_shader::DirectionalLight {direction: dir.normalised().into(), intensity: light.1}
     };
     let subbuffer = allocator.allocate_sized().unwrap();
     *subbuffer.write().unwrap() = data;

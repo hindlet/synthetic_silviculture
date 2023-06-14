@@ -64,7 +64,7 @@ fn main() {
         .set_plant_species(plant_species)
         .set_environmental_parameters((20.0, 0.1), 100.0)
         .with_flat_terrain(5.0, [0.0, 0.0, 0.0], [0.0, 154.0 / 255.0, 23.0 / 255.0])
-        .set_branch_mesh_settings(5, true)
+        .set_branch_mesh_settings(7, false)
         .build();
 
     app.run();
