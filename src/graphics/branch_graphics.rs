@@ -154,10 +154,12 @@ fn create_vector_polygon(sides: u32, rotation: Option<f32>) -> Vec<Vector3> {
 pub fn add_world_branch_graphics_resources(
     world: &mut World,
     allocator: Arc<GenericMemoryAllocator<Arc<FreeListAllocator>>>,
+    faces: u32,
+    flat_shaded: bool
 ) {
     world.insert_resource(BranchGraphicsResources {
-        flat_shaded: false,
-        polygon_vectors: create_vector_polygon(3, None),
+        flat_shaded: flat_shaded,
+        polygon_vectors: create_vector_polygon(faces, None),
         mem_allocator: allocator
     })
 }

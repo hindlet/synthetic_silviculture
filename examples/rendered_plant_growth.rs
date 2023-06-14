@@ -59,11 +59,12 @@ fn main() {
         .set_plant_death_rate(0.1)
         .set_time_step(5.0)
         .with_branch_graphics_gui()
-        .set_light(([2.0, -1.0, 0.0], 1.0))
+        .set_light(([1.0, -1.0, 1.0], 1.0))
         .set_initial_plant_num(1)
         .set_plant_species(plant_species)
         .set_environmental_parameters((20.0, 0.1), 100.0)
         .with_flat_terrain(5.0, [0.0, 0.0, 0.0], [0.0, 154.0 / 255.0, 23.0 / 255.0])
+        .set_branch_mesh_settings(5, true)
         .build();
 
     app.run();

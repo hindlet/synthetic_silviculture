@@ -35,12 +35,14 @@ const DEFAULT_TIMESTEP: f32 = 1.0;
 const DEFAULT_CELL_SETTINGS: (u32, f32) = (5, 0.5);
 const DEFAULT_PLANT_DEATH_RATE: f32 = 1.0;
 const DEFAULT_LIGHT: ([f32; 3], f32) = ([0.0, -1.0, 0.0], 0.5);
+const DEFAULT_BRANCH_MESH_SETTINGS: (u32, bool) = (3, false);
 const DEFAULT_ENVIRONMENTAL_PARAMS: (f32, f32, f32) = (10.0, 0.01, 110.0); // based on the UK
 const DEFAULT_TERRAIN: (f32, [f32; 3]) = (50.0, [0.0, 0.0, 0.0]);
 
 const DEFAULT_BRANCH_TYPES: Vec<(f32, Vec<Vec<u32>>, Vec<[f32; 3]>)> = Vec::new();
 const DEFAULT_BRANCH_CONTIDITIONS: (Vec<(f32, f32)>, f32, f32) = (Vec::new(), 1.0, 1.0);
 const DEFAULT_PLANT_SPECIES: Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))> = Vec::new();
+
 
 enum TerrainType {
     Absent,

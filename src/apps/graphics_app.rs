@@ -68,6 +68,7 @@ pub struct GraphicsAppBuilder {
     terrain_settings: Option<(f32, Vector3, Option<(u32, f32, String)>)>, // size, centre, verts per side, height mult, path
     terrain_graphics_settings: Option<([f32; 3], [f32; 3], f32, f32)>,
     light: Option<([f32; 3], f32)>,
+    branch_render_settings: Option<(u32, bool)>,
 
     gravity_strength: Option<f32>,
     time_step: Option<f32>,
@@ -135,6 +136,7 @@ impl GraphicsTreeApp {
             terrain_graphics_settings: None,
             gravity_strength: None,
             light: None,
+            branch_render_settings: None,
             prototypes: None,
             prototype_conditions: None,
             time_step: None,
@@ -414,6 +416,16 @@ impl GraphicsAppBuilder {
         self
     }
 
+    /// sets the number of polygons used to construct branch meshes and if branches are flat shaded
+    /// 
+    /// Defaults to 3 faces and smooth shaded
+    /// Enable branch graphics gui to change while running
+    pub fn set_branch_mesh_settings(&mut self, faces: u32, flat_shaded: bool) -> &mut GraphicsAppBuilder {
+        self.branch_render_settings = Some((faces.max(3), flat_shaded));
+
+        self
+    }
+
     /// sets the output type from the app, 0 1 2 or 3, any other number will default to 0
     /// 
     /// - 0 - no output
@@ -662,7 +674,8 @@ impl GraphicsAppBuilder {
         let (framebuffers, window_dimensions) = get_framebuffers(&memory_allocator, &swapchain_images, &render_pass);
 
 
-        add_world_branch_graphics_resources(&mut world, memory_allocator.clone());
+        let branch_mesh_settings = self.branch_render_settings.unwrap_or(DEFAULT_BRANCH_MESH_SETTINGS);
+        add_world_branch_graphics_resources(&mut world, memory_allocator.clone(), branch_mesh_settings.0, branch_mesh_settings.1);
         
 
         /////// subpasses and pipelines
