@@ -578,7 +578,7 @@ impl GraphicsAppBuilder {
         let mut root_ids = Vec::new();
         for data in initial_plant_data {
 
-            if let (Some(spawn_data), pos) = data {
+            if let (Some((spawn_data, climate_adapt)), pos) = data {
 
                 let root_node_id = world.spawn(BranchNodeBundle{
                     data: BranchNodeData{
@@ -603,6 +603,7 @@ impl GraphicsAppBuilder {
                     data: PlantData {
                         root_node: Some(root_branch_id),
                         position: pos.into(),
+                        climate_adaption: climate_adapt,
                         ..Default::default()
                     },
                     plasticity_params: spawn_data.1,

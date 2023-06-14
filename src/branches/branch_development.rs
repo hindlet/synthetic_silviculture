@@ -78,7 +78,7 @@ pub fn calculate_growth_vigor(
         }
 
         if let Ok(mut root_data) = branch_query.get_mut(plant_data.0.root_node.unwrap()) {
-            root_data.growth_vigor = root_data.light_exposure.min(plant_data.1.max_vigor);
+            root_data.growth_vigor = root_data.light_exposure.min(plant_data.1.max_vigor * plant_data.0.climate_adaption);
         }
         // distribute vigor to branches
         for id in get_branches_base_to_tip(&branch_connections_query, plant_data.0.root_node.unwrap()) {

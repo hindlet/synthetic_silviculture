@@ -20,6 +20,7 @@ pub struct PlantData {
     pub intersection_list: Vec<Entity>,
     pub age: f32,
     pub root_node: Option<Entity>,
+    pub climate_adaption: f32,
 }
 
 #[derive(Component)]
@@ -100,6 +101,7 @@ impl Default for PlantData {
             position: Vector3::ZERO(),
             intersection_list: Vec::new(),
             age: 0.0,
+            climate_adaption: 1.0,
         }
     }
 }

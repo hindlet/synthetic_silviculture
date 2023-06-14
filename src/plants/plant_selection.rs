@@ -1,7 +1,7 @@
 use rand::Rng;
 use super::{
     plant::{PlantGrowthControlFactors, PlantPlasticityParameters},
-    super::maths::{normal_cmd},
+    super::maths::{normal_cmd, normal_probabilty_density},
 };
 
 
@@ -76,7 +76,8 @@ impl PlantSpeciesSampler {
     /// - Plants lying more than 5 standard deviations away from either parameter are removed from the chances, probability at that point is close to 0
     /// - All remaining plants are chosen from with probabilty weights generated using normal distribution
     /// - If no plants can be grown, returns None
-    pub fn get_plant(&self, temp: f32, moist: f32) -> Option<(PlantGrowthControlFactors, PlantPlasticityParameters)>{
+    /// - Returns the chosen plant and it's
+    pub fn get_plant(&self, temp: f32, moist: f32) -> Option<((PlantGrowthControlFactors, PlantPlasticityParameters), f32)>{
 
         let mut choices: Vec<(usize, f32)> = Vec::new();
         let mut total_prob = 0.0;
@@ -86,15 +87,20 @@ impl PlantSpeciesSampler {
 
             // disregard any plants more than 5 standard deviations away in any direction
             if (temp - ideal_temp).abs() > 5.0 * std_dev_temp || (moist - ideal_moist).abs() > 5.0 * std_dev_moist {continue;}
-            let prob = (0.5 - normal_cmd(temp, ideal_temp, std_dev_temp)).abs() * (0.5 - normal_cmd(moist, ideal_moist, std_dev_moist)).abs();
-            total_prob += prob;
-            choices.push((i, total_prob));
+
+            let temp_prob = normal_probabilty_density(temp, ideal_temp, std_dev_temp) / normal_probabilty_density(ideal_temp, ideal_temp, std_dev_temp);
+            let moist_prob = normal_probabilty_density(moist, ideal_moist, std_dev_moist) / normal_probabilty_density(ideal_moist, ideal_moist, std_dev_moist);
+
+            total_prob += temp_prob * moist_prob;
+            choices.push((i, temp_prob * moist_prob));
         }
         let position = rand::thread_rng().gen_range(0.0..=total_prob);
 
+        let mut total_prob = 0.0;
         for choice in choices.iter() {
-            if position <= choice.1 {
-                return Some(self.species[choice.0].clone());
+            total_prob += choice.1;
+            if position <=  total_prob{
+                return Some((self.species[choice.0].clone(), choice.1));
             }
         }
         None
