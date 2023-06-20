@@ -11,7 +11,7 @@ mod debug;
 
 
 pub mod apps;
-pub use plants::plant::{PlantGrowthControlFactors, PlantPlasticityParameters};
+pub use plants::plant::{GrowthControlSettingParams, PlasticitySettingParams};
 
 #[cfg(feature = "vulkan_graphics")]
 mod graphics;

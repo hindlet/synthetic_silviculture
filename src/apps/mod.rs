@@ -41,7 +41,7 @@ const DEFAULT_TERRAIN: (f32, [f32; 3]) = (50.0, [0.0, 0.0, 0.0]);
 
 const DEFAULT_BRANCH_TYPES: Vec<(f32, Vec<Vec<u32>>, Vec<[f32; 3]>)> = Vec::new();
 const DEFAULT_BRANCH_CONTIDITIONS: (Vec<(f32, f32)>, f32, f32) = (Vec::new(), 1.0, 1.0);
-const DEFAULT_PLANT_SPECIES: Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))> = Vec::new();
+const DEFAULT_PLANT_SPECIES: Vec<((GrowthControlSettingParams, PlasticitySettingParams), (f32, f32, f32, f32))> = Vec::new();
 
 
 enum TerrainType {

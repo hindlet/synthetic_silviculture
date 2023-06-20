@@ -79,7 +79,7 @@ pub struct GraphicsAppBuilder {
     prototype_conditions: Option<(Vec<(f32, f32)>, f32, f32)>,
     prototypes: Option<Vec<(f32, Vec<Vec<u32>>,  Vec<[f32; 3]>)>>,
     start_plants: u32,
-    plant_species: Option<Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))>>,
+    plant_species: Option<Vec<((GrowthControlSettingParams, PlasticitySettingParams), (f32, f32, f32, f32))>>,
 
 
 }
@@ -458,7 +458,7 @@ impl GraphicsAppBuilder {
     /// sets the plant species used for the simulation, overrides default set of plant species used
     /// 
     /// Plant species are used for initial plant spawning and spawning of new plants without seeding
-    pub fn set_plant_species(&mut self, species: Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))>) -> &mut GraphicsAppBuilder {
+    pub fn set_plant_species(&mut self, species: Vec<((GrowthControlSettingParams, PlasticitySettingParams), (f32, f32, f32, f32))>) -> &mut GraphicsAppBuilder {
         self.plant_species = Some(species);
 
         self

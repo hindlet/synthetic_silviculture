@@ -1,6 +1,6 @@
 use synthetic_silviculture::{
     apps::graphics_app::*,
-    PlantGrowthControlFactors, PlantPlasticityParameters
+    GrowthControlSettingParams, PlasticitySettingParams
 };
 
 
@@ -35,9 +35,8 @@ fn main() {
 
     let plant_species = vec![
         (
-            (PlantGrowthControlFactors{
+            (GrowthControlSettingParams{
             max_age: 40.0,
-            species_max_vigor: 10.0,
             max_vigor: 10.0,
             min_vigor: 0.5,
             apical_control: 0.62,
@@ -49,7 +48,7 @@ fn main() {
             branching_angle: 0.52,
             thickening_factor: 0.05,
             },
-            PlantPlasticityParameters {
+            PlasticitySettingParams {
                 seeding_frequency: 0.5,
                 seeding_radius: 1.0,
                 shadow_tolerance: 1.0,

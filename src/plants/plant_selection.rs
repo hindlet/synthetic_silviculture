@@ -1,6 +1,6 @@
 use rand::Rng;
 use super::{
-    plant::{PlantGrowthControlFactors, PlantPlasticityParameters},
+    plant::{PlantGrowthControlFactors, PlantPlasticityParameters, GrowthControlSettingParams, PlasticitySettingParams},
     super::maths::{normal_cmd, normal_probabilty_density},
 };
 
@@ -17,14 +17,12 @@ pub struct PlantSpeciesSampler {
 impl PlantSpeciesSampler {
 
     /// creates a new plant_species sampler from the given plant species and parameters
-    pub fn new(init_species: Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))>) -> Self {
+    pub fn new(init_species: Vec<((GrowthControlSettingParams, PlasticitySettingParams), (f32, f32, f32, f32))>) -> Self {
         let mut species_params = Vec::new();
-        let mut plants = Vec::new();
+        let mut plants: Vec<(PlantGrowthControlFactors, PlantPlasticityParameters)> = Vec::new();
         for species in init_species {
-            let mut growth_factors = species.0.0;
-            growth_factors.max_vigor = growth_factors.species_max_vigor;
             species_params.push((species.1.0, species.1.1, species.1.2, species.1.3,));
-            plants.push((growth_factors, species.0.1));
+            plants.push((species.0.0.into(), species.0.1.into()));
         }
         PlantSpeciesSampler {
             species: plants, species_params
