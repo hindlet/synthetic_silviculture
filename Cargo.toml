@@ -38,3 +38,7 @@ required-features = ["vulkan_graphics"]
 [[example]]
 name = "heightmap_terrain_render"
 required-features = ["vulkan_graphics"]
+
+[[example]]
+name = "plants_on_terrain_render"
+required-features = ["vulkan_graphics"]
