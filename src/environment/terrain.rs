@@ -133,11 +133,3 @@ pub fn spawn_flat_terrain(
 
     ((centre.y, (centre.x - half_size)..=(centre.x + half_size), (centre.z - half_size)..=(centre.z + half_size)), collider)
 }
-
-
-
-pub fn seeding(
-    terrain_query: Query<&TerrainCollider>
-) {
-
-}
