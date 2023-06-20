@@ -109,6 +109,7 @@ pub fn base_graphics_setup(title: String) -> (
     let event_loop = EventLoop::new();
     let surface = WindowBuilder::new()
         .with_title(title)
+        .with_inner_size(PhysicalSize{width: 1080, height: 720})
         .build_vk_surface(&event_loop, instance.clone())
         .unwrap();
 
