@@ -63,14 +63,17 @@ impl Collider for TriangleCollider {
         let h = cross(direction, self.edge_two);
         let a = h.dot(self.edge_one);
 
-        if a == 0.0 {println!("1 fail"); return None;} // ray is parallel to triangle
+        if a == 0.0 {
+            // println!("1 fail");
+            return None;
+        } // ray is parallel to triangle
 
         let f = 1.0 / a;
         let s = root_position - self.points.c1();
         let u = f * s.dot(h);
 
         if (u < 0.0) || (u > 1.0) {
-            println!("2 fail");
+            // println!("2 fail");
             return None;
         }
 
@@ -78,7 +81,7 @@ impl Collider for TriangleCollider {
         let v = f * direction.dot(q);
 
         if (v < 0.0) || (u + v > 1.0) {
-            println!("3 fail");
+            // println!("3 fail");
             return None;
         }
 

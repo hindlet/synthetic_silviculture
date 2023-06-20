@@ -60,7 +60,10 @@ impl Collider for MeshCollider {
         let (root_position, direction): (Vector3, Vector3) = (root_position.into(), direction.into());
         let direction = direction.normalised();
 
-        if self.bounds.check_ray(root_position, direction, max_distance).is_none() {return None;}
+        if self.bounds.check_ray(root_position, direction, max_distance).is_none() {
+            // println!("failed mesh collide on bounds\n- Origin: {:?} \n- Direction: {:?} \n- Bounds: {:?}", root_position, direction, self.bounds);
+            return None;
+        }
 
         // sort the tris by distance
         let dist_indices = {
@@ -155,5 +158,22 @@ mod mesh_collider_tests {
 
         assert_eq!(hit.hit_position, [5, 0, 5].into());
         assert_eq!(hit.hit_distance, 10.0);
+    }
+
+    #[test]
+    fn slant_test() {
+        let mesh = MeshCollider::new(
+            vec![[-1, 0, -1].into(), [0, 0, -1].into(), [1, 0, -1].into(), [-1, 0, 0].into(), [0, 0, 0].into(), [1, 0, 0].into(), [-1, 0, 1].into(), [0, 0, 1].into(), [1, 0, 1].into()],
+            vec![
+                8, 7, 5, 4, 5, 7,
+                7, 6, 4, 3, 4, 6,
+                5, 4, 2, 1, 2, 4,
+                4, 3, 1, 0, 1, 3
+            ]
+        );
+
+        let hit = mesh.check_ray([-0.5, 5.0, -0.5], [0, -1, 0], None).unwrap();
+
+        assert_eq!(hit.hit_position, [-0.5, 0.0, -0.5].into());
     }
 }
