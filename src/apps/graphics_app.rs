@@ -578,7 +578,7 @@ impl GraphicsAppBuilder {
         let mut initial_plant_data = Vec::new();
         let mut rng = thread_rng();
 
-        for _i in 0..self.start_plants {
+        for _ in 0..self.start_plants {
 
             let (x, z) = (rng.gen_range(plant_spawning_bounds.1.clone()), rng.gen_range(plant_spawning_bounds.2.clone()));
 
