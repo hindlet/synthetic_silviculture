@@ -52,7 +52,8 @@ pub fn spawn_heightmap_terrain(
     let size = size.max(0.000000001);
     let vertices_per_side = vertices_per_side.max(2);
     let centre: Vector3 = centre.into();
-    let (start_x, start_y) = (centre.x - size / 2.0, centre.z - size / 2.0);
+    let half_size = size / 2.0;
+    let (start_x, start_y) = (centre.x - half_size, centre.z - half_size);
 
     let tri_size = size / vertices_per_side as f32;
     let heightmap = image::open(heightmap_path).unwrap();
@@ -94,7 +95,7 @@ pub fn spawn_heightmap_terrain(
         }
     );
 
-    ((max_height, (centre.x - size)..=(centre.x + size), (centre.z - size)..=(centre.z + size)), collider)
+    ((max_height, (centre.x - half_size)..=(centre.x + half_size - tri_size), (centre.z - half_size)..=(centre.z + half_size - tri_size)), collider)
 }
 
 
