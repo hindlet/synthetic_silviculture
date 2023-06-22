@@ -1,10 +1,10 @@
 #![allow(dead_code, unused_variables, unused_imports)]
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 use super::super::maths::vector_three_int::Vector3Int;
 use bevy_ecs::prelude::*;
 
 
-#[derive(Resource, Debug)]
+#[derive(Resource)]
 /// LightCells stores shadow data in a grid of cube units for growth vigor calulcations
 /// 
 /// Components:
@@ -113,6 +113,14 @@ impl LightCells {
 
             dist += 1;
         }
+    }
+}
+
+impl Debug for LightCells {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Light Cells")
+            .field("Cells", &self.cells)
+            .finish()
     }
 }
 

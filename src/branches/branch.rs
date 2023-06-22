@@ -31,6 +31,8 @@ pub struct BranchData {
 
 #[derive(Debug, Component)]
 pub struct BranchGrowthData {
+    pub intersection_list: Vec<Entity>,
+    pub intersection_volume: f32,
     pub light_exposure: f32,
     pub growth_vigor: f32,
     pub growth_rate: f32,
@@ -142,6 +144,8 @@ impl Default for BranchData {
 impl Default for BranchGrowthData {
     fn default() -> Self {
         BranchGrowthData {
+            intersection_list: Vec::new(),
+            intersection_volume: 0.0,
             growth_vigor: 0.0,
             growth_rate: 0.0,
             light_exposure: 0.0,

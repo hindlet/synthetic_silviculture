@@ -10,6 +10,7 @@ use super::{
     branch_node::*,
     branch_prototypes::*,
 };
+use itertools::Itertools;
 
 #[cfg(feature = "vulkan_graphics")]
 use super::super::graphics::branch_mesh_gen::MeshUpdateQueue;
@@ -24,8 +25,9 @@ pub fn calculate_branch_light_exposure(
 ) {
     // update the light cells
     light_cells.set_all_zero();
+    let cell_size = light_cells.size();
     for (_growth_data, bounds) in branches_query.iter() {
-        light_cells.add_volume_to_cell(bounds.bounds.centre, bounds.bounds.get_volume());
+        light_cells.add_volume_to_cell(bounds.bounds.centre / cell_size, bounds.bounds.get_volume());
     }
 
     // update light exposure
@@ -35,7 +37,10 @@ pub fn calculate_branch_light_exposure(
 
         for id in get_terminal_branches(&branch_connection_query, plant_data.root_node.unwrap()) {
             if let Ok((mut growth_data, bounds)) = branches_query.get_mut(id) {
-                growth_data.light_exposure = lerp(tolerance, 1.0, light_cells.get_cell_light(bounds.bounds.centre / light_cells.size()))
+                growth_data.light_exposure = lerp(tolerance, 1.0, light_cells.get_cell_light(bounds.bounds.centre / cell_size) * (-growth_data.intersection_volume).exp());
+                if growth_data.light_exposure.is_nan() {
+                    panic!("Light exposure is not a number: \n- Cell light: {}, \n- Intersection Volume: {} \n- shadow_tolerance: {}", light_cells.get_cell_light(bounds.bounds.centre / light_cells.size()), growth_data.intersection_volume, tolerance);
+                }
             }
         }
     }
@@ -223,6 +228,9 @@ pub fn assign_growth_rates(
         for id in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()) {
             if let Ok(mut branch_data) = branch_data_query.get_mut(id){
                 branch_data.growth_rate = sigmoid((branch_data.growth_vigor - v_min) / (v_max - v_min)) * plant_growth;
+                if branch_data.growth_rate.is_nan() {
+                    panic!("Growth rate is not a number: \n- id: {:?}\n- growth_vigor: {} \n- plant_growth_rate: {}", id, branch_data.growth_vigor, plant_growth);
+                }
                 // branch_data.growth_rate = sigmoid((branch_data.growth_vigor - v_min) / (v_max - v_min));
             }
         }
@@ -828,7 +836,7 @@ pub fn calculate_segment_lengths_and_tropism(
                     }else {panic!("Could not get node pair, tried to get nodes: {:?}, {:?}", node_pairs[i][0], node_pairs[i][1])}
                 }
 
-                queue.0.push_back(id);
+                queue.ids.push_back(id);
             }
         }
     }
@@ -962,20 +970,14 @@ pub fn update_branch_bounds(
             Matrix3::from_angle_and_axis(-rotation_angle, rotation_axis)
         };
 
-        let mut node_positions: Vec<Vector3> = Vec::new();
-
-        for id in get_nodes_base_to_tip(&nodes_connections_query, data.root_node.unwrap()) {
-            if let Ok(node_data) = node_data.get(id) {
-                node_positions.push(node_data.position.clone().transform(branch_rotation_matrix) + node_data.tropism_offset);
-            }
-        }
+        let node_data = get_node_data_and_connections_base_to_tip(&nodes_connections_query, &node_data, data.root_node.unwrap());
 
         let mut new_bounds = 
-            if node_positions.len() == 1 {
-                BoundingSphere::new(node_positions[0], 0.01)
+            if node_data.0.len() == 1 {
+                BoundingSphere::new(node_data.0[0], 0.01)
             }
             else {
-                BoundingSphere::from_points(node_positions)
+                BoundingSphere::from_points(node_data.0)
             };
         
         new_bounds.centre += data.root_position;
@@ -984,94 +986,95 @@ pub fn update_branch_bounds(
     }
 }
 
-// /// calculates branch intersection volumes
-// pub fn calculate_branch_intersection_volumes(
-//     mut branch_query: Query<(&mut BranchData, &BranchBounds, Entity), With<BranchTag>>,
-// ) {
-//     let mut intersection_lists: Vec<(Entity, BoundingSphere, Vec<Entity>)> = Vec::new();
-//     for (mut data, bounds, id) in branch_query.iter_mut() {
-//         data.intersections_volume = 0.0;
-//         let mut intersections = Vec::new();
-//         for id_other in data.intersection_list.iter() {
-//             intersections.push(*id_other);
-//         }
-//         intersection_lists.push((id, bounds.bounds.clone(), intersections));
-//     }
+/// calculates branch intersection volumes
+pub fn calculate_branch_intersection_volumes(
+    mut branch_query: Query<(&mut BranchGrowthData, &BranchBounds, Entity), With<BranchTag>>,
+) {
+    let mut intersection_lists: Vec<(Entity, BoundingSphere, Vec<Entity>)> = Vec::new();
+    for (mut data, bounds, id) in branch_query.iter_mut() {
+        data.intersection_volume = 0.0;
+        let mut intersections = Vec::new();
+        for id_other in data.intersection_list.iter() {
+            intersections.push(*id_other);
+        }
+        intersection_lists.push((id, bounds.bounds.clone(), intersections));
+    }
 
-//     for branch_one in intersection_lists {
-//         let mut volume = 0.0;
-//         for id in branch_one.2.iter() {
-//             if let Ok(mut branch_two) = branch_query.get_mut(*id) {
-//                 let intersection = branch_one.1.get_intersection_volume(&branch_two.1.bounds);
-//                 branch_two.0.intersections_volume += intersection;
-//                 volume += intersection;
-//             }
-//         }
-//         if let Ok(mut branch) = branch_query.get_mut(branch_one.0) {
-//             branch.0.intersections_volume += volume;
-//         }
-//     }
+    for branch_one in intersection_lists {
+        let mut volume = 0.0;
+        for id in branch_one.2.iter() {
+            if let Ok(mut branch_two) = branch_query.get_mut(*id) {
+                let intersection = branch_one.1.get_intersection_volume(&branch_two.1.bounds);
+                branch_two.0.intersection_volume += intersection;
+                volume += intersection;
+            }
+        }
+        if let Ok(mut branch) = branch_query.get_mut(branch_one.0) {
+            branch.0.intersection_volume += volume;
+        }
+    }
 
-// }
+}
 
 
 // /// this relies on the fact that our plant intersections will not contain any repeats,
 // /// if they did the branches would end up with double the intersection volumes they are meant to
-// pub fn update_branch_intersections(
-//     plants_query: Query<&PlantData, With<PlantTag>>,
-//     mut branch_query: Query<(&BranchBounds, &mut BranchData), With<BranchTag>>,
-//     branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>,
-// ) {
-//     // loop through each plant
-//     for plant_data in plants_query.iter() {
-//         if plant_data.root_node.is_none() {continue;}
+pub fn update_branch_intersections(
+    plants_query: Query<&PlantData, With<PlantTag>>,
+    mut branch_query: Query<(&BranchBounds, &mut BranchGrowthData), With<BranchTag>>,
+    branch_connections_query: Query<&BranchConnectionData, With<BranchTag>>,
+) {
+    // loop through each plant
+    for plant_data in plants_query.iter() {
+        if plant_data.root_node.is_none() {continue;}
         
-//         // loop through intersections
-//         for other_plant_id in plant_data.intersection_list.iter() {
+        // loop through intersections
+        for other_plant_id in plant_data.intersection_list.iter() {
 
-//             // get a list of the bounds of the other plants branches
-//             let mut other_plant_branch_bounds: Vec<(BoundingSphere, Entity)> = vec![];
+            // get a list of the bounds of the other plants branches
+            let mut other_plant_branch_bounds: Vec<(BoundingSphere, Entity)> = vec![];
 
-//             // loop through all the branches we could intersect with and add them to a list
-//             if let Ok(other_plant) = plants_query.get(*other_plant_id) {
-//                 if other_plant.root_node.is_none() {continue;}
-//                 for id in get_branches_base_to_tip(&branch_connections_query, other_plant.root_node.unwrap()) {
-//                     if let Ok(branch) = &branch_query.get(id) {
-//                         other_plant_branch_bounds.push((branch.0.bounds.clone(), id));
-//                     }
-//                 }
-//             }
+            // loop through all the branches we could intersect with and add them to a list
+            if let Ok(other_plant) = plants_query.get(*other_plant_id) {
+                if other_plant.root_node.is_none() {continue;}
+                for id in get_branches_base_to_tip(&branch_connections_query, other_plant.root_node.unwrap()) {
+                    if let Ok(branch) = &branch_query.get(id) {
+                        other_plant_branch_bounds.push((branch.0.bounds.clone(), id));
+                    }
+                }
+            }
 
-//             // loop through each of our branches
-//             for id in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()) {
-//                 if let Ok(mut branch) = branch_query.get_mut(id) {
-//                     // reset the branches intersections list and volume
-//                     branch.1.intersection_list = Vec::new();
-//                     branch.1.intersections_volume = 0.0;
-//                     // check if the branches intersect, if so, add the second branch id to the first's list
-//                     for other_bounds in other_plant_branch_bounds.iter() {
-//                         if branch.0.bounds.is_intersecting_sphere(&other_bounds.0) {
-//                             branch.1.intersection_list.push(other_bounds.1);
-//                         }
-//                     }
-//                 }
-//             } 
+            // loop through each of our branches
+            for id in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()) {
+                if let Ok(mut branch) = branch_query.get_mut(id) {
+                    // reset the branches intersections list and volume
+                    branch.1.intersection_list = Vec::new();
+                    branch.1.intersection_volume = 0.0;
+                    // check if the branches intersect, if so, add the second branch id to the first's list
+                    for other_bounds in other_plant_branch_bounds.iter() {
+                        if branch.0.bounds.is_intersecting_sphere(other_bounds.0) {
+                            branch.1.intersection_list.push(other_bounds.1);
+                        }
+                    }
+                }
+            } 
 
-//             // check through our own branches for collissions
-//             // I don't like this code but i had to fight the borrow checker
-//             for combination in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()).iter().combinations(2) {
-//                 let other_data: BoundingSphere;
-//                 if let Ok(branch_two) = branch_query.get(*combination[1]){
-//                     other_data = branch_two.0.bounds.clone();
-//                 } else {panic!("Fuck balls shit fuck balls")};
-//                 if let Ok(mut branch_one) = branch_query.get_mut(*combination[0]){
-//                     if branch_one.0.bounds.is_intersecting_sphere(&other_data) {
-//                         branch_one.1.intersection_list.push(*combination[1]);
-//                     }
-//                 };
+            // check through our own branches for collissions
+            // I don't like this code but i had to fight the borrow checker
+            for combination in get_branches_base_to_tip(&branch_connections_query, plant_data.root_node.unwrap()).iter().combinations(2) {
+                if combination[0] == combination[1] {continue;}
+                let other_data: BoundingSphere;
+                if let Ok(branch_two) = branch_query.get(*combination[1]){
+                    other_data = branch_two.0.bounds.clone();
+                } else {panic!("failed to get branch pair")};
+                if let Ok(mut branch_one) = branch_query.get_mut(*combination[0]){
+                    if branch_one.0.bounds.is_intersecting_sphere(other_data) {
+                        branch_one.1.intersection_list.push(*combination[1]);
+                    }
+                };
                 
-//             }
-//         }
+            }
+        }
 
-//     }
-// }
+    }
+}
