@@ -595,13 +595,13 @@ impl GraphicsAppBuilder {
 
             let hit = terrain_collider_ref.check_ray([x, plant_spawning_bounds.0 + 5.0, z], [0, -1, 0], None).unwrap();
 
-            initial_plant_data.push((plant_species_sampler.get_plant(environmental_params.0 + hit.hit_position.y * environmental_params.1, environmental_params.2), hit.hit_position))
+            initial_plant_data.push((plant_species_sampler.get_plant(environmental_params.0 + hit.hit_position.y * environmental_params.1, environmental_params.2), hit))
         }
 
         let mut root_ids = Vec::new();
         for data in initial_plant_data {
 
-            if let (Some((spawn_data, climate_adapt)), pos) = data {
+            if let (Some((spawn_data, climate_adapt)), hit) = data {
 
                 let root_node_id = world.spawn(BranchNodeBundle{
                     data: BranchNodeData{
@@ -614,7 +614,8 @@ impl GraphicsAppBuilder {
                 let root_branch_id = world.spawn(BranchBundle{
                     data: BranchData {
                         root_node: Some(root_node_id),
-                        root_position: pos.into(),
+                        root_position: hit.hit_position.into(),
+                        normal: hit.hit_normal,
                         ..Default::default()
                     },
                     prototype: BranchPrototypeRef(branch_sampler.get_prototype_index(spawn_data.0.apical_control, branch_conditions.2)),
@@ -625,7 +626,7 @@ impl GraphicsAppBuilder {
                     growth_factors: spawn_data.0,
                     data: PlantData {
                         root_node: Some(root_branch_id),
-                        position: pos.into(),
+                        position: hit.hit_position.into(),
                         climate_adaption: climate_adapt,
                         ..Default::default()
                     },

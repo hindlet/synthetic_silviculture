@@ -117,7 +117,7 @@ pub fn seed_plants(
             if let Some(ray_hit) = terrain.collider.check_ray([ray_x, terrain.max_height, ray_z], [0, -1, 0], None) {
                 let child_factors = (plant.1.copy_for_new_plant(), plant.2.copy_for_new_plant());
                 let climate_adapt = plant_sampler.calculate_child_climate_adapt(&child_factors, environment.moisture, environment.temp_at_zero + ray_hit.hit_position.y * environment.temp_fall_off);
-                let ids = spawn_plant(ray_hit.hit_position, [0, 1, 0].into(), child_factors.0, child_factors.1, climate_adapt, branch_sampler.as_ref(), &mut commands);
+                let ids = spawn_plant(ray_hit.hit_position, ray_hit.hit_normal, child_factors.0, child_factors.1, climate_adapt, branch_sampler.as_ref(), &mut commands);
                 #[cfg(feature = "vulkan_graphics")]
                 queue.ids.push_back(ids.1);
             }
