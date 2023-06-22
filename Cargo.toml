@@ -23,6 +23,7 @@ vulkano-win = "0.33"
 egui = "0.21"
 egui_winit_vulkano = "0.24"
 bytemuck = "1.12.1"
+rand_distr = "0.4.3"
 
 [profile.dev]
 opt-level = 0
