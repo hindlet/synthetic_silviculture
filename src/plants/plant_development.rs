@@ -1,12 +1,20 @@
 use bevy_ecs::prelude::*;
+use std::f32::consts::PI;
+use rand_distr::{Normal, Distribution};
+use rand::{thread_rng, Rng};
 use super::{
     super::{
-        environment::params::PhysicalAgeStep,
-        branches::branch::*,
-        maths::{bounding_box::BoundingBox, bounding_sphere::BoundingSphere},
+        environment::{
+            params::PhysicalAgeStep,
+            terrain::*,
+        },
+        branches::{branch::*, branch_prototypes::BranchPrototypesSampler},
+        maths::{bounding_box::BoundingBox, bounding_sphere::BoundingSphere, colliders::Collider},
     },
     plant::*,
 };
+#[cfg(feature = "vulkan_graphics")]
+use super::super::graphics::branch_mesh_gen::*;
 
 /// steps the ages of all plants by the phyical age step
 /// also adjusts max vigor where appropriate
@@ -66,4 +74,56 @@ pub fn update_plant_intersections(
     }
 }
 
+
+pub fn seed_plants(
+    mut plants_query: Query<(&PlantData, &mut PlantGrowthControlFactors, &mut PlantPlasticityParameters, Entity), With<PlantTag>>,
+    branch_query: Query<&BranchGrowthData, With<BranchTag>>,
+    branch_sampler: Res<BranchPrototypesSampler>,
+    terrain_query: Query<&TerrainCollider, With<TerrainTag>>,
+    timestep: Res<PhysicalAgeStep>,
+    #[cfg(feature = "vulkan_graphics")]
+    mut queue: Query<&mut MeshUpdateQueue>,
+    mut commands: Commands,
+) {
+    let terrain = terrain_query.single();
+    #[cfg(feature = "vulkan_graphics")]
+    let mut queue = queue.single_mut();
+
+    for mut plant in plants_query.iter_mut() {
+        // check if plant is now flowering
+        if !plant.2.is_seeding {
+            if plant.0.root_node.is_none() {continue;}
+            let root_vigor = if let Ok(root_branch) = branch_query.get(plant.0.root_node.unwrap()) {
+                root_branch.growth_vigor
+            } else {panic!("Failed to get root branch in fn seed_plants")};
+            let effective_flowering_age = plant.2.flowering_age * plant.1.species_max_vigor / root_vigor;
+            if plant.0.age >= effective_flowering_age {plant.2.is_seeding = true;}
+        }
+
+        // if flowering, add to time since last flower
+        if plant.2.is_seeding {
+            plant.2.time_since_seeding += timestep.step;
+        }
+
+        // check to seed
+
+        while plant.2.time_since_seeding >= plant.2.seeding_interval {
+            let distance_from_centre = (Normal::new(plant.2.seeding_radius, plant.2.seeding_std_dev).unwrap().sample(&mut rand::thread_rng()) - plant.2.seeding_radius).abs();
+            let angle_from_centre = rand::thread_rng().gen_range(0.0..(PI * 2.0)); // 0 is along the +x axis
+            let (ray_x, ray_z) = (plant.0.position.x + angle_from_centre.cos() * distance_from_centre, plant.0.position.z + angle_from_centre.sin() * distance_from_centre);
+            if let Some(ray_hit) = terrain.collider.check_ray([ray_x, terrain.max_height, ray_z], [0, -1, 0], None) {
+                let ids = spawn_plant(ray_hit.hit_position, [0, 1, 0].into(), plant.1.copy_for_new_plant(), plant.2.copy_for_new_plant(), plant.0.climate_adaption, branch_sampler.as_ref(), &mut commands);
+                #[cfg(feature = "vulkan_graphics")]
+                queue.ids.push_back(ids.1);
+            }
+            plant.2.time_since_seeding -= plant.2.seeding_interval;
+        }
+
+
+        
+        
+    }
+
+
+}
 

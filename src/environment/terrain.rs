@@ -19,7 +19,8 @@ pub struct TerrainTag;
 /// Wrapper for a Collider
 #[derive(Component)]
 pub struct TerrainCollider {
-    collider: MeshCollider,
+    pub collider: MeshCollider,
+    pub max_height: f32,
 }
 
 #[cfg(feature="vulkan_graphics")]
@@ -89,7 +90,7 @@ pub fn spawn_heightmap_terrain(
     world.spawn(
         TerrainBundle{
             tag: TerrainTag,
-            collider: TerrainCollider{collider: collider.clone()},
+            collider: TerrainCollider{max_height: max_height, collider: collider.clone()},
             #[cfg(feature="vulkan_graphics")]
             mesh
         }
@@ -125,7 +126,7 @@ pub fn spawn_flat_terrain(
     world.spawn(
         TerrainBundle{
             tag: TerrainTag,
-            collider: TerrainCollider {collider: collider.clone()},
+            collider: TerrainCollider {max_height: centre.y, collider: collider.clone()},
             #[cfg(feature="vulkan_graphics")]
             mesh
         }

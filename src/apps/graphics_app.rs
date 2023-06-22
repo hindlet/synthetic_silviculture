@@ -80,6 +80,7 @@ pub struct GraphicsAppBuilder {
     prototypes: Option<Vec<(f32, Vec<Vec<u32>>,  Vec<[f32; 3]>)>>,
     start_plants: u32,
     plant_species: Option<Vec<((GrowthControlSettingParams, PlasticitySettingParams), (f32, f32, f32, f32))>>,
+    has_seeding: bool,
 
 
 }
@@ -146,6 +147,7 @@ impl GraphicsTreeApp {
 
             environmental_params: None,
             plant_species: None,
+            has_seeding: false
         }
     }
 
@@ -508,6 +510,15 @@ impl GraphicsAppBuilder {
         self
     }
 
+    /// - Enables plant seeding, meaning that plants will reproduce
+    /// - This is disabled by default
+    /// - Has no effect without initial plants
+    pub fn enable_seeding(&mut self) -> &mut GraphicsAppBuilder {
+        self.has_seeding = true;
+
+        self
+    }
+
 
 
 
@@ -533,7 +544,7 @@ impl GraphicsAppBuilder {
         let environmental_params = self.environmental_params.unwrap_or(DEFAULT_ENVIRONMENTAL_PARAMS);
         
         let branch_sampler = BranchPrototypesSampler::create(branch_conditions.0, SAMPLER_SIZE, branch_conditions.1, branch_conditions.2);
-        let plant_species_sampler = PlantSpeciesSampler::new(plant_species);
+        let plant_species_sampler = PlantSpeciesSampler::new(plant_species, time_step);
 
         ///////////////// world
         let mut world = World::new();
@@ -633,14 +644,16 @@ impl GraphicsAppBuilder {
             if root_ids.len() == 0 {panic!("No intial plants generated")}
             
             // mesh queue
-            world.spawn(MeshUpdateQueue::new_from_many(root_ids));
-
-            update_schedule.set_apply_final_buffers(false);
+            world.spawn(MeshUpdateQueue::new_from_many(root_ids, 5));
 
             update_schedule.add_systems((
                 update_branch_bounds,
-                // update_plant_bounds,
-                // update_plant_intersections,
+                update_plant_bounds,
+                update_plant_intersections,
+                update_branch_intersections,
+                calculate_branch_intersection_volumes,
+                debug_log_branches,
+                debug_log_cells,
                 step_plant_age,
                 calculate_branch_light_exposure,
                 calculate_growth_vigor,
@@ -657,13 +670,16 @@ impl GraphicsAppBuilder {
                 determine_create_new_branches,
                 apply_system_buffers, // this makes sure new branches are spawned
                 assign_thicknesses,
-                // debug_log_nodes_and_branches,
                 calculate_segment_lengths_and_tropism,
                 update_branch_data_buffers,
             ).chain().after(step_physiological_age));
+
+            if self.has_seeding {
+                update_schedule.add_system((seed_plants).after(calculate_segment_lengths_and_tropism));
+            }
     
         }
-        else {world.spawn(MeshUpdateQueue::new());}
+        else {world.spawn(MeshUpdateQueue::new(5));}
 
 
 
@@ -708,7 +724,7 @@ impl GraphicsAppBuilder {
 
 
         let mut frame_schedule = Schedule::default();
-        frame_schedule.add_systems((check_for_force_update, update_next_mesh));
+        frame_schedule.add_system(update_all_meshes);
 
 
         // startrup

@@ -3,6 +3,7 @@ use super::{vector_three::Vector3, colliders::{Collider, RayHitInfo}};
 use std::f32::consts::PI;
 use std::cmp::{max, min};
 
+const FOUR_THIRDS_PI: f32 = (4.0 / 3.0) * PI;
 
 #[derive(Default, Debug, PartialEq, Clone, Copy)]
 pub struct BoundingSphere {
@@ -178,18 +179,31 @@ impl BoundingSphere {
     pub fn is_intersecting_sphere(&self, other: BoundingSphere) -> bool {
         let distance_between = (self.centre - other.centre).magnitude();
         let radii_sum = self.radius + other.radius;
-        distance_between < radii_sum
+        distance_between < radii_sum && distance_between + self.radius.min(other.radius) != self.radius.max(other.radius)
     }
 
     // this function only works if we know that distace <= r1 + r2 but since we'll only call it on bounds we know are intersecting thats fine
     pub fn get_intersection_volume(&self, other: &BoundingSphere) -> f32 {
         let distance = (self.centre - other.centre).magnitude();
-        let volume = (PI / (12.0 * distance)) * (self.radius + other.radius - distance).powi(2) * (distance.powi(2) + 2.0 * distance * (self.radius + other.radius) - 3.0 * (self.radius - other.radius).powi(2));
-        volume
+        // one encased within another
+        if distance + self.radius.min(other.radius) < self.radius.max(other.radius) {
+            if self.radius < other.radius {return self.get_volume();}
+            else {return other.get_volume();}
+        }
+        // else
+        let volume = (PI / (12.0 * distance)) * (self.radius + other.radius - distance).powi(2) * (distance.powi(2) + 2.0 * distance * (self.radius + other.radius).abs() - 3.0 * (self.radius - other.radius).powi(2));
+        if volume.is_nan() {
+            println!("bounding sphere intersection volume Nan: ]\n- Sphere one: {:?} \n- Sphere two: {:?}", self, other);
+            return 0.0;
+        }
+        if volume < 0.0 {
+            panic!("bounding sphere intersection volume <0: ]\n- Sphere one: {:?} \n- Sphere two: {:?}", self, other);
+        }
+        return volume;
     }
 
     pub fn get_volume(&self) -> f32 {
-        (4.0 * PI * self.radius * self.radius * self.radius) / 3.0
+        self.radius.powi(3) * FOUR_THIRDS_PI
     }
 
 }
