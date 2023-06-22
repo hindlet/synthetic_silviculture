@@ -50,8 +50,9 @@ fn main() {
             },
             PlasticitySettingParams {
                 seeding_frequency: 0.5,
-                seeding_radius: 1.0,
+                seeding_radius: 5.0,
                 shadow_tolerance: 1.0,
+                flowering_age: 15.0
             }),
             (18.0, 5.0, 90.0, 15.0)
         )
@@ -66,10 +67,11 @@ fn main() {
         .set_time_step(5.0)
         .with_branch_graphics_gui()
         .set_light(([1.0, -1.0, 1.0], 1.0))
-        .set_initial_plant_num(10)
+        .set_initial_plant_num(25)
         .set_plant_species(plant_species)
         .set_environmental_parameters((20.0, 0.1), 100.0)
         .set_branch_mesh_settings(7, false)
+        .enable_seeding()
         .build();
 
     app.run();

@@ -44,8 +44,9 @@ fn main() {
             },
             PlasticitySettingParams {
                 seeding_frequency: 0.5,
-                seeding_radius: 1.0,
+                seeding_radius: 10.0,
                 shadow_tolerance: 1.0,
+                flowering_age: 15.0
             }),
             (18.0, 5.0, 90.0, 15.0)
         )
