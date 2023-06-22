@@ -18,23 +18,15 @@ pub trait Collider {
 pub struct RayHitInfo {
     pub hit_position: Vector3,
     pub hit_distance: f32,
+    pub hit_normal: Vector3,
 }
 
 impl RayHitInfo {
-    pub fn new(position: Vector3, dist: f32) -> Self{
+    pub fn new(position: Vector3, dist: f32, surface_normal: Vector3) -> Self{
         RayHitInfo{
             hit_position: position,
-            hit_distance: dist
+            hit_distance: dist,
+            hit_normal: surface_normal
         }
     }
-}
-
-
-pub fn check_ray_collision(
-    root_position: Vector3,
-    direction: Vector3,
-    max_distance: Option<f32>,
-    collider: impl Collider
-) -> Option<RayHitInfo>{
-    collider.check_ray(root_position, direction, max_distance)
 }

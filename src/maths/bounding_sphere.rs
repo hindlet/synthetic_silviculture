@@ -238,7 +238,7 @@ impl Collider for BoundingSphere {
 
         let l = root_position - self.centre;
         if l.magnitude() <= self.radius {
-            return Some(RayHitInfo::new(root_position, 0.0));
+            return Some(RayHitInfo::new(root_position, 0.0, Vector3::ZERO()));
         }
 
         let a = direction.dot(direction);
@@ -250,7 +250,7 @@ impl Collider for BoundingSphere {
         let dist = dist.unwrap();
         if max_distance.is_some() && dist > max_distance.unwrap() {return None;}
 
-        return Some(RayHitInfo::new(root_position + direction * dist, dist));
+        return Some(RayHitInfo::new(root_position + direction * dist, dist, l.normalised()));
     }
 }
 

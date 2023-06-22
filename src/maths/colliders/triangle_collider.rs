@@ -89,7 +89,7 @@ impl Collider for TriangleCollider {
 
         if (max_distance.is_some() && t > max_distance.unwrap()) || (t < 0.0) {return None;}
 
-        Some(RayHitInfo::new(root_position + direction * t, t))
+        Some(RayHitInfo::new(root_position + direction * t, t, self.normal))
     }
 }
 

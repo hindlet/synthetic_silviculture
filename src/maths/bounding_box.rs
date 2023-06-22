@@ -158,9 +158,10 @@ impl Collider for BoundingBox {
         let (root_position, direction): (Vector3, Vector3) = (root_position.into(), direction.into());
         let direction = direction.normalised();
 
-        if self.contains_point(root_position) {return Some(RayHitInfo::new(root_position, 0.0));}
+        if self.contains_point(root_position) {return Some(RayHitInfo::new(root_position, 0.0, Vector3::ZERO()));}
 
         let inv_dir = Vector3::ONE() / direction;
+        let (mut max_norm, mut min_norm) = (Vector3::X(), Vector3::X() * -1.0);
 
         let (mut tmax, mut tmin) = if inv_dir.x < 0.0 {
             ((self.min_corner.x - root_position.x) * inv_dir.x, (self.max_corner.x - root_position.x) * inv_dir.x)
@@ -177,8 +178,8 @@ impl Collider for BoundingBox {
 
         if (tmin > t_ymax) || (t_ymin > tmax) {return None;}
 
-        if t_ymin > tmin {tmin = t_ymin}
-        if t_ymax < tmax {tmax = t_ymax}
+        if t_ymin > tmin {tmin = t_ymin; min_norm = Vector3::Y() * -1.0}
+        if t_ymax < tmax {tmax = t_ymax; max_norm = Vector3::Y()}
 
         let (t_zmax, t_zmin) = if inv_dir.z < 0.0 {
             ((self.min_corner.z - root_position.z) * inv_dir.z, (self.max_corner.z - root_position.z) * inv_dir.z)
@@ -188,14 +189,16 @@ impl Collider for BoundingBox {
 
         if (tmin > t_zmax) || (t_zmin > tmax) {return None;}
 
-        if t_zmin > tmin {tmin = t_zmin}
-        if t_zmax < tmax {tmax = t_zmax}
+        if t_zmin > tmin {tmin = t_zmin; min_norm = Vector3::Z() * -1.0}
+        if t_zmax < tmax {tmax = t_zmax; max_norm = Vector3::Z()}
 
         let dist = if tmin < 0.0 {tmax} else if tmax < 0.0 {return None} else {tmin};
 
+        let (dist, out_norm) = if tmin < 0.0 {(tmax, max_norm)} else if tmax < 0.0 {return None} else {(tmin, min_norm)};
+
         if max_distance.is_some() && dist > max_distance.unwrap() {return None;}
 
-        Some(RayHitInfo::new(root_position + direction * dist, dist))
+        Some(RayHitInfo::new(root_position + direction * dist, dist, out_norm))
     }
 }
 

@@ -35,7 +35,7 @@ impl Collider for PlaneCollider {
         let direction = direction.normalised();
 
         if (root_position == self.position) || ((self.centre - root_position).dot(Vector3::Y()) == 0.0) {
-            return Some(RayHitInfo::new(root_position, 0.0));
+            return Some(RayHitInfo::new(root_position, 0.0, Vector3::Y()));
         }
 
         if direction.dot(Vector3::Y()) == 0.0 {return None;}
@@ -48,7 +48,7 @@ impl Collider for PlaneCollider {
 
         if (point.x - self.position.x > self.x_length) || (point.z - self.position.z > self.z_length) {return None;}
 
-        Some(RayHitInfo::new(point, distance))
+        Some(RayHitInfo::new(point, distance, Vector3::Y()))
     }
 }
 
