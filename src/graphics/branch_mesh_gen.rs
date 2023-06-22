@@ -39,24 +39,49 @@ impl AddAssign<Vector3> for Normal {
 
 
 #[derive(Component)]
-pub struct MeshUpdateQueue (pub VecDeque<Entity>);
+pub struct MeshUpdateQueue {
+    pub ids: VecDeque<Entity>,
+    pub updates_per_frame: u32,
+}
 
 impl MeshUpdateQueue {
-    pub fn new() -> Self {
-        MeshUpdateQueue(VecDeque::new())
+    pub fn new(updates_per_frame: u32) -> Self {
+        MeshUpdateQueue{ids: VecDeque::new(), updates_per_frame}
     }
 
-    pub fn new_from_single(id: Entity) -> Self {
-        MeshUpdateQueue(VecDeque::from([id]))
+    pub fn new_from_single(id: Entity, updates_per_frame: u32) -> Self {
+        MeshUpdateQueue{ids: VecDeque::from([id]), updates_per_frame}
     }
 
-    pub fn new_from_many(ids: Vec<Entity>) -> Self {
-        MeshUpdateQueue(VecDeque::from(ids))
+    pub fn new_from_many(ids: Vec<Entity>, updates_per_frame: u32) -> Self {
+        MeshUpdateQueue{ids: VecDeque::from(ids), updates_per_frame}
     }
 }
 
 
-pub fn update_next_mesh(
+pub fn update_next_meshes(
+    mut queue_qry: Query<&mut MeshUpdateQueue>,
+    branch_data: Query<&BranchData, With<BranchTag>>,
+    mut branch_meshes: Query<&mut Mesh, With<BranchTag>>,
+    node_connections: Query<&BranchNodeConnectionData, With<BranchNodeTag>>,
+    node_data: Query<&BranchNodeData, With<BranchNodeTag>>,
+    branch_graphics_res: Res<BranchGraphicsResources>,
+) {
+    let mut queue = queue_qry.single_mut();
+    let polygons = &branch_graphics_res.polygon_vectors;
+    let mut to_update = queue.updates_per_frame;
+
+    loop {
+        if queue.ids.len() == 0 {break;}
+        if to_update == 0 {break;}
+        let id = queue.ids.pop_front().unwrap();
+        if update_branch_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, id, polygons) {
+            to_update -= 1;
+        }
+    }
+}
+
+pub fn update_all_meshes(
     mut queue_qry: Query<&mut MeshUpdateQueue>,
     branch_data: Query<&BranchData, With<BranchTag>>,
     mut branch_meshes: Query<&mut Mesh, With<BranchTag>>,
@@ -68,11 +93,9 @@ pub fn update_next_mesh(
     let polygons = &branch_graphics_res.polygon_vectors;
 
     loop {
-        if queue.0.len() == 0 {break;}
-        let id = queue.0.pop_front().unwrap();
-        if update_branch_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, id, polygons) {
-            break;
-        }
+        if queue.ids.len() == 0 {break;}
+        let id = queue.ids.pop_front().unwrap();
+        update_branch_mesh(&mut branch_meshes, &branch_data, &node_connections, &node_data, id, polygons);
     }
 }
 
