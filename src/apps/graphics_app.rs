@@ -593,9 +593,9 @@ impl GraphicsAppBuilder {
 
             let (x, z) = (rng.gen_range(plant_spawning_bounds.1.clone()), rng.gen_range(plant_spawning_bounds.2.clone()));
 
-            let hit_pos = terrain_collider_ref.check_ray([x, plant_spawning_bounds.0 + 5.0, z], [0, -1, 0], None).unwrap();
+            let hit = terrain_collider_ref.check_ray([x, plant_spawning_bounds.0 + 5.0, z], [0, -1, 0], None).unwrap();
 
-            initial_plant_data.push((plant_species_sampler.get_plant(environmental_params.0 + hit_pos.hit_position.y * environmental_params.1, environmental_params.2), [x, hit_pos.hit_position.y, z]))
+            initial_plant_data.push((plant_species_sampler.get_plant(environmental_params.0 + hit.hit_position.y * environmental_params.1, environmental_params.2), hit.hit_position))
         }
 
         let mut root_ids = Vec::new();
@@ -652,8 +652,8 @@ impl GraphicsAppBuilder {
                 update_plant_intersections,
                 update_branch_intersections,
                 calculate_branch_intersection_volumes,
-                debug_log_branches,
-                debug_log_cells,
+                // debug_log_branches,
+                // debug_log_cells,
                 step_plant_age,
                 calculate_branch_light_exposure,
                 calculate_growth_vigor,
@@ -733,6 +733,12 @@ impl GraphicsAppBuilder {
         startup_schedule.add_system(init_branch_mesh_buffers_res);
 
         startup_schedule.run(&mut world);
+        world.insert_resource(plant_species_sampler);
+        world.insert_resource(MoistureAndTemp {
+            moisture: environmental_params.2,
+            temp_at_zero: environmental_params.0,
+            temp_fall_off: environmental_params.1,
+        });
 
 
         GraphicsTreeApp{

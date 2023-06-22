@@ -5,13 +5,14 @@ use rand::{thread_rng, Rng};
 use super::{
     super::{
         environment::{
-            params::PhysicalAgeStep,
+            params::*,
             terrain::*,
         },
         branches::{branch::*, branch_prototypes::BranchPrototypesSampler},
         maths::{bounding_box::BoundingBox, bounding_sphere::BoundingSphere, colliders::Collider},
     },
     plant::*,
+    plant_selection::*,
 };
 #[cfg(feature = "vulkan_graphics")]
 use super::super::graphics::branch_mesh_gen::*;
@@ -77,6 +78,8 @@ pub fn update_plant_intersections(
 
 pub fn seed_plants(
     mut plants_query: Query<(&PlantData, &mut PlantGrowthControlFactors, &mut PlantPlasticityParameters, Entity), With<PlantTag>>,
+    plant_sampler: Res<PlantSpeciesSampler>,
+    environment: Res<MoistureAndTemp>,
     branch_query: Query<&BranchGrowthData, With<BranchTag>>,
     branch_sampler: Res<BranchPrototypesSampler>,
     terrain_query: Query<&TerrainCollider, With<TerrainTag>>,
@@ -112,7 +115,9 @@ pub fn seed_plants(
             let angle_from_centre = rand::thread_rng().gen_range(0.0..(PI * 2.0)); // 0 is along the +x axis
             let (ray_x, ray_z) = (plant.0.position.x + angle_from_centre.cos() * distance_from_centre, plant.0.position.z + angle_from_centre.sin() * distance_from_centre);
             if let Some(ray_hit) = terrain.collider.check_ray([ray_x, terrain.max_height, ray_z], [0, -1, 0], None) {
-                let ids = spawn_plant(ray_hit.hit_position, [0, 1, 0].into(), plant.1.copy_for_new_plant(), plant.2.copy_for_new_plant(), plant.0.climate_adaption, branch_sampler.as_ref(), &mut commands);
+                let child_factors = (plant.1.copy_for_new_plant(), plant.2.copy_for_new_plant());
+                let climate_adapt = plant_sampler.calculate_child_climate_adapt(&child_factors, environment.moisture, environment.temp_at_zero + ray_hit.hit_position.y * environment.temp_fall_off);
+                let ids = spawn_plant(ray_hit.hit_position, [0, 1, 0].into(), child_factors.0, child_factors.1, climate_adapt, branch_sampler.as_ref(), &mut commands);
                 #[cfg(feature = "vulkan_graphics")]
                 queue.ids.push_back(ids.1);
             }

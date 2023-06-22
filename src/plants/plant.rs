@@ -45,7 +45,7 @@ pub struct PlantDeathRate {
 }
 
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, PartialEq)]
 pub struct PlantPlasticityParameters {
     pub flowering_age: f32,
     pub seeding_frequency: f32,
@@ -101,7 +101,7 @@ impl PlasticitySettingParams {
 }
 
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, PartialEq)]
 pub struct PlantGrowthControlFactors {
     pub max_age: f32,
 

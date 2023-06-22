@@ -1,14 +1,16 @@
 use rand::Rng;
+use bevy_ecs::prelude::*;
 use super::{
     plant::{PlantGrowthControlFactors, PlantPlasticityParameters, GrowthControlSettingParams, PlasticitySettingParams},
     super::maths::{normal_cmd, normal_probabilty_density},
 };
 
 
-/// A sampler used to select which plants are initally spawned into an environment
+/// A sampler used to select which plants are initally spawned into an environment and to calculate the survivability of children
 /// 
 /// - species: A vec of all the different plant species data, their index corresponds to a set of params
 /// - species_params: A vec of the conditions needed for different species to be created, (ideal_temp, temp_standard_deviation, ideal_temp_prob_density ideal_moisture, moisture_standard_deviation, ideal_moisture_prob_density)
+#[derive(Resource)]
 pub struct PlantSpeciesSampler {
     species: Vec<(PlantGrowthControlFactors, PlantPlasticityParameters)>,
     species_params: Vec<(f32, f32, f32, f32)>,
@@ -74,7 +76,7 @@ impl PlantSpeciesSampler {
     /// - Plants lying more than 5 standard deviations away from either parameter are removed from the chances, probability at that point is close to 0
     /// - All remaining plants are chosen from with probabilty weights generated using normal distribution
     /// - If no plants can be grown, returns None
-    /// - Returns the chosen plant and it's
+    /// - Returns the chosen plant and its climate adaptation
     pub fn get_plant(&self, temp: f32, moist: f32) -> Option<((PlantGrowthControlFactors, PlantPlasticityParameters), f32)>{
 
         let mut choices: Vec<(usize, f32)> = Vec::new();
@@ -86,11 +88,10 @@ impl PlantSpeciesSampler {
             // disregard any plants more than 5 standard deviations away in any direction
             if (temp - ideal_temp).abs() > 5.0 * std_dev_temp || (moist - ideal_moist).abs() > 5.0 * std_dev_moist {continue;}
 
-            let temp_prob = normal_probabilty_density(temp, ideal_temp, std_dev_temp) / normal_probabilty_density(ideal_temp, ideal_temp, std_dev_temp);
-            let moist_prob = normal_probabilty_density(moist, ideal_moist, std_dev_moist) / normal_probabilty_density(ideal_moist, ideal_moist, std_dev_moist);
+            let climate_adapt = calculate_climate_adapt(temp, ideal_temp, std_dev_temp, moist, ideal_moist, std_dev_moist);
 
-            total_prob += temp_prob * moist_prob;
-            choices.push((i, temp_prob * moist_prob));
+            total_prob += climate_adapt;
+            choices.push((i, climate_adapt));
         }
         let position = rand::thread_rng().gen_range(0.0..=total_prob);
 
@@ -103,4 +104,30 @@ impl PlantSpeciesSampler {
         }
         None
     }
+
+    pub fn calculate_child_climate_adapt(
+        &self,
+        parent: &(PlantGrowthControlFactors, PlantPlasticityParameters),
+        moist: f32,
+        temp: f32,
+    ) -> f32 {
+        let index = self.species.iter().position(|x| x == parent).unwrap();
+        let species_factors = self.species_params[index];
+        calculate_climate_adapt(temp, species_factors.0, species_factors.1, moist, species_factors.2, species_factors.3)
+    }
+}
+
+pub fn calculate_climate_adapt(
+    temp: f32,
+    ideal_temp: f32,
+    std_dev_temp: f32,
+    moist: f32,
+    ideal_moist: f32,
+    std_dev_moist: f32
+) -> f32 {
+
+    let temp_prob = normal_probabilty_density(temp, ideal_temp, std_dev_temp) / normal_probabilty_density(ideal_temp, ideal_temp, std_dev_temp);
+    let moist_prob = normal_probabilty_density(moist, ideal_moist, std_dev_moist) / normal_probabilty_density(ideal_moist, ideal_moist, std_dev_moist);
+
+    temp_prob * moist_prob
 }

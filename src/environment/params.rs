@@ -6,6 +6,14 @@ use super::super::{
 };
 
 
+// moisture and temperature
+#[derive(Resource)]
+pub struct MoistureAndTemp {
+    pub temp_at_zero: f32,
+    pub temp_fall_off: f32,
+    pub moisture: f32,
+}
+
 // gravity
 #[derive(Resource)]
 pub struct GravityResources{
