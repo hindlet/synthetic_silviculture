@@ -1,9 +1,20 @@
 use bevy_ecs::prelude::*;
+use super::{
+    environment::{
+        light_cells::LightCells
+    },
 
-use super::branches::{
-    branch::{BranchData, BranchGrowthData, BranchBounds, BranchTag, BranchConnectionData},
-    branch_node::{BranchNodeData, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip}
+    branches::{
+        branch::{BranchData, BranchGrowthData, BranchBounds, BranchTag, BranchConnectionData},
+        branch_node::{BranchNodeData, BranchNodeTag, BranchNodeConnectionData, get_nodes_base_to_tip},
+    },
 };
+
+pub fn debug_log_cells(
+    cells: Res<LightCells>
+) {
+    println!("{:?}", cells)
+}
 
 
 pub fn debug_log_branches(branch_query: Query<(Entity, &BranchData, &BranchGrowthData, &BranchBounds, &BranchConnectionData), With<BranchTag>>) {
