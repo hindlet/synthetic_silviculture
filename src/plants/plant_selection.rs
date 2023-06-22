@@ -17,12 +17,12 @@ pub struct PlantSpeciesSampler {
 impl PlantSpeciesSampler {
 
     /// creates a new plant_species sampler from the given plant species and parameters
-    pub fn new(init_species: Vec<((GrowthControlSettingParams, PlasticitySettingParams), (f32, f32, f32, f32))>) -> Self {
+    pub fn new(init_species: Vec<((GrowthControlSettingParams, PlasticitySettingParams), (f32, f32, f32, f32))>, time_step: f32) -> Self {
         let mut species_params = Vec::new();
         let mut plants: Vec<(PlantGrowthControlFactors, PlantPlasticityParameters)> = Vec::new();
         for species in init_species {
             species_params.push((species.1.0, species.1.1, species.1.2, species.1.3,));
-            plants.push((species.0.0.into(), species.0.1.into()));
+            plants.push((species.0.0.into(), species.0.1.into_plasticity(time_step)));
         }
         PlantSpeciesSampler {
             species: plants, species_params
@@ -30,24 +30,24 @@ impl PlantSpeciesSampler {
     }
 
     /// adds new plant species to the sampler
-    pub fn add_species(&mut self, new_species: Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))>) {
+    pub fn add_species(&mut self, new_species: Vec<((GrowthControlSettingParams, PlasticitySettingParams), (f32, f32, f32, f32))>, time_step: f32) {
         let mut species_params = Vec::new();
         let mut plants = Vec::new();
         for species in new_species {
             species_params.push((species.1.0, species.1.1, species.1.2, species.1.3));
-            plants.push(species.0);
+            plants.push((species.0.0.into(), species.0.1.into_plasticity(time_step)));
         }
         self.species.append(&mut plants);
         self.species_params.append(&mut species_params)
     }
 
     /// replaces all the species in the sampler with the given options
-    pub fn replace_all(&mut self, new_species: Vec<((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))>) {
+    pub fn replace_all(&mut self, new_species: Vec<((GrowthControlSettingParams, PlasticitySettingParams), (f32, f32, f32, f32))>, time_step: f32) {
         let mut species_params = Vec::new();
         let mut plants = Vec::new();
         for species in new_species {
             species_params.push((species.1.0, species.1.1, species.1.2, species.1.3));
-            plants.push(species.0);
+            plants.push((species.0.0.into(), species.0.1.into_plasticity(time_step)));
         }
         self.species = plants;
         self.species_params = species_params;
@@ -60,9 +60,9 @@ impl PlantSpeciesSampler {
     }
 
     /// replaces a species in the sampler at a given index with the provided species
-    pub fn replace(&mut self, index: usize, new: ((PlantGrowthControlFactors, PlantPlasticityParameters), (f32, f32, f32, f32))) {
+    pub fn replace(&mut self, index: usize, new: ((GrowthControlSettingParams, PlasticitySettingParams), (f32, f32, f32, f32)), time_step: f32) {
         self.remove(index);
-        self.species.insert(index, new.0);
+        self.species.insert(index, (new.0.0.into(), new.0.1.into_plasticity(time_step)));
         let params = (new.1.0, new.1.1, new.1.2, new.1.3);
         self.species_params.insert(index, params);
     }
