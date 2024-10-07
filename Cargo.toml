@@ -8,38 +8,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy_ecs = "0.10.1"
-image = "0.24.5"
-itertools = "0.10.5"
-plotters = "0.2.15"
-rand = "0.8.5"
-voronator = "0.2"
-
-winit = "0.28"
-vulkano = "0.33"
-vulkano-util = "0.32"
-vulkano-shaders = "0.33"
-vulkano-win = "0.33"
-egui = "0.21"
-egui_winit_vulkano = "0.24"
-bytemuck = "1.12.1"
-rand_distr = "0.4.3"
+maths = {git = "https://github.com/hindlet/rust_maths.git", package = "rust_maths", version = "*"}
 
 [profile.dev]
 opt-level = 0
 
 
 [features]
-vulkan_graphics = []
-
-[[example]]
-name = "rendered_plant_growth"
-required-features = ["vulkan_graphics"]
-
-[[example]]
-name = "heightmap_terrain_render"
-required-features = ["vulkan_graphics"]
-
-[[example]]
-name = "plants_on_terrain_render"
-required-features = ["vulkan_graphics"]
