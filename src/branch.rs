@@ -26,8 +26,13 @@ pub struct Branch<'branch_lifetime, 'node_lifetime> {
 
     pub intersection_volume: f32,
     pub light_sum_at_point: f32,
+    pub growth_vigor: f32,
+    pub child_vigor: (f32, f32),
+
 
     pub parent: Box<&'branch_lifetime Branch<'branch_lifetime, 'node_lifetime>>,
+    pub first_child: bool,
+
     pub child_one: Option<Box<&'branch_lifetime Branch<'branch_lifetime, 'node_lifetime>>>,
     pub child_two: Option<Box<&'branch_lifetime Branch<'branch_lifetime, 'node_lifetime>>>
 }
