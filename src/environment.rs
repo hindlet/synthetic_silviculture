@@ -1,10 +1,13 @@
+use std::collections::HashMap;
+
 use crate::{branch::Branch, plant::Plant, plant_species::PlantSpeciesList};
 
 
 
 pub struct Environment<'branch_lifetime, 'node_lifetime> {
-    pub plants: Vec<Plant<'branch_lifetime, 'node_lifetime>>,
-    pub plant_species: PlantSpeciesList
+    pub plants: HashMap<usize, Plant<'branch_lifetime, 'node_lifetime>>,
+    pub plant_species: PlantSpeciesList,
+    next_id: usize
 }
 
 impl<'branch_lifetime, 'node_lifetime> Environment<'branch_lifetime, 'node_lifetime> {
@@ -22,7 +25,7 @@ impl<'branch_lifetime, 'node_lifetime> Environment<'branch_lifetime, 'node_lifet
         // this list will mean that branches that are children will occur in the list after their parents
         let mut branch_list = Vec::new();
 
-        let branches: Vec<Vec<&mut Branch>> = self.plants.iter_mut().map(|p| p.branches.iter_mut().map(|(_, b)| b).collect::<Vec<&mut Branch>>()).collect::<Vec<Vec<&mut Branch>>>();
+        let branches: Vec<Vec<&mut Branch>> = self.plants.iter_mut().map(|(_, p): (&usize, &mut Plant<'branch_lifetime, 'node_lifetime>)| p.branches.iter_mut().map(|(_, b)| b).collect::<Vec<&mut Branch>>()).collect::<Vec<Vec<&mut Branch>>>();
         for plant_branches in branches {
             branch_list.extend(plant_branches);
         }
@@ -41,10 +44,10 @@ impl<'branch_lifetime, 'node_lifetime> Environment<'branch_lifetime, 'node_lifet
 }
 
 fn plant_death(
-    plants: &mut Vec<Plant>,
+    plants: &mut HashMap<usize, Plant>,
     species: &PlantSpeciesList
 ) {
-    for plant in plants.iter_mut() {
+    for (_, plant) in plants.iter_mut() {
         let species_ref = species.species.get(&plant.species_id).unwrap();
         if plant.age < species_ref.max_healthy_age {continue;} // if the plant is young skip
         plant.max_vigor = (plant.max_vigor - species_ref.death_rate).max(0.0); // otherwise reduce the plants max vigor by the death rate
@@ -109,10 +112,10 @@ fn calculate_and_sum_light_exposure(
 }
 
 fn calculate_and_distr_growth_vigor(
-    plants: &mut Vec<Plant>,
+    plants: &mut HashMap<usize, Plant>,
     species: &PlantSpeciesList
 ) {
-    for plant in plants.iter_mut() {
+    for (_, plant) in plants.iter_mut() {
         let species = species.species.get(&plant.species_id).unwrap();
 
         for (branch_id, branch) in plant.branches.iter_mut() {
