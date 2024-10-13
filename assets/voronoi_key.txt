@@ -1,0 +1,4 @@
+Point: 0  -  Position: [50, 200]  -  Colour: [75, 174, 54]
+Point: 1  -  Position: [175, 50]  -  Colour: [140, 254, 4]
+Point: 2  -  Position: [100, 100]  -  Colour: [152, 132, 94]
+Point: 3  -  Position: [200, 200]  -  Colour: [30, 16, 227]
